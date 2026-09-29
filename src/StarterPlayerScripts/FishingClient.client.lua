@@ -1,18 +1,24 @@
 --[[
-	FishingClient (Universal Water Fishing System)
+	FishingClient (Universal Water Fishing System with Full Procedural Animations)
 	Fitur:
-	1. Mendukung MEMANCING DI SEMUA AREA AIR (Klik Mouse, Touch, atau Tekan [E]).
-	2. Deteksi otomatis air via Raycast presisi + kalkulasi permukaan air.
-	3. Pelampung dinamis (Dynamic Bobber) yang melayang & mendarat di air.
-	4. Animasi melempar joran (Casting), cipratan air (Splash), dan ikan 3D melompat saat menyambar.
-	5. Mini-game Piano Tiles Glassmorphism Semi-Transparan yang seirama dengan nada.
-	6. Penguncian gerakan karakter (WalkSpeed = 0 & Input Sink) agar tombol D tidak menggerakkan player.
+	1. Animasi Karakter Lengkap:
+	   - Swing Melempar Joran (Casting).
+	   - Sikap Memegang Joran (Fishing Stance / Idle Breathing).
+	   - Reaksi Sentakan Ikan Menyambar (Strike / Bite Tension).
+	   - Gerakan Menggulung Senar (Reeling) saat Piano Tiles.
+	   - Gerakan Menarik Ikan Naik (Catch Victory Lift).
+	2. Tali Pancing Dinamis (Beam) dari ujung Joran ke Pelampung di air.
+	3. TANPA TOMBOL VISUAL AKSI:
+	   - Cukup Klik Mouse (MouseButton1), Sentuh Layar (Touch), atau Tekan [E] saat menghadap air.
+	4. Notifikasi elegan & Glassmorphic Mini-game Piano Tiles saat ikan menyambar.
+	5. Ikan otomatis masuk ke Inventory (Backpack) sebagai item Tool 3D setelah berhasil!
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
@@ -25,7 +31,7 @@ local PianoTilesGame = require(ReplicatedStorage:WaitForChild("PianoTilesGame"))
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 
--- ============ GUI STATUS & BANNER ============
+-- ============ GUI STATUS (CLEAN TOAST NOTIFICATION ONLY) ============
 local pGui = getPlayerGui()
 if pGui then
 	local old = pGui:FindFirstChild("FishingGui")
@@ -40,8 +46,8 @@ gui.Parent = pGui or workspace
 
 local statusFrame = Instance.new("Frame")
 statusFrame.Name = "StatusFrame"
-statusFrame.Size = UDim2.new(0, 420, 0, 48)
-statusFrame.Position = UDim2.new(0.5, -210, 0.04, 0)
+statusFrame.Size = UDim2.new(0, 440, 0, 50)
+statusFrame.Position = UDim2.new(0.5, -220, 0.04, 0)
 statusFrame.BackgroundColor3 = Color3.fromRGB(15, 18, 28)
 statusFrame.BackgroundTransparency = 0.25
 statusFrame.BorderSizePixel = 0
@@ -65,7 +71,7 @@ statusText.Position = UDim2.fromScale(0.025, 0)
 statusText.BackgroundTransparency = 1
 statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
 statusText.Font = Enum.Font.GothamBold
-statusText.TextSize = 16
+statusText.TextSize = 15
 statusText.Text = ""
 statusText.Parent = statusFrame
 
@@ -95,7 +101,7 @@ local function playSound(soundId, volume, pitch)
 	s.PlaybackSpeed = pitch or 1
 	s.Parent = workspace
 	s:Play()
-	Debris:AddItem(s, 2)
+	Debris:AddItem(s, 2.5)
 end
 
 local function createWaterSplash(pos)
@@ -192,7 +198,7 @@ local function animateFishLeap(startPos, endPos, duration, height)
 
 	local startTime = os.clock()
 	local conn
-	conn = game:GetService("RunService").Heartbeat:Connect(function()
+	conn = RunService.Heartbeat:Connect(function()
 		local elapsed = os.clock() - startTime
 		local t = math.clamp(elapsed / duration, 0, 1)
 		
@@ -257,6 +263,223 @@ local function freezePlayer(freeze)
 		humanoid.WalkSpeed = 16
 		humanoid.JumpPower = 50
 		humanoid.AutoRotate = true
+	end
+end
+
+-- ============ SISTEM ANIMASI KARAKTER (R15 & R6) ============
+local AnimSystem = {
+	savedC0 = {},
+	activeConn = nil,
+	currentPhase = "None",
+	fishingLine = nil,
+}
+
+local function getMotor(char, name)
+	for _, m in ipairs(char:GetDescendants()) do
+		if m:IsA("Motor6D") and (m.Name == name or m.Name:lower() == name:lower()) then
+			return m
+		end
+	end
+	return nil
+end
+
+function AnimSystem.SaveJoints(char)
+	AnimSystem.savedC0 = {}
+	local rShoulder = getMotor(char, "Right Shoulder") or getMotor(char, "RightShoulder")
+	local lShoulder = getMotor(char, "Left Shoulder") or getMotor(char, "LeftShoulder")
+	local waist = getMotor(char, "Waist")
+	
+	if rShoulder then AnimSystem.savedC0.RightShoulder = { joint = rShoulder, orig = rShoulder.C0 } end
+	if lShoulder then AnimSystem.savedC0.LeftShoulder = { joint = lShoulder, orig = lShoulder.C0 } end
+	if waist then AnimSystem.savedC0.Waist = { joint = waist, orig = waist.C0 } end
+end
+
+function AnimSystem.ResetJoints()
+	if AnimSystem.activeConn then
+		AnimSystem.activeConn:Disconnect()
+		AnimSystem.activeConn = nil
+	end
+	AnimSystem.currentPhase = "None"
+	AnimSystem.RemoveFishingLine()
+
+	for _, data in pairs(AnimSystem.savedC0) do
+		if data.joint and data.joint.Parent then
+			TweenService:Create(data.joint, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				C0 = data.orig
+			}):Play()
+		end
+	end
+	AnimSystem.savedC0 = {}
+end
+
+-- Visual Tali Pancing (Beam) dari Ujung Joran ke Bobber
+function AnimSystem.CreateFishingLine(char, bobber)
+	AnimSystem.RemoveFishingLine()
+	if not char or not bobber then return end
+
+	local rodTool = char:FindFirstChild("FishingRod") or char:FindFirstChild("Pancingan")
+	local rodPart = rodTool and (rodTool:FindFirstChild("Rod") or rodTool:FindFirstChild("Handle") or rodTool:FindFirstChild("Line"))
+	if not rodPart then return end
+
+	local att0 = Instance.new("Attachment")
+	att0.Name = "RodTipAttachment"
+	att0.Position = Vector3.new(0, (rodPart.Size.Y / 2), 0)
+	att0.Parent = rodPart
+
+	local bobberPart = bobber:IsA("Model") and (bobber.PrimaryPart or bobber:FindFirstChildWhichIsA("BasePart")) or bobber
+	if not bobberPart then return end
+
+	local att1 = Instance.new("Attachment")
+	att1.Name = "BobberAttachment"
+	att1.Position = Vector3.new(0, 0.4, 0)
+	att1.Parent = bobberPart
+
+	local beam = Instance.new("Beam")
+	beam.Name = "FishingLineBeam"
+	beam.Attachment0 = att0
+	beam.Attachment1 = att1
+	beam.Width0 = 0.05
+	beam.Width1 = 0.05
+	beam.Color = ColorSequence.new(Color3.fromRGB(240, 245, 255))
+	beam.Transparency = NumberSequence.new(0.25)
+	beam.FaceCamera = true
+	beam.CurveSize0 = -1.2 -- Efek kelengkungan senar yang realistis
+	beam.CurveSize1 = 1.2
+	beam.Segments = 16
+	beam.Parent = rodPart
+
+	AnimSystem.fishingLine = { beam = beam, att0 = att0, att1 = att1 }
+end
+
+function AnimSystem.RemoveFishingLine()
+	if AnimSystem.fishingLine then
+		if AnimSystem.fishingLine.beam then AnimSystem.fishingLine.beam:Destroy() end
+		if AnimSystem.fishingLine.att0 then AnimSystem.fishingLine.att0:Destroy() end
+		if AnimSystem.fishingLine.att1 then AnimSystem.fishingLine.att1:Destroy() end
+		AnimSystem.fishingLine = nil
+	end
+end
+
+-- 1. Animasi Melempar (Casting)
+function AnimSystem.PlayCast(char, targetPos)
+	AnimSystem.SaveJoints(char)
+	AnimSystem.currentPhase = "Casting"
+
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		hrp.CFrame = CFrame.new(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
+	end
+
+	local rS = AnimSystem.savedC0.RightShoulder
+	local lS = AnimSystem.savedC0.LeftShoulder
+	local w = AnimSystem.savedC0.Waist
+
+	-- Langkah 1: Tarik Joran ke Belakang (Windup)
+	if rS then
+		TweenService:Create(rS.joint, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = rS.orig * CFrame.Angles(math.rad(115), math.rad(-15), math.rad(-20))
+		}):Play()
+	end
+	if lS then
+		TweenService:Create(lS.joint, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = lS.orig * CFrame.Angles(math.rad(45), 0, math.rad(-15))
+		}):Play()
+	end
+	if w then
+		TweenService:Create(w.joint, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = w.orig * CFrame.Angles(0, math.rad(-20), 0)
+		}):Play()
+	end
+
+	task.wait(0.32)
+
+	-- Langkah 2: Ayunkan Joran Maju dengan Bertenaga (Cast Forward)
+	playSound("rbxasset://sounds/action_whoosh.mp3", 0.75, 1.1)
+	if rS then
+		TweenService:Create(rS.joint, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			C0 = rS.orig * CFrame.Angles(math.rad(-45), 0, math.rad(10))
+		}):Play()
+	end
+	if lS then
+		TweenService:Create(lS.joint, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			C0 = lS.orig * CFrame.Angles(math.rad(-25), 0, math.rad(10))
+		}):Play()
+	end
+	if w then
+		TweenService:Create(w.joint, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			C0 = w.orig * CFrame.Angles(0, math.rad(10), 0)
+		}):Play()
+	end
+
+	task.wait(0.25)
+end
+
+-- 2. Sikap Memegang Joran (Fishing Stance Loop)
+function AnimSystem.StartFishingStance(char)
+	AnimSystem.currentPhase = "Waiting"
+	if AnimSystem.activeConn then AnimSystem.activeConn:Disconnect() end
+
+	local rS = AnimSystem.savedC0.RightShoulder
+	local lS = AnimSystem.savedC0.LeftShoulder
+
+	local baseRight = rS and (rS.orig * CFrame.Angles(math.rad(-30), math.rad(-10), math.rad(8)))
+	local baseLeft = lS and (lS.orig * CFrame.Angles(math.rad(-20), math.rad(12), math.rad(-8)))
+
+	AnimSystem.activeConn = RunService.RenderStepped:Connect(function()
+		local t = os.clock()
+		if AnimSystem.currentPhase == "Waiting" then
+			-- Bernafas / Goyangan Halus saat Menunggu
+			local sway = math.sin(t * 2.5) * 0.03
+			if rS and rS.joint.Parent then
+				rS.joint.C0 = baseRight * CFrame.Angles(sway, 0, sway * 0.5)
+			end
+			if lS and lS.joint.Parent then
+				lS.joint.C0 = baseLeft * CFrame.Angles(sway * 0.8, 0, 0)
+			end
+		elseif AnimSystem.currentPhase == "Biting" then
+			-- Tarikan Cepat & Getaran saat Ikan Menyambar
+			local tug = math.sin(t * 30) * 0.08
+			if rS and rS.joint.Parent then
+				rS.joint.C0 = baseRight * CFrame.Angles(math.rad(-15) + tug, 0, tug)
+			end
+			if lS and lS.joint.Parent then
+				lS.joint.C0 = baseLeft * CFrame.Angles(math.rad(-10) + tug, 0, 0)
+			end
+		elseif AnimSystem.currentPhase == "Reeling" then
+			-- Gerakan Menggulung saat Mainkan Mini-game Piano Tiles
+			local reelMotion = math.sin(t * 8) * 0.06
+			if rS and rS.joint.Parent then
+				rS.joint.C0 = baseRight * CFrame.Angles(math.rad(-10) + reelMotion, 0, 0)
+			end
+			if lS and lS.joint.Parent then
+				lS.joint.C0 = baseLeft * CFrame.Angles(math.rad(15) * math.sin(t * 12), math.rad(10) * math.cos(t * 12), 0)
+			end
+		end
+	end)
+end
+
+-- 3. Set Status Fase Animasi
+function AnimSystem.SetPhase(phase)
+	AnimSystem.currentPhase = phase
+end
+
+-- 4. Animasi Mengangkat Tangkapan (Victory Lift)
+function AnimSystem.PlayVictoryLift(char)
+	AnimSystem.currentPhase = "Victory"
+	if AnimSystem.activeConn then AnimSystem.activeConn:Disconnect() end
+
+	local rS = AnimSystem.savedC0.RightShoulder
+	local lS = AnimSystem.savedC0.LeftShoulder
+
+	if rS and rS.joint.Parent then
+		TweenService:Create(rS.joint, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			C0 = rS.orig * CFrame.Angles(math.rad(110), 0, math.rad(20))
+		}):Play()
+	end
+	if lS and lS.joint.Parent then
+		TweenService:Create(lS.joint, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			C0 = lS.orig * CFrame.Angles(math.rad(80), 0, math.rad(-20))
+		}):Play()
 	end
 end
 
@@ -338,39 +561,6 @@ local function findWaterTarget()
 	return nil
 end
 
--- ============ ANIMASI MELEMPAR ============
-local function playCastingAnimation(char, targetPos)
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if hrp then
-		hrp.CFrame = CFrame.new(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
-	end
-
-	local torso = char:FindFirstChild("Torso") or char:FindFirstChild("RightUpperArm") or char:FindFirstChild("UpperTorso")
-	local shoulder = char:FindFirstChild("Right Shoulder", true) or (torso and torso:FindFirstChild("RightShoulder"))
-	
-	if shoulder and shoulder:IsA("Motor6D") then
-		local origC0 = shoulder.C0
-		local backTween = TweenService:Create(shoulder, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			C0 = origC0 * CFrame.Angles(math.rad(110), 0, math.rad(-20))
-		})
-		backTween:Play()
-		backTween.Completed:Wait()
-
-		playSound("rbxasset://sounds/action_whoosh.mp3", 0.7, 1.1)
-		local throwTween = TweenService:Create(shoulder, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			C0 = origC0 * CFrame.Angles(math.rad(-45), 0, math.rad(15))
-		})
-		throwTween:Play()
-		throwTween.Completed:Wait()
-
-		task.delay(0.2, function()
-			TweenService:Create(shoulder, TweenInfo.new(0.4), {
-				C0 = origC0 * CFrame.Angles(math.rad(-15), 0, 0)
-			}):Play()
-		end)
-	end
-end
-
 -- ============ ALUR MEMANCING LENGKAP ============
 local busy = false
 
@@ -406,9 +596,12 @@ local function startFishingAtWater(waterPos)
 	end
 	activeBobber.Parent = workspace
 
+	-- Jalankan Animasi Melempar
 	if char then
 		showMessage("🎣 Melemparkan kail ke air...", Color3.fromRGB(0, 200, 255), 2)
-		playCastingAnimation(char, waterPos)
+		AnimSystem.PlayCast(char, waterPos)
+		AnimSystem.CreateFishingLine(char, activeBobber)
+		AnimSystem.StartFishingStance(char)
 	end
 
 	createWaterSplash(waterPos)
@@ -417,11 +610,13 @@ local function startFishingAtWater(waterPos)
 	task.wait(math.random(18, 38) / 10)
 	if not busy then
 		activeBobber:Destroy()
+		AnimSystem.ResetJoints()
 		freezePlayer(false)
 		return
 	end
 
 	-- 2. Ikan Menyambar di Lokasi Air Ini!
+	AnimSystem.SetPhase("Biting")
 	showStrikeAlert(waterPos)
 	createWaterSplash(waterPos)
 
@@ -442,6 +637,7 @@ local function startFishingAtWater(waterPos)
 	end
 
 	showMessage("🎵 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)
+	AnimSystem.SetPhase("Reeling")
 
 	local roll = math.random(100)
 	local tiles, speed
@@ -461,7 +657,8 @@ local function startFishingAtWater(waterPos)
 		speed = speed,
 	}, function()
 		-- Player Menang
-		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1, 0)) or (waterPos + Vector3.new(0, 5, 0))
+		AnimSystem.PlayVictoryLift(char)
+		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1.5, 0)) or (waterPos + Vector3.new(0, 5, 0))
 		animateFishLeap(waterPos, catchTarget, 0.9, 7)
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
@@ -469,8 +666,9 @@ local function startFishingAtWater(waterPos)
 			remote:FireServer("Catch", tiles)
 		end
 
-		task.delay(3, function()
+		task.delay(2.8, function()
 			activeBobber:Destroy()
+			AnimSystem.ResetJoints()
 			busy = false
 			freezePlayer(false)
 		end)
@@ -479,8 +677,9 @@ local function startFishingAtWater(waterPos)
 		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
-		task.delay(2, function()
+		task.delay(1.5, function()
 			activeBobber:Destroy()
+			AnimSystem.ResetJoints()
 			busy = false
 			freezePlayer(false)
 		end)
@@ -498,9 +697,9 @@ local function tryStartFishing()
 	end
 end
 
--- ============ LISTENER INPUT AKTIVASI (KLIK MOUSE, SENTUH, ATAU TEKAN E) ============
+-- ============ LISTENER INPUT AKTIVASI (KLIK MOUSE, SENTUH, ATAU TEKAN E - TANPA TOMBOL UI) ============
 
--- 1. Klik Mouse / Touch saat memegang Joran Pancing
+-- 1. Klik Mouse / Touch / Tombol E saat memegang Joran Pancing
 UserInputService.InputBegan:Connect(function(input, _)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		if hasFishingRod() and not busy and not PianoTilesGame.IsPlaying() then
@@ -532,6 +731,7 @@ local function watchInventory()
 	end
 
 	player.CharacterAdded:Connect(function(char)
+		AnimSystem.ResetJoints()
 		char.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") then hookTool(child) end
 		end)
@@ -559,7 +759,7 @@ if remote then
 				or (category == "SEDANG" and Color3.fromRGB(60, 230, 130))
 				or Color3.fromRGB(0, 200, 255)
 
-			showMessage("🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. category .. "]! (+1 Ikan)", color, 4)
+			showMessage("🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. category .. "]! Ikan masuk ke inventory!", color, 4)
 		elseif action == "Notification" then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
 		end

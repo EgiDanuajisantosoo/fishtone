@@ -1,12 +1,14 @@
 --[[
 	FishingServer (Universal Water Fishing System)
 	Memvalidasi kepemilikan alat pancing di inventory,
-	memvalidasi hasil memancing Piano Tiles di semua area air, dan memberi hadiah ikan.
+	memvalidasi hasil memancing Piano Tiles di semua area air,
+	dan MEMASUKKAN IKAN YANG DITANGKAP KE DALAM INVENTORY PLAYER sebagai item Tool 3D yang bisa dipegang.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local Debris = game:GetService("Debris")
 
 local remote = ReplicatedStorage:FindFirstChild("FishingRemote")
 
@@ -37,6 +39,104 @@ local function getFish(tiles)
 		end
 	end
 	return "Ikan Kecil", "BIASA"
+end
+
+-- Fungsi Membuat Item Ikan 3D sebagai Tool di Inventory
+local function createFishTool(fishName, category)
+	local tool = Instance.new("Tool")
+	tool.Name = fishName .. " [" .. category .. "]"
+	tool.ToolTip = "Tangkapan Segar: " .. fishName .. " (" .. category .. ")"
+	tool.RequiresHandle = true
+	tool.CanBeDropped = true
+
+	local color = (category == "LEGENDARIS" and Color3.fromRGB(255, 215, 0))
+		or (category == "LANGKA" and Color3.fromRGB(190, 70, 255))
+		or (category == "SEDANG" and Color3.fromRGB(50, 215, 120))
+		or Color3.fromRGB(255, 140, 30)
+
+	-- Handle Utama (Badan Ikan)
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Shape = Enum.PartType.Ball
+	handle.Size = Vector3.new(0.65, 0.5, 1.5)
+	handle.Color = color
+	handle.Material = (category == "LEGENDARIS" and Enum.Material.Neon) or Enum.Material.SmoothPlastic
+	handle.CanCollide = false
+	handle.Parent = tool
+
+	-- Ekor Ikan
+	local tail = Instance.new("WedgePart")
+	tail.Name = "Tail"
+	tail.Size = Vector3.new(0.2, 0.65, 0.65)
+	tail.Color = color
+	tail.Material = handle.Material
+	tail.CanCollide = false
+	tail.CFrame = handle.CFrame * CFrame.new(0, 0, 0.8) * CFrame.Angles(0, math.pi, 0)
+	tail.Parent = tool
+
+	local wcTail = Instance.new("WeldConstraint")
+	wcTail.Part0 = handle
+	wcTail.Part1 = tail
+	wcTail.Parent = handle
+
+	-- Sirip Atas Ikan
+	local fin = Instance.new("WedgePart")
+	fin.Name = "Fin"
+	fin.Size = Vector3.new(0.12, 0.35, 0.5)
+	fin.Color = color
+	fin.Material = handle.Material
+	fin.CanCollide = false
+	fin.CFrame = handle.CFrame * CFrame.new(0, 0.35, -0.1) * CFrame.Angles(0, math.pi, 0)
+	fin.Parent = tool
+
+	local wcFin = Instance.new("WeldConstraint")
+	wcFin.Part0 = handle
+	wcFin.Part1 = fin
+	wcFin.Parent = handle
+
+	-- Efek Visual Rarity (Kilau Emas/Ungu untuk Langka & Legendaris)
+	if category == "LEGENDARIS" or category == "LANGKA" then
+		local sparkles = Instance.new("Sparkles")
+		sparkles.SparkleColor = color
+		sparkles.Parent = handle
+
+		local light = Instance.new("PointLight")
+		light.Color = color
+		light.Range = 6
+		light.Brightness = 1.5
+		light.Parent = handle
+	end
+
+	-- Script Interaksi Ikan saat dipegang & diklik
+	local localScript = Instance.new("LocalScript")
+	localScript.Name = "FishInteraction"
+	localScript.Source = [[
+		local tool = script.Parent
+		local player = game:GetService("Players").LocalPlayer
+
+		tool.Equipped:Connect(function()
+			local s = Instance.new("Sound")
+			s.SoundId = "rbxasset://sounds/splat.wav"
+			s.Volume = 0.4
+			s.PlaybackSpeed = 1.4
+			s.Parent = workspace
+			s:Play()
+			game:GetService("Debris"):AddItem(s, 2)
+		end)
+
+		tool.Activated:Connect(function()
+			local s = Instance.new("Sound")
+			s.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+			s.Volume = 0.6
+			s.PlaybackSpeed = 1.3
+			s.Parent = workspace
+			s:Play()
+			game:GetService("Debris"):AddItem(s, 2)
+		end)
+	]]
+	localScript.Parent = tool
+
+	return tool
 end
 
 local function onPlayerAdded(player)
@@ -83,7 +183,14 @@ if remote then
 
 		local fishName, category = getFish(math.floor(tiles))
 		
-		-- 3. Update skor ikan di leaderstats
+		-- 3. Masukkan Ikan ke dalam Inventory (Backpack) Player
+		local backpack = player:FindFirstChild("Backpack")
+		if backpack then
+			local fishItem = createFishTool(fishName, category)
+			fishItem.Parent = backpack
+		end
+
+		-- 4. Update skor ikan di leaderstats
 		local stats = player:FindFirstChild("leaderstats")
 		local fishStat = stats and stats:FindFirstChild("Ikan")
 		if fishStat then
