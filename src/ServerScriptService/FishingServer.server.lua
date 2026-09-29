@@ -2,6 +2,7 @@
 	FishingServer (Universal Water Fishing System)
 	Memvalidasi kepemilikan alat pancing di inventory,
 	memvalidasi hasil memancing Piano Tiles di semua area air,
+	mengevaluasi kualitas lemparan kail (PERFECT, GREAT, GOOD),
 	dan MEMASUKKAN IKAN YANG DITANGKAP KE DALAM INVENTORY PLAYER sebagai item Tool 3D yang bisa dipegang.
 ]]
 
@@ -31,9 +32,12 @@ local function hasFishingRod(player)
 	return (inBackpack or inChar) ~= nil
 end
 
-local function getFish(tiles)
+local function getFish(tiles, castQuality)
+	local bonus = (castQuality == "PERFECT" and 4) or (castQuality == "GREAT" and 2) or 0
+	local effectiveTiles = tiles + bonus
+
 	for _, tier in ipairs(TIERS) do
-		if tiles >= tier.minTiles then
+		if effectiveTiles >= tier.minTiles then
 			local name = tier.names[math.random(#tier.names)]
 			return name, tier.category
 		end
@@ -158,7 +162,7 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 if remote then
-	remote.OnServerEvent:Connect(function(player, action, data)
+	remote.OnServerEvent:Connect(function(player, action, data, extra)
 		if action == "CheckRod" then
 			local hasRod = hasFishingRod(player)
 			remote:FireClient(player, "CheckRodResult", hasRod)
@@ -181,7 +185,8 @@ if remote then
 		local tiles = tonumber(data) or 0
 		if tiles < 1 or tiles > 50 then return end
 
-		local fishName, category = getFish(math.floor(tiles))
+		local castQuality = tostring(extra or "NORMAL")
+		local fishName, category = getFish(math.floor(tiles), castQuality)
 		
 		-- 3. Masukkan Ikan ke dalam Inventory (Backpack) Player
 		local backpack = player:FindFirstChild("Backpack")
