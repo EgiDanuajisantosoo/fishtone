@@ -19,11 +19,14 @@
 ]]
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
+
+local FishingRaritySystem = require(ReplicatedStorage:WaitForChild("FishingRaritySystem"))
 
 local PianoTilesGame = {}
 
@@ -36,52 +39,20 @@ local TILE_HEIGHT = 0.16
 local HIT_LINE = 0.78
 local MISS_LINE = 0.94
 
--- ============ KONFIGURASI TIER IKAN ============
+-- ============ KONFIGURASI 6 TIER IKAN ============
 local TIER_CONFIGS = {
-	LEGENDARIS = {
-		name = "LEGENDARIS",
-		color = Color3.fromRGB(255, 215, 0),
-		badgeColor = Color3.fromRGB(255, 200, 30),
-		stars = "⭐⭐⭐⭐",
-		baseStart = 0.25,       -- Start 25%
-		baseHitGain = 0.07,     -- Tambah 7% per hit
-		comboHitGain = 0.10,    -- Tambah 10% jika combo
-		baseMissPenalty = 0.20, -- Kurang 20% per salah
-		speed = 0.50,
-	},
-	LANGKA = {
-		name = "LANGKA",
-		color = Color3.fromRGB(200, 80, 255),
-		badgeColor = Color3.fromRGB(190, 70, 255),
-		stars = "⭐⭐⭐",
-		baseStart = 0.30,       -- Start 30%
-		baseHitGain = 0.085,    -- Tambah 8.5%
-		comboHitGain = 0.12,    -- Tambah 12%
-		baseMissPenalty = 0.16, -- Kurang 16%
-		speed = 0.44,
-	},
-	SEDANG = {
-		name = "SEDANG",
-		color = Color3.fromRGB(60, 230, 130),
-		badgeColor = Color3.fromRGB(50, 215, 120),
-		stars = "⭐⭐",
-		baseStart = 0.35,       -- Start 35%
-		baseHitGain = 0.10,     -- Tambah 10%
-		comboHitGain = 0.14,    -- Tambah 14%
-		baseMissPenalty = 0.13, -- Kurang 13%
-		speed = 0.38,
-	},
-	BIASA = {
-		name = "BIASA",
-		color = Color3.fromRGB(0, 205, 255),
-		badgeColor = Color3.fromRGB(0, 190, 255),
-		stars = "⭐",
-		baseStart = 0.40,       -- Start 40%
-		baseHitGain = 0.12,     -- Tambah 12%
-		comboHitGain = 0.16,    -- Tambah 16%
-		baseMissPenalty = 0.10, -- Kurang 10%
-		speed = 0.32,
-	},
+	EX = FishingRaritySystem.TIERS.EX,
+	UR = FishingRaritySystem.TIERS.UR,
+	SSR = FishingRaritySystem.TIERS.SSR,
+	SUPERRARE = FishingRaritySystem.TIERS.SuperRare,
+	SR = FishingRaritySystem.TIERS.SuperRare,
+	RARE = FishingRaritySystem.TIERS.Rare,
+	COMMON = FishingRaritySystem.TIERS.Common,
+	-- Backward compatibility alias
+	LEGENDARIS = FishingRaritySystem.TIERS.SSR,
+	LANGKA = FishingRaritySystem.TIERS.SuperRare,
+	SEDANG = FishingRaritySystem.TIERS.Rare,
+	BIASA = FishingRaritySystem.TIERS.Common,
 }
 
 -- ============ KONFIGURASI BONUS LEMPARAN AWAL ============

@@ -33,8 +33,11 @@ end
 
 local remote = ReplicatedStorage:WaitForChild("FishingRemote", 10)
 local PianoTilesGame = require(ReplicatedStorage:WaitForChild("PianoTilesGame"))
+local FishingRaritySystem = require(ReplicatedStorage:WaitForChild("FishingRaritySystem"))
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
+
+local clientPity = { SSR = 0, UR = 0, EX = 0 }
 
 -- ============ GUI ROOT ============
 local pGui = getPlayerGui()
@@ -844,23 +847,37 @@ executeCastAfterMeter = function()
 
 	-- Evaluasi Kualitas Lemparan Berdasarkan Zona Acak Saat Ini
 	local castQuality = "GOOD"
+	local castLuck = 0
 	local waitDuration = math.random(28, 42) / 10
 
 	if finalPower >= currentZones.perfectMin and finalPower <= currentZones.perfectMax then
 		castQuality = "PERFECT"
+		castLuck = 35 -- +35 Bonus Luck!
 		showRatingPopup("⭐ PERFECT CAST! ⭐", Color3.fromRGB(255, 215, 0))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 		waitDuration = math.random(12, 20) / 10 -- Sambaran kilat (1.2s - 2.0s)
 	elseif finalPower >= currentZones.greatMin and finalPower <= currentZones.greatMax then
 		castQuality = "GREAT"
+		castLuck = 15 -- +15 Bonus Luck!
 		showRatingPopup("✨ GREAT CAST! ✨", Color3.fromRGB(0, 220, 255))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.5)
 		waitDuration = math.random(18, 28) / 10 -- Sambaran lebih cepat (1.8s - 2.8s)
 	else
 		castQuality = "GOOD"
+		castLuck = 0
 		showRatingPopup("GOOD CAST 👍", Color3.fromRGB(230, 235, 255))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.5, 1.2)
 	end
+
+	-- Hitung Total Luck Berdasarkan Rod + Bonus Lemparan
+	local rodTool = getFishingRod()
+	local rodLuck = (rodTool and rodTool:GetAttribute("Luck")) or 5
+	local totalLuck = math.clamp(rodLuck + castLuck, FishingRaritySystem.MIN_LUCK, FishingRaritySystem.MAX_LUCK)
+
+	-- Roll Rarity Berdasarkan Distribusi Total Luck & Cek Hierarchical Pity System
+	local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(totalLuck, clientPity)
+	local tierData = FishingRaritySystem.TIERS[rolledRarity] or FishingRaritySystem.TIERS.Common
+	local fishName = FishingRaritySystem.GetRandomFishName(rolledRarity)
 
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -888,10 +905,14 @@ executeCastAfterMeter = function()
 	end
 
 	createWaterSplash(waterPos)
-	if castQuality == "PERFECT" then
-		showMessage("⭐ PERFECT CAST! Peluang ikan langka meningkat & sambaran kilat!", Color3.fromRGB(255, 215, 0), 3)
+	if wasPity then
+		showMessage("✨ PITY SYSTEM AKTIF! Menjamin Ikan " .. tierData.displayName .. "!", Color3.fromRGB(255, 215, 0), 3.5)
+	elseif castQuality == "PERFECT" then
+		showMessage("⭐ PERFECT CAST! (+35 Luck | Total Luck: " .. totalLuck .. ") Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 3)
+	elseif castQuality == "GREAT" then
+		showMessage("✨ GREAT CAST! (+15 Luck | Total Luck: " .. totalLuck .. ") Peluang Rarity Meningkat!", Color3.fromRGB(0, 220, 255), 3)
 	else
-		showMessage("🎣 Kail di air... Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 3.5)
+		showMessage("🎣 Kail di air... (Total Luck: " .. totalLuck .. ") Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 3.5)
 	end
 
 	task.wait(waitDuration)
@@ -923,35 +944,14 @@ executeCastAfterMeter = function()
 		}):Play()
 	end
 
-	showMessage("🎵 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)
+	showMessage("🎵 " .. tierData.displayName .. " " .. tierData.stars .. " MENYAMBAR! Mainkan Piano Tiles!", tierData.color, 3.5)
 	AnimSystem.SetPhase("Reeling")
 
-	local roll = math.random(100)
-	-- Bonus Roll jika PERFECT CAST (+20% bonus) atau GREAT CAST (+10% bonus)
-	if castQuality == "PERFECT" then roll += 20 end
-	if castQuality == "GREAT" then roll += 10 end
-
-	local tierCategory, tiles, speed
-	if roll > 88 then
-		tierCategory = "LEGENDARIS"
-		tiles, speed = 16, 0.50 -- Legendaris
-	elseif roll > 68 then
-		tierCategory = "LANGKA"
-		tiles, speed = 12, 0.44 -- Langka
-	elseif roll > 38 then
-		tierCategory = "SEDANG"
-		tiles, speed = 9, 0.38 -- Sedang
-	else
-		tierCategory = "BIASA"
-		tiles, speed = 7, 0.32 -- Biasa
-	end
-
-	-- 3. Jalankan Mini-game Piano Tiles dengan Tier & Kualitas Lemparan
+	-- 3. Jalankan Mini-game Piano Tiles dengan Tier Rarity 6 Tingkat
 	PianoTilesGame.Start({
-		tier = tierCategory,
+		tier = rolledRarity,
 		castQuality = castQuality,
-		tiles = tiles,
-		speed = speed,
+		speed = tierData.speed,
 	}, function()
 		-- Player Menang
 		AnimSystem.PlayVictoryLift(char)
@@ -960,8 +960,9 @@ executeCastAfterMeter = function()
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
 		if remote then
-			remote:FireServer("Catch", tiles, castQuality)
+			remote:FireServer("Catch", rolledRarity, castQuality, fishName)
 		end
+		clientPity = FishingRaritySystem.UpdatePityOnCatch(clientPity, rolledRarity)
 
 		task.delay(2.8, function()
 			activeBobber:Destroy()
@@ -1060,16 +1061,22 @@ watchInventory()
 
 -- 3. Respon dari Server
 if remote then
-	remote.OnClientEvent:Connect(function(action, arg1, arg2)
+	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3)
 		if action == "CatchSuccess" then
 			local fishName = arg1 or "Ikan"
-			local category = arg2 or "BIASA"
-			local color = (category == "LEGENDARIS" and Color3.fromRGB(255, 215, 0))
-				or (category == "LANGKA" and Color3.fromRGB(200, 80, 255))
-				or (category == "SEDANG" and Color3.fromRGB(60, 230, 130))
-				or Color3.fromRGB(0, 200, 255)
+			local rarity = arg2 or "Common"
+			local pityState = arg3
+			if pityState then
+				clientPity = pityState
+			end
 
-			showMessage("🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. category .. "]! Ikan masuk ke inventory!", color, 4)
+			local tierData = FishingRaritySystem.TIERS[rarity] or FishingRaritySystem.TIERS.Common
+			local toastMsg = "🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. tierData.displayName .. " " .. tierData.stars .. "]"
+			showMessage(toastMsg, tierData.color, 4)
+		elseif action == "PityStateUpdate" then
+			if arg1 then
+				clientPity = arg1
+			end
 		elseif action == "Notification" then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
 		end
