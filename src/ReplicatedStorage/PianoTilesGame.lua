@@ -2,14 +2,17 @@
 	PianoTilesGame (ModuleScript)
 	Mini-game Piano Tiles dengan tema Glassmorphism Semi-Transparan,
 	ritme melodi seirama dengan ketukan tile, feedback visual & audio yang elegan,
-	serta SISTEM ANTI-SPAM & BATAS MAKSIMAL 3 KESALAHAN (3 LIVES).
+	serta SISTEM ANTI-SPAM, BATAS MAKSIMAL 3 KESALAHAN (3 LIVES),
+	dan CONTINUOUS MELODY SPAWN (Nada tidak akan pernah habis meskipun ada nada terlewat).
 	
 	Fitur:
-	1. Batas Kesalahan: Maksimal 3 kali salah (salah tekan tombol / tile terlewat).
+	1. Continuous Melody Spawn: Tile melodi akan terus muncul berkelanjutan sampai skor target tercapai
+	   (nada tidak habis jika ada yang terlewat).
+	2. Batas Kesalahan: Maksimal 3 kali salah (salah tekan tombol / tile terlewat).
 	   Jika salah 3 kali, ikan langsung lepas!
-	2. Anti-Spam: Menekan tombol di kolom kosong / tanpa tile akan langsung dihitung sebagai kesalahan (Wrong Press Penalty).
-	3. Indikator Nyawa Visual: ❤️ ❤️ ❤️ yang berubah menjadi 🖤 saat terjadi kesalahan.
-	4. Anti-Gerak Karakter: Menggunakan ContextActionService Sink dengan Prioritas Tinggi.
+	3. Anti-Spam: Menekan tombol di kolom kosong / tanpa tile akan langsung dihitung sebagai kesalahan (Wrong Press Penalty).
+	4. Indikator Nyawa Visual: ❤️ ❤️ ❤️ yang berubah menjadi 🖤 saat terjadi kesalahan.
+	5. Anti-Gerak Karakter: Menggunakan ContextActionService Sink dengan Prioritas Tinggi.
 ]]
 
 local Players = game:GetService("Players")
@@ -155,7 +158,7 @@ local function updateHud()
 end
 
 local function spawnTile()
-	if spawnedCount >= targetTiles then return end
+	if state ~= "Playing" or score >= targetTiles then return end
 	spawnedCount += 1
 
 	local notes = currentMelody.notes
@@ -312,6 +315,7 @@ local function hitTile(entry)
 		end)
 	end
 
+	-- Jika skor target tercapai, menang!
 	if score >= targetTiles then
 		endRound(true, "BERHASIL DITANGKAP!")
 	end
@@ -351,9 +355,10 @@ local function onUpdate(dt)
 	if state ~= "Playing" then return end
 	dt = math.min(dt, 0.05)
 
+	-- Terus spawn tile melodi selama score belum mencapai targetTiles
 	spawnAccum += dt
 	local interval = TILE_HEIGHT / speed
-	while spawnAccum >= interval and spawnedCount < targetTiles do
+	while spawnAccum >= interval and score < targetTiles and state == "Playing" do
 		spawnAccum -= interval
 		spawnTile()
 	end
