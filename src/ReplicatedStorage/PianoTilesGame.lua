@@ -2,17 +2,20 @@
 	PianoTilesGame (ModuleScript)
 	Mini-game Piano Tiles dengan tema Glassmorphism Semi-Transparan,
 	ritme melodi seirama dengan ketukan tile, feedback visual & audio yang elegan,
-	serta SISTEM INDIKATOR PROGRESS TANGKAPAN DI BAWAH (CATCH STRUGGLE BAR).
+	serta SISTEM INDIKATOR PROGRESS TANGKAPAN DINAMIS BERDASARKAN KUALITAS LEMPARAN & TIER IKAN.
 	
 	Mekanisme:
-	1. Tidak menggunakan sistem nyawa 3 kali.
-	2. Menggunakan Bar Indikator Tangkapan di bagian bawah:
-	   - Setiap kali BERHASIL menekan nada, bar akan bertambah (+Combo Bonus).
-	   - Jika SALAH tekan tombol atau nada terlewat, bar akan berkurang.
-	   - Jika bar PENUH (100%), pemain BERHASIL menangkap ikan!
-	   - Jika bar HABIS (0%), ikan TERLEPAS!
-	3. Continuous Melody Spawn: Nada melodi terus mengalir secara dinamis sampai bar penuh atau habis.
-	4. Anti-Spam & Anti-Gerak Karakter (ContextActionService Sink).
+	1. Progress Bar Awal Dinamis:
+	   - Ditentukan dari Kualitas Lemparan (PERFECT: +25%, GREAT: +12%, GOOD: +0%).
+	   - Dan Tier Ikan (BIASA: 40%, SEDANG: 35%, LANGKA: 30%, LEGENDARIS: 25%).
+	2. Pengurangan Bar (Miss Penalty) & Penambahan Bar (Hit Gain) Berskala:
+	   - Ikan LEGENDARIS lebih kuat & agresif (Penalti kesalahan lebih berat, penambahan bar lebih menantang).
+	   - Lemparan PERFECT mengurangi beban penalti kesalahan (ikan tertegun).
+	3. Kondisi Menang & Kalah:
+	   - Bar Penuh 100%: BERHASIL DITANGKAP!
+	   - Bar Habis 0%: IKAN TERLEPAS!
+	4. Continuous Melody Spawn: Nada melodi terus mengalir secara dinamis.
+	5. Anti-Spam & Anti-Gerak Karakter (ContextActionService Sink).
 ]]
 
 local Players = game:GetService("Players")
@@ -24,7 +27,7 @@ local SoundService = game:GetService("SoundService")
 
 local PianoTilesGame = {}
 
--- ============ KONFIGURASI ============
+-- ============ KONFIGURASI UMUM ============
 local ACTION_PIANO_INPUT = "PianoTilesInputSink"
 local KEYS = { Enum.KeyCode.D, Enum.KeyCode.F, Enum.KeyCode.J, Enum.KeyCode.K }
 local KEY_LABELS = { "D", "F", "J", "K" }
@@ -33,11 +36,78 @@ local TILE_HEIGHT = 0.16
 local HIT_LINE = 0.78
 local MISS_LINE = 0.94
 
--- Nilai Penambahan & Pengurangan Bar
-local INITIAL_PROGRESS = 0.35 -- Mulai dari 35%
-local BASE_HIT_GAIN = 0.09    -- Tambah ~9% per nada berhasil
-local COMBO_HIT_GAIN = 0.13   -- Tambah ~13% jika combo >= 3
-local MISS_PENALTY = 0.16     -- Kurang 16% per kesalahan
+-- ============ KONFIGURASI TIER IKAN ============
+local TIER_CONFIGS = {
+	LEGENDARIS = {
+		name = "LEGENDARIS",
+		color = Color3.fromRGB(255, 215, 0),
+		badgeColor = Color3.fromRGB(255, 200, 30),
+		stars = "⭐⭐⭐⭐",
+		baseStart = 0.25,       -- Start 25%
+		baseHitGain = 0.07,     -- Tambah 7% per hit
+		comboHitGain = 0.10,    -- Tambah 10% jika combo
+		baseMissPenalty = 0.20, -- Kurang 20% per salah
+		speed = 0.50,
+	},
+	LANGKA = {
+		name = "LANGKA",
+		color = Color3.fromRGB(200, 80, 255),
+		badgeColor = Color3.fromRGB(190, 70, 255),
+		stars = "⭐⭐⭐",
+		baseStart = 0.30,       -- Start 30%
+		baseHitGain = 0.085,    -- Tambah 8.5%
+		comboHitGain = 0.12,    -- Tambah 12%
+		baseMissPenalty = 0.16, -- Kurang 16%
+		speed = 0.44,
+	},
+	SEDANG = {
+		name = "SEDANG",
+		color = Color3.fromRGB(60, 230, 130),
+		badgeColor = Color3.fromRGB(50, 215, 120),
+		stars = "⭐⭐",
+		baseStart = 0.35,       -- Start 35%
+		baseHitGain = 0.10,     -- Tambah 10%
+		comboHitGain = 0.14,    -- Tambah 14%
+		baseMissPenalty = 0.13, -- Kurang 13%
+		speed = 0.38,
+	},
+	BIASA = {
+		name = "BIASA",
+		color = Color3.fromRGB(0, 205, 255),
+		badgeColor = Color3.fromRGB(0, 190, 255),
+		stars = "⭐",
+		baseStart = 0.40,       -- Start 40%
+		baseHitGain = 0.12,     -- Tambah 12%
+		comboHitGain = 0.16,    -- Tambah 16%
+		baseMissPenalty = 0.10, -- Kurang 10%
+		speed = 0.32,
+	},
+}
+
+-- ============ KONFIGURASI BONUS LEMPARAN AWAL ============
+local CAST_BONUSES = {
+	PERFECT = {
+		startBonus = 0.25,      -- +25% Bar Awal
+		gainBonus = 0.02,       -- +2% per hit
+		penaltyMult = 0.75,     -- Penalti salah berkurang 25%
+		label = "⭐ PERFECT CAST (+25% Bar Start)",
+		color = Color3.fromRGB(255, 215, 0),
+	},
+	GREAT = {
+		startBonus = 0.12,      -- +12% Bar Awal
+		gainBonus = 0.01,
+		penaltyMult = 0.90,     -- Penalti salah berkurang 10%
+		label = "✨ GREAT CAST (+12% Bar Start)",
+		color = Color3.fromRGB(0, 220, 255),
+	},
+	GOOD = {
+		startBonus = 0.00,      -- Standar
+		gainBonus = 0.00,
+		penaltyMult = 1.00,
+		label = "👍 GOOD CAST",
+		color = Color3.fromRGB(220, 230, 255),
+	},
+}
 
 -- Bank Melodi Harmonis (Tangga nada semitone: 0 = C, 2 = D, 4 = E, 5 = F, 7 = G, 9 = A, 11 = B, 12 = C tinggi)
 local MELODIES = {
@@ -78,7 +148,7 @@ end
 -- ============ STATE ============
 local state = "Idle" -- Idle | Playing | Result
 local score, combo = 0, 0
-local progress = INITIAL_PROGRESS
+local progress = 0.35
 local speed = 0.35
 local currentMelody = MELODIES[1]
 local melodyIndex = 1
@@ -90,8 +160,15 @@ local roundToken = 0
 local winCb, loseCb
 local lastColPressTime = { 0, 0, 0, 0 }
 
+-- Nilai kalkulasi dinamis untuk ronde aktif
+local activeTier = TIER_CONFIGS.BIASA
+local activeCast = CAST_BONUSES.GOOD
+local activeHitGain = 0.10
+local activeComboHitGain = 0.14
+local activeMissPenalty = 0.15
+
 -- Referensi GUI
-local gui, arenaContainer, arenaFrame, songLabel, comboLabel, resultOverlay, resultLabel
+local gui, arenaContainer, arenaFrame, songLabel, tierLabel, castBonusLabel, comboLabel, resultOverlay, resultLabel
 local progressContainer, progressFill, progressLabel, progressGlow
 local columns, columnFlashes = {}, {}
 
@@ -149,7 +226,7 @@ local function updateHud()
 			Size = UDim2.fromScale(percent, 1)
 		}):Play()
 
-		-- Warna dinamis berdasarkan status tangkapan
+		-- Warna dinamis berdasarkan status tarikan
 		local barColor = Color3.fromRGB(0, 210, 255)
 		if percent >= 0.70 then
 			barColor = Color3.fromRGB(50, 250, 130) -- Hijau Kemenangan
@@ -182,11 +259,13 @@ local function spawnTile()
 	end
 	lastColumn = col
 
+	local tileColor = activeTier.color or Color3.fromRGB(0, 200, 255)
+
 	local tile = mk("Frame", {
 		Name = "Tile_" .. spawnedCount,
 		Size = UDim2.fromScale(0.88, TILE_HEIGHT),
 		Position = UDim2.new(0.06, 0, -TILE_HEIGHT, 0),
-		BackgroundColor3 = Color3.fromRGB(0, 200, 255),
+		BackgroundColor3 = tileColor,
 		BackgroundTransparency = 0.25,
 		BorderSizePixel = 0,
 	}, columns[col])
@@ -194,9 +273,9 @@ local function spawnTile()
 	mk("UICorner", { CornerRadius = UDim.new(0, 8) }, tile)
 	
 	local stroke = mk("UIStroke", {
-		Color = Color3.fromRGB(150, 240, 255),
+		Color = Color3.fromRGB(255, 255, 255),
 		Thickness = 1.5,
-		Transparency = 0.2,
+		Transparency = 0.3,
 	}, tile)
 
 	local inner = mk("Frame", {
@@ -268,7 +347,7 @@ local function registerMistake(reason, col)
 	if state ~= "Playing" then return end
 
 	combo = 0
-	progress = math.clamp(progress - MISS_PENALTY, 0, 1.0)
+	progress = math.clamp(progress - activeMissPenalty, 0, 1.0)
 	updateHud()
 	playMissSound()
 
@@ -307,8 +386,8 @@ local function hitTile(entry)
 	score += 1
 	combo += 1
 
-	-- Tambah progress bar (Bonus lebih besar jika combo >= 3)
-	local gain = (combo >= 3 and COMBO_HIT_GAIN or BASE_HIT_GAIN)
+	-- Tambah progress bar sesuai kalkulasi tier & combo aktif
+	local gain = (combo >= 3 and activeComboHitGain or activeHitGain)
 	progress = math.clamp(progress + gain, 0, 1.0)
 	updateHud()
 	playPianoNote(entry.semitone)
@@ -425,7 +504,7 @@ local function onTouchOrClick(input, _)
 	end
 end
 
--- ============ MEMBANGUN GUI GLASSMORPHISM DENGAN INDIKATOR BAR DI BAWAH ============
+-- ============ MEMBANGUN GUI GLASSMORPHISM DENGAN TIER & CAST BADGE ============
 local function buildGui()
 	local pGui = getPlayerGui()
 	if not pGui then return end
@@ -444,8 +523,8 @@ local function buildGui()
 
 	arenaContainer = mk("Frame", {
 		Name = "ArenaContainer",
-		Size = UDim2.new(0, 380, 0.86, 0),
-		Position = UDim2.new(0.5, -190, 0.07, 0),
+		Size = UDim2.new(0, 390, 0.88, 0),
+		Position = UDim2.new(0.5, -195, 0.06, 0),
 		BackgroundColor3 = Color3.fromRGB(12, 16, 24),
 		BackgroundTransparency = 0.45,
 		BorderSizePixel = 0,
@@ -458,26 +537,52 @@ local function buildGui()
 		Transparency = 0.4,
 	}, arenaContainer)
 
-	-- Header Atas (Nama Lagu & Combo)
+	-- Header Atas (Nama Lagu, Tier Ikan & Bonus Lemparan)
 	local header = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 46),
+		Size = UDim2.new(1, 0, 0, 64),
 		BackgroundTransparency = 1,
 	}, arenaContainer)
 
-	songLabel = mk("TextLabel", {
-		Size = UDim2.new(0.55, 0, 1, 0),
-		Position = UDim2.new(0.05, 0, 0, 0),
+	tierLabel = mk("TextLabel", {
+		Name = "TierLabel",
+		Size = UDim2.new(0.55, 0, 0, 22),
+		Position = UDim2.new(0.04, 0, 0, 6),
 		BackgroundTransparency = 1,
-		Text = "🎵 Melodi: Canon in D",
-		TextColor3 = Color3.fromRGB(180, 225, 255),
-		Font = Enum.Font.GothamBold,
+		Text = "🌟 IKAN: LEGENDARIS",
+		TextColor3 = Color3.fromRGB(255, 215, 0),
+		Font = Enum.Font.GothamBlack,
 		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, header)
 
+	castBonusLabel = mk("TextLabel", {
+		Name = "CastBonusLabel",
+		Size = UDim2.new(0.92, 0, 0, 18),
+		Position = UDim2.new(0.04, 0, 0, 28),
+		BackgroundTransparency = 1,
+		Text = "⭐ PERFECT CAST (+25% Bar Start)",
+		TextColor3 = Color3.fromRGB(255, 225, 120),
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, header)
+
+	songLabel = mk("TextLabel", {
+		Name = "SongLabel",
+		Size = UDim2.new(0.92, 0, 0, 16),
+		Position = UDim2.new(0.04, 0, 0, 46),
+		BackgroundTransparency = 1,
+		Text = "🎵 Melodi: Canon in D",
+		TextColor3 = Color3.fromRGB(180, 220, 255),
+		Font = Enum.Font.GothamMedium,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, header)
+
 	comboLabel = mk("TextLabel", {
-		Size = UDim2.new(0.40, 0, 1, 0),
-		Position = UDim2.new(0.55, 0, 0, 0),
+		Name = "ComboLabel",
+		Size = UDim2.new(0.38, 0, 0, 22),
+		Position = UDim2.new(0.58, 0, 0, 6),
 		BackgroundTransparency = 1,
 		Text = "🔥 COMBO x2",
 		TextColor3 = Color3.fromRGB(255, 205, 60),
@@ -490,8 +595,8 @@ local function buildGui()
 	-- Arena Kolom Piano Tiles
 	arenaFrame = mk("Frame", {
 		Name = "ArenaColumns",
-		Size = UDim2.new(1, 0, 1, -96),
-		Position = UDim2.new(0, 0, 0, 48),
+		Size = UDim2.new(1, 0, 1, -114),
+		Position = UDim2.new(0, 0, 0, 68),
 		BackgroundTransparency = 1,
 	}, arenaContainer)
 
@@ -582,7 +687,7 @@ local function buildGui()
 
 	progressFill = mk("Frame", {
 		Name = "ProgressFill",
-		Size = UDim2.fromScale(INITIAL_PROGRESS, 1),
+		Size = UDim2.fromScale(progress, 1),
 		Position = UDim2.fromScale(0, 0),
 		BackgroundColor3 = Color3.fromRGB(0, 210, 255),
 		BorderSizePixel = 0,
@@ -639,17 +744,40 @@ function PianoTilesGame.Start(config, onWin, onLose)
 	if not gui then return false end
 
 	config = config or {}
+	local tierKey = tostring(config.tier or "BIASA"):upper()
+	local castKey = tostring(config.castQuality or "GOOD"):upper()
+
+	activeTier = TIER_CONFIGS[tierKey] or TIER_CONFIGS.BIASA
+	activeCast = CAST_BONUSES[castKey] or CAST_BONUSES.GOOD
+
+	-- 1. Hitung Progress Awal Berdasarkan Tier Ikan & Kualitas Lemparan
+	local startProgress = math.clamp(activeTier.baseStart + activeCast.startBonus, 0.12, 0.85)
+	progress = startProgress
+
+	-- 2. Hitung Nilai Penambahan & Pengurangan Aktif
+	activeHitGain = activeTier.baseHitGain + activeCast.gainBonus
+	activeComboHitGain = activeTier.comboHitGain + activeCast.gainBonus
+	activeMissPenalty = activeTier.baseMissPenalty * activeCast.penaltyMult
+
 	currentMelody = MELODIES[math.random(1, #MELODIES)]
-	speed = math.clamp(config.speed or currentMelody.baseSpeed, 0.2, 1.2)
+	speed = math.clamp(config.speed or activeTier.speed or currentMelody.baseSpeed, 0.2, 1.2)
 	
+	-- Update Tampilan Info Header
+	if tierLabel then
+		tierLabel.Text = "🐟 IKAN: " .. activeTier.name .. " " .. activeTier.stars
+		tierLabel.TextColor3 = activeTier.color
+	end
+	if castBonusLabel then
+		castBonusLabel.Text = activeCast.label
+		castBonusLabel.TextColor3 = activeCast.color
+	end
 	if songLabel then
-		songLabel.Text = "🎵 " .. currentMelody.name
+		songLabel.Text = "🎵 Melodi: " .. currentMelody.name
 	end
 
 	roundToken += 1
 	winCb, loseCb = onWin, onLose
 	score, combo = 0, 0
-	progress = INITIAL_PROGRESS
 	spawnAccum = 0
 	melodyIndex = 1
 	spawnedCount = 0

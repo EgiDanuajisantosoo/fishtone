@@ -931,19 +931,25 @@ executeCastAfterMeter = function()
 	if castQuality == "PERFECT" then roll += 20 end
 	if castQuality == "GREAT" then roll += 10 end
 
-	local tiles, speed
+	local tierCategory, tiles, speed
 	if roll > 88 then
-		tiles, speed = 16, 0.52 -- Legendaris
+		tierCategory = "LEGENDARIS"
+		tiles, speed = 16, 0.50 -- Legendaris
 	elseif roll > 68 then
+		tierCategory = "LANGKA"
 		tiles, speed = 12, 0.44 -- Langka
 	elseif roll > 38 then
+		tierCategory = "SEDANG"
 		tiles, speed = 9, 0.38 -- Sedang
 	else
+		tierCategory = "BIASA"
 		tiles, speed = 7, 0.32 -- Biasa
 	end
 
-	-- 3. Jalankan Mini-game Piano Tiles
+	-- 3. Jalankan Mini-game Piano Tiles dengan Tier & Kualitas Lemparan
 	PianoTilesGame.Start({
+		tier = tierCategory,
+		castQuality = castQuality,
 		tiles = tiles,
 		speed = speed,
 	}, function()
