@@ -2,17 +2,17 @@
 	PianoTilesGame (ModuleScript)
 	Mini-game Piano Tiles dengan tema Glassmorphism Semi-Transparan,
 	ritme melodi seirama dengan ketukan tile, feedback visual & audio yang elegan,
-	serta SISTEM ANTI-SPAM, BATAS MAKSIMAL 3 KESALAHAN (3 LIVES),
-	dan CONTINUOUS MELODY SPAWN (Nada tidak akan pernah habis meskipun ada nada terlewat).
+	serta SISTEM INDIKATOR PROGRESS TANGKAPAN DI BAWAH (CATCH STRUGGLE BAR).
 	
-	Fitur:
-	1. Continuous Melody Spawn: Tile melodi akan terus muncul berkelanjutan sampai skor target tercapai
-	   (nada tidak habis jika ada yang terlewat).
-	2. Batas Kesalahan: Maksimal 3 kali salah (salah tekan tombol / tile terlewat).
-	   Jika salah 3 kali, ikan langsung lepas!
-	3. Anti-Spam: Menekan tombol di kolom kosong / tanpa tile akan langsung dihitung sebagai kesalahan (Wrong Press Penalty).
-	4. Indikator Nyawa Visual: ❤️ ❤️ ❤️ yang berubah menjadi 🖤 saat terjadi kesalahan.
-	5. Anti-Gerak Karakter: Menggunakan ContextActionService Sink dengan Prioritas Tinggi.
+	Mekanisme:
+	1. Tidak menggunakan sistem nyawa 3 kali.
+	2. Menggunakan Bar Indikator Tangkapan di bagian bawah:
+	   - Setiap kali BERHASIL menekan nada, bar akan bertambah (+Combo Bonus).
+	   - Jika SALAH tekan tombol atau nada terlewat, bar akan berkurang.
+	   - Jika bar PENUH (100%), pemain BERHASIL menangkap ikan!
+	   - Jika bar HABIS (0%), ikan TERLEPAS!
+	3. Continuous Melody Spawn: Nada melodi terus mengalir secara dinamis sampai bar penuh atau habis.
+	4. Anti-Spam & Anti-Gerak Karakter (ContextActionService Sink).
 ]]
 
 local Players = game:GetService("Players")
@@ -30,9 +30,14 @@ local KEYS = { Enum.KeyCode.D, Enum.KeyCode.F, Enum.KeyCode.J, Enum.KeyCode.K }
 local KEY_LABELS = { "D", "F", "J", "K" }
 local COLUMN_COUNT = 4
 local TILE_HEIGHT = 0.16
-local HIT_LINE = 0.80
+local HIT_LINE = 0.78
 local MISS_LINE = 0.94
-local MAX_MISTAKES = 3
+
+-- Nilai Penambahan & Pengurangan Bar
+local INITIAL_PROGRESS = 0.35 -- Mulai dari 35%
+local BASE_HIT_GAIN = 0.09    -- Tambah ~9% per nada berhasil
+local COMBO_HIT_GAIN = 0.13   -- Tambah ~13% jika combo >= 3
+local MISS_PENALTY = 0.16     -- Kurang 16% per kesalahan
 
 -- Bank Melodi Harmonis (Tangga nada semitone: 0 = C, 2 = D, 4 = E, 5 = F, 7 = G, 9 = A, 11 = B, 12 = C tinggi)
 local MELODIES = {
@@ -73,8 +78,7 @@ end
 -- ============ STATE ============
 local state = "Idle" -- Idle | Playing | Result
 local score, combo = 0, 0
-local mistakes = 0
-local targetTiles = 10
+local progress = INITIAL_PROGRESS
 local speed = 0.35
 local currentMelody = MELODIES[1]
 local melodyIndex = 1
@@ -87,7 +91,8 @@ local winCb, loseCb
 local lastColPressTime = { 0, 0, 0, 0 }
 
 -- Referensi GUI
-local gui, arenaContainer, arenaFrame, scoreLabel, comboLabel, songLabel, livesLabel, resultOverlay, resultLabel
+local gui, arenaContainer, arenaFrame, songLabel, comboLabel, resultOverlay, resultLabel
+local progressContainer, progressFill, progressLabel, progressGlow
 local columns, columnFlashes = {}, {}
 
 local function mk(className, props, parent)
@@ -125,40 +130,46 @@ local function playMissSound()
 end
 
 local function updateHud()
-	if scoreLabel then
-		scoreLabel.Text = "🎵 " .. score .. " / " .. targetTiles
-	end
 	if comboLabel then
 		if combo >= 2 then
-			comboLabel.Text = "🔥 COMBO x" .. combo
+			comboLabel.Text = "🔥 COMBO x" .. combo .. (combo >= 3 and " (+Bonus Tenaga!)" or "")
 			comboLabel.Visible = true
 		else
 			comboLabel.Visible = false
 		end
 	end
-	if livesLabel then
-		local remaining = math.max(0, MAX_MISTAKES - mistakes)
-		local hearts = ""
-		for i = 1, MAX_MISTAKES do
-			if i <= remaining then
-				hearts = hearts .. "❤️ "
-			else
-				hearts = hearts .. "🖤 "
-			end
-		end
-		livesLabel.Text = hearts .. " (" .. mistakes .. "/" .. MAX_MISTAKES .. " Salah)"
-		if mistakes >= 2 then
-			livesLabel.TextColor3 = Color3.fromRGB(255, 75, 75)
-		elseif mistakes == 1 then
-			livesLabel.TextColor3 = Color3.fromRGB(255, 200, 60)
+
+	-- Update Bar Indikator Tangkapan di Bawah
+	if progressFill and progressLabel then
+		local percent = math.clamp(progress, 0, 1)
+		local percentInt = math.floor(percent * 100)
+
+		-- Animasi perubahan panjang bar
+		TweenService:Create(progressFill, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.fromScale(percent, 1)
+		}):Play()
+
+		-- Warna dinamis berdasarkan status tangkapan
+		local barColor = Color3.fromRGB(0, 210, 255)
+		if percent >= 0.70 then
+			barColor = Color3.fromRGB(50, 250, 130) -- Hijau Kemenangan
+		elseif percent <= 0.25 then
+			barColor = Color3.fromRGB(255, 65, 65)  -- Merah Bahaya
 		else
-			livesLabel.TextColor3 = Color3.fromRGB(255, 120, 140)
+			barColor = Color3.fromRGB(0, 205, 255)  -- Cyan Stabil
 		end
+
+		progressFill.BackgroundColor3 = barColor
+		if progressGlow then
+			progressGlow.Color = barColor
+		end
+
+		progressLabel.Text = "🎣 TARIKAN: " .. percentInt .. "%"
 	end
 end
 
 local function spawnTile()
-	if state ~= "Playing" or score >= targetTiles then return end
+	if state ~= "Playing" or progress >= 1.0 or progress <= 0 then return end
 	spawnedCount += 1
 
 	local notes = currentMelody.notes
@@ -256,8 +267,8 @@ end
 local function registerMistake(reason, col)
 	if state ~= "Playing" then return end
 
-	mistakes += 1
 	combo = 0
+	progress = math.clamp(progress - MISS_PENALTY, 0, 1.0)
 	updateHud()
 	playMissSound()
 
@@ -281,9 +292,9 @@ local function registerMistake(reason, col)
 		end)
 	end
 
-	-- Cek apakah batas 3 kesalahan tercapai
-	if mistakes >= MAX_MISTAKES then
-		endRound(false, "IKAN TERLEPAS!\n(3x Salah Ketuk)")
+	-- Cek apakah bar habis (0%) -> Ikan Lepas!
+	if progress <= 0 then
+		endRound(false, "IKAN TERLEPAS!\n(Tarikan Habis)")
 	end
 end
 
@@ -295,6 +306,10 @@ local function hitTile(entry)
 
 	score += 1
 	combo += 1
+
+	-- Tambah progress bar (Bonus lebih besar jika combo >= 3)
+	local gain = (combo >= 3 and COMBO_HIT_GAIN or BASE_HIT_GAIN)
+	progress = math.clamp(progress + gain, 0, 1.0)
 	updateHud()
 	playPianoNote(entry.semitone)
 
@@ -315,8 +330,8 @@ local function hitTile(entry)
 		end)
 	end
 
-	-- Jika skor target tercapai, menang!
-	if score >= targetTiles then
+	-- Jika bar terisi penuh 100%, menang!
+	if progress >= 1.0 then
 		endRound(true, "BERHASIL DITANGKAP!")
 	end
 end
@@ -355,10 +370,10 @@ local function onUpdate(dt)
 	if state ~= "Playing" then return end
 	dt = math.min(dt, 0.05)
 
-	-- Terus spawn tile melodi selama score belum mencapai targetTiles
+	-- Terus spawn tile melodi selama bar belum penuh (100%) dan belum habis (0%)
 	spawnAccum += dt
 	local interval = TILE_HEIGHT / speed
-	while spawnAccum >= interval and score < targetTiles and state == "Playing" do
+	while spawnAccum >= interval and progress < 1.0 and progress > 0 and state == "Playing" do
 		spawnAccum -= interval
 		spawnTile()
 	end
@@ -410,7 +425,7 @@ local function onTouchOrClick(input, _)
 	end
 end
 
--- ============ MEMBANGUN GUI GLASSMORPHISM ============
+-- ============ MEMBANGUN GUI GLASSMORPHISM DENGAN INDIKATOR BAR DI BAWAH ============
 local function buildGui()
 	local pGui = getPlayerGui()
 	if not pGui then return end
@@ -429,8 +444,8 @@ local function buildGui()
 
 	arenaContainer = mk("Frame", {
 		Name = "ArenaContainer",
-		Size = UDim2.new(0, 380, 0.84, 0),
-		Position = UDim2.new(0.5, -190, 0.08, 0),
+		Size = UDim2.new(0, 380, 0.86, 0),
+		Position = UDim2.new(0.5, -190, 0.07, 0),
 		BackgroundColor3 = Color3.fromRGB(12, 16, 24),
 		BackgroundTransparency = 0.45,
 		BorderSizePixel = 0,
@@ -443,14 +458,15 @@ local function buildGui()
 		Transparency = 0.4,
 	}, arenaContainer)
 
+	-- Header Atas (Nama Lagu & Combo)
 	local header = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 68),
+		Size = UDim2.new(1, 0, 0, 46),
 		BackgroundTransparency = 1,
 	}, arenaContainer)
 
 	songLabel = mk("TextLabel", {
-		Size = UDim2.new(0.55, 0, 0, 30),
-		Position = UDim2.new(0.05, 0, 0, 4),
+		Size = UDim2.new(0.55, 0, 1, 0),
+		Position = UDim2.new(0.05, 0, 0, 0),
 		BackgroundTransparency = 1,
 		Text = "🎵 Melodi: Canon in D",
 		TextColor3 = Color3.fromRGB(180, 225, 255),
@@ -459,43 +475,23 @@ local function buildGui()
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, header)
 
-	scoreLabel = mk("TextLabel", {
-		Size = UDim2.new(0.35, 0, 0, 30),
-		Position = UDim2.new(0.60, 0, 0, 4),
-		BackgroundTransparency = 1,
-		Text = "0 / 10",
-		TextColor3 = Color3.fromRGB(255, 255, 255),
-		Font = Enum.Font.GothamBlack,
-		TextSize = 18,
-		TextXAlignment = Enum.TextXAlignment.Right,
-	}, header)
-
-	livesLabel = mk("TextLabel", {
-		Size = UDim2.new(0.9, 0, 0, 26),
-		Position = UDim2.new(0.05, 0, 0, 36),
-		BackgroundTransparency = 1,
-		Text = "❤️ ❤️ ❤️ (0/3 Salah)",
-		TextColor3 = Color3.fromRGB(255, 120, 140),
-		Font = Enum.Font.GothamBold,
-		TextSize = 14,
-		TextXAlignment = Enum.TextXAlignment.Center,
-	}, header)
-
 	comboLabel = mk("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 22),
-		Position = UDim2.new(0, 0, 0, 68),
+		Size = UDim2.new(0.40, 0, 1, 0),
+		Position = UDim2.new(0.55, 0, 0, 0),
 		BackgroundTransparency = 1,
 		Text = "🔥 COMBO x2",
-		TextColor3 = Color3.fromRGB(255, 200, 50),
+		TextColor3 = Color3.fromRGB(255, 205, 60),
 		Font = Enum.Font.GothamBlack,
-		TextSize = 15,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Right,
 		Visible = false,
-	}, arenaContainer)
+	}, header)
 
+	-- Arena Kolom Piano Tiles
 	arenaFrame = mk("Frame", {
 		Name = "ArenaColumns",
-		Size = UDim2.new(1, 0, 1, -74),
-		Position = UDim2.new(0, 0, 0, 74),
+		Size = UDim2.new(1, 0, 1, -96),
+		Position = UDim2.new(0, 0, 0, 48),
 		BackgroundTransparency = 1,
 	}, arenaContainer)
 
@@ -567,6 +563,45 @@ local function buildGui()
 		Transparency = 0.2,
 	}, hitLine)
 
+	-- ============ INDIKATOR BAR TANGKAPAN DI BAGIAN BAWAH ============
+	progressContainer = mk("Frame", {
+		Name = "ProgressContainer",
+		Size = UDim2.new(0.92, 0, 0, 32),
+		Position = UDim2.new(0.04, 0, 1, -40),
+		BackgroundColor3 = Color3.fromRGB(15, 20, 32),
+		BackgroundTransparency = 0.3,
+		BorderSizePixel = 0,
+	}, arenaContainer)
+	mk("UICorner", { CornerRadius = UDim.new(0, 12) }, progressContainer)
+
+	progressGlow = mk("UIStroke", {
+		Color = Color3.fromRGB(0, 200, 255),
+		Thickness = 1.5,
+		Transparency = 0.3,
+	}, progressContainer)
+
+	progressFill = mk("Frame", {
+		Name = "ProgressFill",
+		Size = UDim2.fromScale(INITIAL_PROGRESS, 1),
+		Position = UDim2.fromScale(0, 0),
+		BackgroundColor3 = Color3.fromRGB(0, 210, 255),
+		BorderSizePixel = 0,
+	}, progressContainer)
+	mk("UICorner", { CornerRadius = UDim.new(0, 12) }, progressFill)
+
+	progressLabel = mk("TextLabel", {
+		Name = "ProgressLabel",
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0, 0),
+		BackgroundTransparency = 1,
+		Text = "🎣 TARIKAN: 35%",
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		Font = Enum.Font.GothamBlack,
+		TextSize = 14,
+		ZIndex = 2,
+	}, progressContainer)
+
+	-- Overlay Hasil Akhir
 	resultOverlay = mk("Frame", {
 		Name = "ResultOverlay",
 		Size = UDim2.fromScale(1, 1),
@@ -604,8 +639,6 @@ function PianoTilesGame.Start(config, onWin, onLose)
 	if not gui then return false end
 
 	config = config or {}
-	targetTiles = math.max(4, math.floor(config.tiles or 10))
-	
 	currentMelody = MELODIES[math.random(1, #MELODIES)]
 	speed = math.clamp(config.speed or currentMelody.baseSpeed, 0.2, 1.2)
 	
@@ -616,7 +649,7 @@ function PianoTilesGame.Start(config, onWin, onLose)
 	roundToken += 1
 	winCb, loseCb = onWin, onLose
 	score, combo = 0, 0
-	mistakes = 0
+	progress = INITIAL_PROGRESS
 	spawnAccum = 0
 	melodyIndex = 1
 	spawnedCount = 0
