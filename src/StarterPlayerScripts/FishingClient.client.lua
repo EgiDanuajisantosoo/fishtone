@@ -1,7 +1,7 @@
 --[[
 	FishingClient (Universal Water Fishing System)
 	Fitur:
-	1. Mendukung MEMANCING DI SEMUA AREA AIR (Lake, Danau, Sungai, Laut, Terrain Water).
+	1. Mendukung MEMANCING DI SEMUA AREA AIR (Klik Mouse, Touch, atau Tekan [E]).
 	2. Deteksi otomatis air via Raycast presisi + kalkulasi permukaan air.
 	3. Pelampung dinamis (Dynamic Bobber) yang melayang & mendarat di air.
 	4. Animasi melempar joran (Casting), cipratan air (Splash), dan ikan 3D melompat saat menyambar.
@@ -16,7 +16,9 @@ local UserInputService = game:GetService("UserInputService")
 local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local function getPlayerGui()
+	return player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 5)
+end
 
 local remote = ReplicatedStorage:WaitForChild("FishingRemote", 10)
 local PianoTilesGame = require(ReplicatedStorage:WaitForChild("PianoTilesGame"))
@@ -24,13 +26,17 @@ local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 
 -- ============ GUI STATUS & BANNER ============
-local oldGui = playerGui:FindFirstChild("FishingGui")
-if oldGui then oldGui:Destroy() end
+local pGui = getPlayerGui()
+if pGui then
+	local old = pGui:FindFirstChild("FishingGui")
+	if old then old:Destroy() end
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "FishingGui"
 gui.ResetOnSpawn = false
-gui.Parent = playerGui
+gui.Enabled = true
+gui.Parent = pGui or workspace
 
 local statusFrame = Instance.new("Frame")
 statusFrame.Name = "StatusFrame"
@@ -223,11 +229,6 @@ local function hasFishingRod()
 	return getFishingRod() ~= nil
 end
 
-local function isRodEquipped()
-	local character = player.Character
-	return (character and (character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan"))) ~= nil
-end
-
 local function ensureEquipped()
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -259,7 +260,7 @@ local function freezePlayer(freeze)
 	end
 end
 
--- ============ DETEKSI AIR DI SELURUH DUNIA ============
+-- ============ DETEKSI SEMUA AIR DI MAP ============
 local function isWaterInstance(inst, mat)
 	if mat == Enum.Material.Water then
 		return true
@@ -296,11 +297,11 @@ local function findWaterTarget()
 	-- 1. Cek Raycast dari posisi kursor mouse pemain
 	local mouse = player:GetMouse()
 	if mouse and mouse.UnitRay then
-		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 250, rayParams)
+		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 300, rayParams)
 		if mouseResult then
 			if isWaterInstance(mouseResult.Instance, mouseResult.Material) then
 				local dist = (mouseResult.Position - hrp.Position).Magnitude
-				if dist <= 80 then
+				if dist <= 120 then
 					return mouseResult.Position
 				end
 			end
@@ -314,22 +315,22 @@ local function findWaterTarget()
 			local halfZ = obj.Size.Z / 2
 			local topY = obj.Position.Y + (obj.Size.Y / 2)
 			
-			local minX = obj.Position.X - halfX - 30
-			local maxX = obj.Position.X + halfX + 30
-			local minZ = obj.Position.Z - halfZ - 30
-			local maxZ = obj.Position.Z + halfZ + 30
+			local minX = obj.Position.X - halfX - 50
+			local maxX = obj.Position.X + halfX + 50
+			local minZ = obj.Position.Z - halfZ - 50
+			local maxZ = obj.Position.Z + halfZ + 50
 			
 			if hrp.Position.X >= minX and hrp.Position.X <= maxX and hrp.Position.Z >= minZ and hrp.Position.Z <= maxZ then
 				local look = hrp.CFrame.LookVector
-				local targetX = math.clamp(hrp.Position.X + look.X * 16, obj.Position.X - halfX + 2, obj.Position.X + halfX - 2)
-				local targetZ = math.clamp(hrp.Position.Z + look.Z * 16, obj.Position.Z - halfZ + 2, obj.Position.Z + halfZ - 2)
+				local targetX = math.clamp(hrp.Position.X + look.X * 18, obj.Position.X - halfX + 2, obj.Position.X + halfX - 2)
+				local targetZ = math.clamp(hrp.Position.Z + look.Z * 18, obj.Position.Z - halfZ + 2, obj.Position.Z + halfZ - 2)
 				return Vector3.new(targetX, topY, targetZ)
 			end
 		end
 	end
 
-	-- 3. Cek Terrain Water di hadap depan karakter
-	local forwardRay = workspace:Raycast(hrp.Position + Vector3.new(0, 2, 0), (hrp.CFrame.LookVector * 30) + Vector3.new(0, -15, 0), rayParams)
+	-- 3. Cek Terrain Water di depan karakter
+	local forwardRay = workspace:Raycast(hrp.Position + Vector3.new(0, 2, 0), (hrp.CFrame.LookVector * 35) + Vector3.new(0, -20, 0), rayParams)
 	if forwardRay and (forwardRay.Material == Enum.Material.Water or isWaterInstance(forwardRay.Instance, forwardRay.Material)) then
 		return forwardRay.Position
 	end
@@ -497,13 +498,16 @@ local function tryStartFishing()
 	end
 end
 
--- ============ LISTENER INPUT AKTIVASI ============
+-- ============ LISTENER INPUT AKTIVASI (KLIK MOUSE, SENTUH, ATAU TEKAN E) ============
 
--- 1. Klik Mouse / Layar saat memegang Joran Pancing
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
+-- 1. Klik Mouse / Touch saat memegang Joran Pancing
+UserInputService.InputBegan:Connect(function(input, _)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		if isRodEquipped() and not busy and not PianoTilesGame.IsPlaying() then
+		if hasFishingRod() and not busy and not PianoTilesGame.IsPlaying() then
+			tryStartFishing()
+		end
+	elseif input.KeyCode == Enum.KeyCode.E then
+		if hasFishingRod() and not busy and not PianoTilesGame.IsPlaying() then
 			tryStartFishing()
 		end
 	end
