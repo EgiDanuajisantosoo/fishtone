@@ -12,6 +12,7 @@
 	   - Cukup Klik Mouse (MouseButton1), Sentuh Layar (Touch), atau Tekan [E] saat menghadap air.
 	4. Notifikasi elegan & Glassmorphic Mini-game Piano Tiles saat ikan menyambar.
 	5. Ikan otomatis masuk ke Inventory (Backpack) sebagai item Tool 3D setelah berhasil!
+	6. Mendukung Memancing di Seluruh Area Lautan (Full Ocean Map Support).
 ]]
 
 local Players = game:GetService("Players")
@@ -343,7 +344,7 @@ function AnimSystem.CreateFishingLine(char, bobber)
 	beam.Color = ColorSequence.new(Color3.fromRGB(240, 245, 255))
 	beam.Transparency = NumberSequence.new(0.25)
 	beam.FaceCamera = true
-	beam.CurveSize0 = -1.2 -- Efek kelengkungan senar yang realistis
+	beam.CurveSize0 = -1.2
 	beam.CurveSize1 = 1.2
 	beam.Segments = 16
 	beam.Parent = rodPart
@@ -428,7 +429,6 @@ function AnimSystem.StartFishingStance(char)
 	AnimSystem.activeConn = RunService.RenderStepped:Connect(function()
 		local t = os.clock()
 		if AnimSystem.currentPhase == "Waiting" then
-			-- Bernafas / Goyangan Halus saat Menunggu
 			local sway = math.sin(t * 2.5) * 0.03
 			if rS and rS.joint.Parent then
 				rS.joint.C0 = baseRight * CFrame.Angles(sway, 0, sway * 0.5)
@@ -437,7 +437,6 @@ function AnimSystem.StartFishingStance(char)
 				lS.joint.C0 = baseLeft * CFrame.Angles(sway * 0.8, 0, 0)
 			end
 		elseif AnimSystem.currentPhase == "Biting" then
-			-- Tarikan Cepat & Getaran saat Ikan Menyambar
 			local tug = math.sin(t * 30) * 0.08
 			if rS and rS.joint.Parent then
 				rS.joint.C0 = baseRight * CFrame.Angles(math.rad(-15) + tug, 0, tug)
@@ -446,7 +445,6 @@ function AnimSystem.StartFishingStance(char)
 				lS.joint.C0 = baseLeft * CFrame.Angles(math.rad(-10) + tug, 0, 0)
 			end
 		elseif AnimSystem.currentPhase == "Reeling" then
-			-- Gerakan Menggulung saat Mainkan Mini-game Piano Tiles
 			local reelMotion = math.sin(t * 8) * 0.06
 			if rS and rS.joint.Parent then
 				rS.joint.C0 = baseRight * CFrame.Angles(math.rad(-10) + reelMotion, 0, 0)
@@ -483,7 +481,7 @@ function AnimSystem.PlayVictoryLift(char)
 	end
 end
 
--- ============ DETEKSI SEMUA AIR DI MAP ============
+-- ============ DETEKSI SEMUA AIR DI MAP (UNIVERSAL OCEAN SUPPORT) ============
 local function isWaterInstance(inst, mat)
 	if mat == Enum.Material.Water then
 		return true
@@ -491,12 +489,12 @@ local function isWaterInstance(inst, mat)
 	if inst and inst:IsA("BasePart") then
 		local name = inst.Name:lower()
 		if inst.Material == Enum.Material.Water
+			or name:find("ocean")
 			or name:find("water")
 			or name:find("lake")
 			or name:find("danau")
 			or name:find("river")
 			or name:find("sungai")
-			or name:find("ocean")
 			or name:find("laut")
 			or name:find("sea")
 			or name:find("pool")
@@ -517,45 +515,38 @@ local function findWaterTarget()
 	rayParams.FilterDescendantsInstances = { char }
 	rayParams.IgnoreWater = false
 
-	-- 1. Cek Raycast dari posisi kursor mouse pemain
+	-- 1. Cek Raycast dari posisi kursor mouse pemain ke air/ocean
 	local mouse = player:GetMouse()
 	if mouse and mouse.UnitRay then
-		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 300, rayParams)
+		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 350, rayParams)
 		if mouseResult then
 			if isWaterInstance(mouseResult.Instance, mouseResult.Material) then
 				local dist = (mouseResult.Position - hrp.Position).Magnitude
-				if dist <= 120 then
-					return mouseResult.Position
+				if dist <= 180 then
+					return Vector3.new(mouseResult.Position.X, 1.0, mouseResult.Position.Z)
 				end
 			end
 		end
 	end
 
-	-- 2. Cek semua Part Air di Workspace (seperti Workspace.Lake)
-	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart") and isWaterInstance(obj, obj.Material) then
-			local halfX = obj.Size.X / 2
-			local halfZ = obj.Size.Z / 2
-			local topY = obj.Position.Y + (obj.Size.Y / 2)
-			
-			local minX = obj.Position.X - halfX - 50
-			local maxX = obj.Position.X + halfX + 50
-			local minZ = obj.Position.Z - halfZ - 50
-			local maxZ = obj.Position.Z + halfZ + 50
-			
-			if hrp.Position.X >= minX and hrp.Position.X <= maxX and hrp.Position.Z >= minZ and hrp.Position.Z <= maxZ then
-				local look = hrp.CFrame.LookVector
-				local targetX = math.clamp(hrp.Position.X + look.X * 18, obj.Position.X - halfX + 2, obj.Position.X + halfX - 2)
-				local targetZ = math.clamp(hrp.Position.Z + look.Z * 18, obj.Position.Z - halfZ + 2, obj.Position.Z + halfZ - 2)
-				return Vector3.new(targetX, topY, targetZ)
-			end
-		end
+	-- 2. Cek Terrain Water atau Part Ocean di depan karakter
+	local forwardRay = workspace:Raycast(hrp.Position + Vector3.new(0, 2, 0), (hrp.CFrame.LookVector * 40) + Vector3.new(0, -25, 0), rayParams)
+	if forwardRay and (forwardRay.Material == Enum.Material.Water or isWaterInstance(forwardRay.Instance, forwardRay.Material)) then
+		return Vector3.new(forwardRay.Position.X, 1.0, forwardRay.Position.Z)
 	end
 
-	-- 3. Cek Terrain Water di depan karakter
-	local forwardRay = workspace:Raycast(hrp.Position + Vector3.new(0, 2, 0), (hrp.CFrame.LookVector * 35) + Vector3.new(0, -20, 0), rayParams)
-	if forwardRay and (forwardRay.Material == Enum.Material.Water or isWaterInstance(forwardRay.Instance, forwardRay.Material)) then
-		return forwardRay.Position
+	-- 3. Cek Ocean luas dari posisi dermaga / pulau
+	local oceanPart = (workspace:FindFirstChild("OceanMap") and workspace.OceanMap:FindFirstChild("Ocean")) or workspace:FindFirstChild("Ocean")
+	if oceanPart then
+		local topY = oceanPart.Position.Y + (oceanPart.Size.Y / 2)
+		local look = hrp.CFrame.LookVector
+		local targetPos = hrp.Position + (look * 22)
+		local downRay = workspace:Raycast(Vector3.new(targetPos.X, hrp.Position.Y + 4, targetPos.Z), Vector3.new(0, -30, 0), rayParams)
+		if downRay and isWaterInstance(downRay.Instance, downRay.Material) then
+			return Vector3.new(targetPos.X, topY, targetPos.Z)
+		elseif not downRay or downRay.Position.Y <= topY + 0.5 then
+			return Vector3.new(targetPos.X, topY, targetPos.Z)
+		end
 	end
 
 	return nil
@@ -693,7 +684,7 @@ local function tryStartFishing()
 	if waterPos then
 		startFishingAtWater(waterPos)
 	else
-		showMessage("Arahkan atau dekati area danau/air untuk mulai memancing!", Color3.fromRGB(220, 220, 240), 2.5)
+		showMessage("Arahkan atau dekati area lautan/air untuk mulai memancing!", Color3.fromRGB(220, 220, 240), 2.5)
 	end
 end
 
