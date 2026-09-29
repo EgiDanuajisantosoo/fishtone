@@ -1,0 +1,27 @@
+{
+  "name": "FishTune",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "PianoTilesGame": {
+        "$path": "src/ReplicatedStorage/PianoTilesGame.lua"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "FishingServer": {
+        "$path": "src/ServerScriptService/FishingServer.server.lua"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "FishingClient": {
+          "$path": "src/StarterPlayerScripts/FishingClient.client.lua"
+        }
+      }
+    }
+  }
+}

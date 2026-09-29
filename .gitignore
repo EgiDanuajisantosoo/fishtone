@@ -1,0 +1,9 @@
+# Roblox / Rojo
+*.rbxlx.lock
+*.rbxl.lock
+.rojo/
+
+# OS Files
+Thumbs.db
+.DS_Store
+*.tmp
