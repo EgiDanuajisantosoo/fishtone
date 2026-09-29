@@ -1,24 +1,19 @@
 --[[
 	FishingRaritySystem (ModuleScript)
-	Sistem Rarity Dinamis Berbasis Total Luck (1 - 100) & Hierarchical Pity System.
+	Sistem Rarity Dinamis Berbasis Total Luck (1 - 100) & Hierarchical Pity System
+	dengan 6 Tingkatan Rarity & Jumlah Nada Target Sesuai Desain:
 	
-	Rarity Tiers (6 Tingkat):
-	1. Common (C)
-	2. Rare (R)
-	3. SuperRare (SR)
-	4. SSR
-	5. UR
-	6. EX
-	
-	Formula Gradual Luck Interpolation:
-	- MIN_LUCK = 1  -> C: 70%, R: 30%, SR: 0%, SSR: 0%, UR: 0%, EX: 0%
-	- MAX_LUCK = 100 -> C: 0%,  R: 0%,  SR: 40%, SSR: 48%, UR: 9%, EX: 3%
-	- t = (luck - 1) / 99
+	1. COMMON     -> 30 Nada  (Abu-abu)
+	2. RARE       -> 60 Nada  (Biru)
+	3. SUPER RARE -> 100 Nada (Ungu)
+	4. LEGENDARY  -> 150 Nada (Emas)
+	5. MYTHIC     -> 200 Nada (Merah)
+	6. SPECIAL    -> 300 Nada (Pelangi / Special)
 	
 	Hierarchical Pity Limits:
-	- SSR : 100 attempt
-	- UR  : 500 attempt
-	- EX  : 1000 attempt
+	- LEGENDARY : 100 attempt
+	- MYTHIC    : 500 attempt
+	- SPECIAL   : 1000 attempt
 ]]
 
 local FishingRaritySystem = {}
@@ -27,127 +22,134 @@ FishingRaritySystem.MIN_LUCK = 1
 FishingRaritySystem.MAX_LUCK = 100
 
 FishingRaritySystem.PITY_LIMITS = {
+	LEGENDARY = 100,
+	MYTHIC = 500,
+	SPECIAL = 1000,
+	-- Aliases
 	SSR = 100,
 	UR = 500,
 	EX = 1000,
 }
 
--- Definisi 6 Tier Rarity & Visual
+-- Definisi 6 Tier Rarity & Visual & Jumlah Nada Target
 FishingRaritySystem.TIERS = {
-	EX = {
-		name = "EX",
-		displayName = "EX (Transcendental)",
+	SPECIAL = {
+		name = "SPECIAL",
+		displayName = "SPECIAL",
+		targetNotes = 300,       -- 300 Nada
 		stars = "⭐⭐⭐⭐⭐⭐",
-		color = Color3.fromRGB(255, 30, 200),
-		badgeColor = Color3.fromRGB(255, 0, 180),
+		color = Color3.fromRGB(255, 60, 200),
+		badgeColor = Color3.fromRGB(255, 120, 30),
 		order = 6,
-		-- Mini-game Piano Tiles parameter
-		baseStart = 0.18,       -- Start 18%
-		baseHitGain = 0.055,    -- Tambah 5.5% per hit
-		comboHitGain = 0.085,   -- Tambah 8.5% saat combo
-		baseMissPenalty = 0.24, -- Kurang 24% saat salah
+		baseStart = 0.15,        -- Start 15% (45 nada awal)
+		basePenaltyNotes = 45,   -- Penalti miss 45 nada (~15%)
 		speed = 0.54,
 	},
-	UR = {
-		name = "UR",
-		displayName = "UR (Ultra Rare)",
+	MYTHIC = {
+		name = "MYTHIC",
+		displayName = "MYTHIC",
+		targetNotes = 200,       -- 200 Nada
 		stars = "⭐⭐⭐⭐⭐",
-		color = Color3.fromRGB(255, 60, 60),
-		badgeColor = Color3.fromRGB(230, 40, 40),
+		color = Color3.fromRGB(235, 45, 45),
+		badgeColor = Color3.fromRGB(195, 25, 25),
 		order = 5,
-		baseStart = 0.22,       -- Start 22%
-		baseHitGain = 0.065,
-		comboHitGain = 0.095,
-		baseMissPenalty = 0.20,
+		baseStart = 0.20,        -- Start 20% (40 nada awal)
+		basePenaltyNotes = 30,   -- Penalti miss 30 nada (~15%)
 		speed = 0.49,
 	},
-	SSR = {
-		name = "SSR",
-		displayName = "SSR (Super Super Rare)",
+	LEGENDARY = {
+		name = "LEGENDARY",
+		displayName = "LEGENDARY",
+		targetNotes = 150,       -- 150 Nada
 		stars = "⭐⭐⭐⭐",
-		color = Color3.fromRGB(255, 215, 0),
-		badgeColor = Color3.fromRGB(240, 195, 20),
+		color = Color3.fromRGB(240, 185, 20),
+		badgeColor = Color3.fromRGB(210, 160, 10),
 		order = 4,
-		baseStart = 0.26,       -- Start 26%
-		baseHitGain = 0.075,
-		comboHitGain = 0.11,
-		baseMissPenalty = 0.17,
+		baseStart = 0.25,        -- Start 25% (38 nada awal)
+		basePenaltyNotes = 20,   -- Penalti miss 20 nada (~13%)
 		speed = 0.44,
 	},
-	SuperRare = {
-		name = "SuperRare",
-		displayName = "Super Rare (SR)",
+	SUPER_RARE = {
+		name = "SUPER RARE",
+		displayName = "SUPER RARE",
+		targetNotes = 100,       -- 100 Nada
 		stars = "⭐⭐⭐",
-		color = Color3.fromRGB(190, 70, 255),
-		badgeColor = Color3.fromRGB(170, 50, 240),
+		color = Color3.fromRGB(170, 50, 240),
+		badgeColor = Color3.fromRGB(140, 30, 210),
 		order = 3,
-		baseStart = 0.32,       -- Start 32%
-		baseHitGain = 0.09,
-		comboHitGain = 0.13,
-		baseMissPenalty = 0.14,
+		baseStart = 0.30,        -- Start 30% (30 nada awal)
+		basePenaltyNotes = 12,   -- Penalti miss 12 nada (~12%)
 		speed = 0.39,
 	},
-	Rare = {
-		name = "Rare",
-		displayName = "Rare (R)",
+	RARE = {
+		name = "RARE",
+		displayName = "RARE",
+		targetNotes = 60,        -- 60 Nada
 		stars = "⭐⭐",
-		color = Color3.fromRGB(0, 185, 255),
-		badgeColor = Color3.fromRGB(0, 160, 240),
+		color = Color3.fromRGB(0, 140, 255),
+		badgeColor = Color3.fromRGB(0, 110, 220),
 		order = 2,
-		baseStart = 0.38,       -- Start 38%
-		baseHitGain = 0.11,
-		comboHitGain = 0.15,
-		baseMissPenalty = 0.11,
+		baseStart = 0.35,        -- Start 35% (21 nada awal)
+		basePenaltyNotes = 6,    -- Penalti miss 6 nada (~10%)
 		speed = 0.34,
 	},
-	Common = {
-		name = "Common",
-		displayName = "Common (C)",
+	COMMON = {
+		name = "COMMON",
+		displayName = "COMMON",
+		targetNotes = 30,        -- 30 Nada
 		stars = "⭐",
-		color = Color3.fromRGB(170, 210, 240),
-		badgeColor = Color3.fromRGB(150, 190, 220),
+		color = Color3.fromRGB(150, 155, 165),
+		badgeColor = Color3.fromRGB(120, 125, 135),
 		order = 1,
-		baseStart = 0.44,       -- Start 44%
-		baseHitGain = 0.13,
-		comboHitGain = 0.18,
-		baseMissPenalty = 0.08,
+		baseStart = 0.40,        -- Start 40% (12 nada awal)
+		basePenaltyNotes = 3,    -- Penalti miss 3 nada (~10%)
 		speed = 0.30,
 	},
 }
 
+-- Mapping alias
+FishingRaritySystem.TIERS.EX = FishingRaritySystem.TIERS.SPECIAL
+FishingRaritySystem.TIERS.UR = FishingRaritySystem.TIERS.MYTHIC
+FishingRaritySystem.TIERS.SSR = FishingRaritySystem.TIERS.LEGENDARY
+FishingRaritySystem.TIERS.SUPERRARE = FishingRaritySystem.TIERS.SUPER_RARE
+FishingRaritySystem.TIERS.SR = FishingRaritySystem.TIERS.SUPER_RARE
+FishingRaritySystem.TIERS.SuperRare = FishingRaritySystem.TIERS.SUPER_RARE
+FishingRaritySystem.TIERS.Rare = FishingRaritySystem.TIERS.RARE
+FishingRaritySystem.TIERS.Common = FishingRaritySystem.TIERS.COMMON
+
 -- Database Nama Ikan per Rarity Tier
 FishingRaritySystem.FISH_DATABASE = {
-	EX = {
-		"Leviathan Abyss",
+	SPECIAL = {
+		"Dewi Samudra Poseidon",
 		"Naga Bintang Kosmik",
-		"Dewi Laut Poseidon",
-		"Kraken Purba Kuno"
+		"Leviathan Abyss",
+		"Kraken Kuno Abadi"
 	},
-	UR = {
+	MYTHIC = {
 		"Hiu Megalodon Merah",
 		"Naga Laut Api",
 		"Kraken Laut Dalam",
 		"Pari Raksasa Nebula"
 	},
-	SSR = {
+	LEGENDARY = {
 		"Naga Laut Mistis",
 		"Hiu Emas Murni",
 		"Ikan Mas Raja",
 		"Belida Emas Suci"
 	},
-	SuperRare = {
+	SUPER_RARE = {
 		"Arapaima Raksasa",
 		"Pari Listrik Laut",
 		"Lele Monster Raksasa",
 		"Toman Raja Hitam"
 	},
-	Rare = {
+	RARE = {
 		"Gurame Super",
 		"Ikan Salmon Perak",
 		"Bawal Emas",
 		"Kakap Merah Segar"
 	},
-	Common = {
+	COMMON = {
 		"Ikan Mas Kecil",
 		"Lele Lokal",
 		"Mujair Sungai",
@@ -156,14 +158,24 @@ FishingRaritySystem.FISH_DATABASE = {
 	}
 }
 
+-- Aliases database
+FishingRaritySystem.FISH_DATABASE.EX = FishingRaritySystem.FISH_DATABASE.SPECIAL
+FishingRaritySystem.FISH_DATABASE.UR = FishingRaritySystem.FISH_DATABASE.MYTHIC
+FishingRaritySystem.FISH_DATABASE.SSR = FishingRaritySystem.FISH_DATABASE.LEGENDARY
+FishingRaritySystem.FISH_DATABASE.SUPERRARE = FishingRaritySystem.FISH_DATABASE.SUPER_RARE
+FishingRaritySystem.FISH_DATABASE.SR = FishingRaritySystem.FISH_DATABASE.SUPER_RARE
+FishingRaritySystem.FISH_DATABASE.SuperRare = FishingRaritySystem.FISH_DATABASE.SUPER_RARE
+FishingRaritySystem.FISH_DATABASE.Rare = FishingRaritySystem.FISH_DATABASE.RARE
+FishingRaritySystem.FISH_DATABASE.Common = FishingRaritySystem.FISH_DATABASE.COMMON
+
 -- Urutan Pengecekan Probabilitas
 FishingRaritySystem.RARITY_ORDER = {
-	"Common",
-	"Rare",
-	"SuperRare",
-	"SSR",
-	"UR",
-	"EX"
+	"COMMON",
+	"RARE",
+	"SUPER_RARE",
+	"LEGENDARY",
+	"MYTHIC",
+	"SPECIAL"
 }
 
 -- 1. Hitung Distribusi Probabilitas Berdasarkan Nilai Luck (1 - 100)
@@ -172,6 +184,13 @@ function FishingRaritySystem.GetRarityChances(luck)
 	local t = (luck - FishingRaritySystem.MIN_LUCK) / (FishingRaritySystem.MAX_LUCK - FishingRaritySystem.MIN_LUCK)
 
 	return {
+		COMMON = 70 * (1 - t),
+		RARE = 30 * (1 - t),
+		SUPER_RARE = 40 * t,
+		LEGENDARY = 48 * t,
+		MYTHIC = 9 * t,
+		SPECIAL = 3 * t,
+		-- Aliases
 		Common = 70 * (1 - t),
 		Rare = 30 * (1 - t),
 		SuperRare = 40 * t,
@@ -194,47 +213,63 @@ function FishingRaritySystem.RollRarity(luck)
 		end
 	end
 
-	return "Common"
+	return "COMMON"
 end
 
 -- 3. Evaluasi Pity System Hierarkis
 function FishingRaritySystem.EvaluateWithPity(luck, pityState)
-	pityState = pityState or { SSR = 0, UR = 0, EX = 0 }
+	pityState = pityState or { SPECIAL = 0, MYTHIC = 0, LEGENDARY = 0 }
+
+	local pSpecial = pityState.SPECIAL or pityState.EX or 0
+	local pMythic = pityState.MYTHIC or pityState.UR or 0
+	local pLegendary = pityState.LEGENDARY or pityState.SSR or 0
 
 	-- Cek Pity dari tingkat tertinggi
-	if (pityState.EX or 0) >= FishingRaritySystem.PITY_LIMITS.EX then
-		return "EX", true
-	elseif (pityState.UR or 0) >= FishingRaritySystem.PITY_LIMITS.UR then
-		return "UR", true
-	elseif (pityState.SSR or 0) >= FishingRaritySystem.PITY_LIMITS.SSR then
-		return "SSR", true
+	if pSpecial >= FishingRaritySystem.PITY_LIMITS.SPECIAL then
+		return "SPECIAL", true
+	elseif pMythic >= FishingRaritySystem.PITY_LIMITS.MYTHIC then
+		return "MYTHIC", true
+	elseif pLegendary >= FishingRaritySystem.PITY_LIMITS.LEGENDARY then
+		return "LEGENDARY", true
 	end
 
-	-- Jika tidak kena pity, gunakan Roll RNG berbasis Luck
 	return FishingRaritySystem.RollRarity(luck), false
 end
 
 -- 4. Perbarui State Pity setelah Ikan Berhasil Ditangkap
 function FishingRaritySystem.UpdatePityOnCatch(pityState, obtainedRarity)
-	pityState = pityState or { SSR = 0, UR = 0, EX = 0 }
+	pityState = pityState or {}
+	local r = tostring(obtainedRarity):upper()
 
-	if obtainedRarity == "EX" then
+	if r == "SPECIAL" or r == "EX" then
+		pityState.SPECIAL = 0
+		pityState.MYTHIC = 0
+		pityState.LEGENDARY = 0
 		pityState.EX = 0
 		pityState.UR = 0
 		pityState.SSR = 0
-	elseif obtainedRarity == "UR" then
+	elseif r == "MYTHIC" or r == "UR" then
+		pityState.MYTHIC = 0
+		pityState.LEGENDARY = 0
 		pityState.UR = 0
 		pityState.SSR = 0
-		pityState.EX = (pityState.EX or 0) + 1
-	elseif obtainedRarity == "SSR" then
+		pityState.SPECIAL = (pityState.SPECIAL or pityState.EX or 0) + 1
+		pityState.EX = pityState.SPECIAL
+	elseif r == "LEGENDARY" or r == "SSR" then
+		pityState.LEGENDARY = 0
 		pityState.SSR = 0
-		pityState.UR = (pityState.UR or 0) + 1
-		pityState.EX = (pityState.EX or 0) + 1
+		pityState.MYTHIC = (pityState.MYTHIC or pityState.UR or 0) + 1
+		pityState.UR = pityState.MYTHIC
+		pityState.SPECIAL = (pityState.SPECIAL or pityState.EX or 0) + 1
+		pityState.EX = pityState.SPECIAL
 	else
-		-- Common, Rare, SuperRare menaikkan semua pity counter
-		pityState.SSR = (pityState.SSR or 0) + 1
-		pityState.UR = (pityState.UR or 0) + 1
-		pityState.EX = (pityState.EX or 0) + 1
+		-- COMMON, RARE, SUPER_RARE menaikkan semua pity counter
+		pityState.LEGENDARY = (pityState.LEGENDARY or pityState.SSR or 0) + 1
+		pityState.SSR = pityState.LEGENDARY
+		pityState.MYTHIC = (pityState.MYTHIC or pityState.UR or 0) + 1
+		pityState.UR = pityState.MYTHIC
+		pityState.SPECIAL = (pityState.SPECIAL or pityState.EX or 0) + 1
+		pityState.EX = pityState.SPECIAL
 	end
 
 	return pityState
@@ -242,8 +277,15 @@ end
 
 -- 5. Ambil Ikan Acak dari Tier
 function FishingRaritySystem.GetRandomFishName(rarity)
-	local list = FishingRaritySystem.FISH_DATABASE[rarity] or FishingRaritySystem.FISH_DATABASE.Common
+	local tierKey = tostring(rarity):upper()
+	local list = FishingRaritySystem.FISH_DATABASE[tierKey] or FishingRaritySystem.FISH_DATABASE.COMMON
 	return list[math.random(1, #list)]
+end
+
+-- 6. Helper Standarisasi Tier
+function FishingRaritySystem.GetTierData(tierName)
+	local key = tostring(tierName or "COMMON"):upper():gsub("%s+", "_")
+	return FishingRaritySystem.TIERS[key] or FishingRaritySystem.TIERS.COMMON
 end
 
 return FishingRaritySystem

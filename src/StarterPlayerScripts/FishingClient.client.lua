@@ -954,7 +954,7 @@ executeCastAfterMeter = function()
 		}):Play()
 	end
 
-	showMessage("🎵 " .. tierData.displayName .. " " .. tierData.stars .. " MENYAMBAR! Mainkan Piano Tiles!", tierData.color, 3.5)
+	showMessage("🎵 [" .. tierData.displayName .. "] " .. tierData.stars .. " (" .. (tierData.targetNotes or 30) .. " NADA) MENYAMBAR!", tierData.color, 3.5)
 	AnimSystem.SetPhase("Reeling")
 
 	-- 3. Jalankan Mini-game Piano Tiles dengan Tier Rarity 6 Tingkat
@@ -1084,15 +1084,15 @@ if remote then
 	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3)
 		if action == "CatchSuccess" then
 			local fishName = arg1 or "Ikan"
-			local rarity = arg2 or "Common"
+			local rarity = arg2 or "COMMON"
 			local pityState = arg3
 			if pityState then
 				clientPity = pityState
 			end
 
-			local tierData = FishingRaritySystem.TIERS[rarity] or FishingRaritySystem.TIERS.Common
-			local toastMsg = "🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. tierData.displayName .. " " .. tierData.stars .. "]"
-			showMessage(toastMsg, tierData.color, 4)
+			local tierData = FishingRaritySystem.GetTierData(rarity)
+			local toastMsg = "🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. tierData.displayName .. " " .. tierData.stars .. " | " .. (tierData.targetNotes or 30) .. " NADA]"
+			showMessage(toastMsg, tierData.color, 4.5)
 		elseif action == "PityStateUpdate" then
 			if arg1 then
 				clientPity = arg1

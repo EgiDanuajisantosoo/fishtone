@@ -35,12 +35,13 @@ end
 
 -- Fungsi Membuat Item Ikan 3D sebagai Tool di Inventory
 local function createFishTool(fishName, rarity)
-	local tierData = FishingRaritySystem.TIERS[rarity] or FishingRaritySystem.TIERS.Common
+	local tierData = FishingRaritySystem.GetTierData(rarity)
 	local color = tierData.color
+	local r = tierData.name
 
 	local tool = Instance.new("Tool")
-	tool.Name = fishName .. " [" .. rarity .. "]"
-	tool.ToolTip = "Tangkapan Segar: " .. fishName .. " (" .. tierData.displayName .. " " .. tierData.stars .. ")"
+	tool.Name = fishName .. " [" .. tierData.displayName .. "]"
+	tool.ToolTip = "Tangkapan: " .. fishName .. " (" .. tierData.displayName .. " " .. tierData.stars .. " | " .. (tierData.targetNotes or 30) .. " Nada)"
 	tool.RequiresHandle = true
 	tool.CanBeDropped = true
 
@@ -50,7 +51,7 @@ local function createFishTool(fishName, rarity)
 	handle.Shape = Enum.PartType.Ball
 	handle.Size = Vector3.new(0.65, 0.5, 1.5)
 	handle.Color = color
-	handle.Material = (rarity == "EX" or rarity == "UR" or rarity == "SSR") and Enum.Material.Neon or Enum.Material.SmoothPlastic
+	handle.Material = (r == "SPECIAL" or r == "MYTHIC" or r == "LEGENDARY") and Enum.Material.Neon or Enum.Material.SmoothPlastic
 	handle.CanCollide = false
 	handle.Parent = tool
 
@@ -85,31 +86,31 @@ local function createFishTool(fishName, rarity)
 	wcFin.Parent = handle
 
 	-- Efek Visual Rarity Eksklusif
-	if rarity == "EX" or rarity == "UR" or rarity == "SSR" or rarity == "SuperRare" or rarity == "Rare" then
+	if r ~= "COMMON" then
 		local sparkles = Instance.new("Sparkles")
 		sparkles.SparkleColor = color
 		sparkles.Parent = handle
 
 		local light = Instance.new("PointLight")
 		light.Color = color
-		light.Range = (rarity == "EX" and 12) or (rarity == "UR" and 9) or (rarity == "SSR" and 7) or 5
-		light.Brightness = (rarity == "EX" and 3.0) or (rarity == "UR" and 2.2) or 1.5
+		light.Range = (r == "SPECIAL" and 14) or (r == "MYTHIC" and 10) or (r == "LEGENDARY" and 8) or (r == "SUPER_RARE" and 6) or 5
+		light.Brightness = (r == "SPECIAL" and 3.2) or (r == "MYTHIC" and 2.4) or (r == "LEGENDARY" and 1.8) or 1.2
 		light.Parent = handle
 	end
 
-	-- Efek Aura Khusus EX / UR
-	if rarity == "EX" then
+	-- Efek Aura Khusus SPECIAL & MYTHIC
+	if r == "SPECIAL" then
 		local fire = Instance.new("Fire")
-		fire.Color = Color3.fromRGB(255, 0, 200)
+		fire.Color = Color3.fromRGB(255, 60, 200)
 		fire.SecondaryColor = Color3.fromRGB(0, 255, 255)
-		fire.Size = 3
+		fire.Size = 3.5
 		fire.Heat = 5
 		fire.Parent = handle
-	elseif rarity == "UR" then
+	elseif r == "MYTHIC" then
 		local fire = Instance.new("Fire")
-		fire.Color = Color3.fromRGB(255, 50, 50)
+		fire.Color = Color3.fromRGB(235, 45, 45)
 		fire.SecondaryColor = Color3.fromRGB(255, 200, 50)
-		fire.Size = 2.5
+		fire.Size = 2.8
 		fire.Heat = 4
 		fire.Parent = handle
 	end

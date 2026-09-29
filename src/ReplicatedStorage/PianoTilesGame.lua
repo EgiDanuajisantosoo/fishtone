@@ -119,7 +119,9 @@ end
 -- ============ STATE ============
 local state = "Idle" -- Idle | Playing | Result
 local score, combo = 0, 0
-local progress = 0.35
+local progress = 0.40
+local currentNotes = 12
+local targetNotes = 30
 local speed = 0.35
 local currentMelody = MELODIES[1]
 local melodyIndex = 1
@@ -132,11 +134,9 @@ local winCb, loseCb
 local lastColPressTime = { 0, 0, 0, 0 }
 
 -- Nilai kalkulasi dinamis untuk ronde aktif
-local activeTier = TIER_CONFIGS.BIASA
+local activeTier = FishingRaritySystem.TIERS.COMMON
 local activeCast = CAST_BONUSES.GOOD
-local activeHitGain = 0.10
-local activeComboHitGain = 0.14
-local activeMissPenalty = 0.15
+local activePenaltyNotes = 3
 
 -- Referensi GUI
 local gui, arenaContainer, arenaFrame, songLabel, tierLabel, castBonusLabel, comboLabel, resultOverlay, resultLabel
@@ -180,14 +180,14 @@ end
 local function updateHud()
 	if comboLabel then
 		if combo >= 2 then
-			comboLabel.Text = "🔥 COMBO x" .. combo .. (combo >= 3 and " (+Bonus Tenaga!)" or "")
+			comboLabel.Text = "🔥 COMBO x" .. combo .. (combo >= 3 and " (+2 Nada!)" or "")
 			comboLabel.Visible = true
 		else
 			comboLabel.Visible = false
 		end
 	end
 
-	-- Update Bar Indikator Tangkapan di Bawah
+	-- Update Bar Indikator Tangkapan di Bawah dengan Jumlah Nada
 	if progressFill and progressLabel then
 		local percent = math.clamp(progress, 0, 1)
 		local percentInt = math.floor(percent * 100)
@@ -198,13 +198,11 @@ local function updateHud()
 		}):Play()
 
 		-- Warna dinamis berdasarkan status tarikan
-		local barColor = Color3.fromRGB(0, 210, 255)
+		local barColor = activeTier.color or Color3.fromRGB(0, 210, 255)
 		if percent >= 0.70 then
 			barColor = Color3.fromRGB(50, 250, 130) -- Hijau Kemenangan
 		elseif percent <= 0.25 then
 			barColor = Color3.fromRGB(255, 65, 65)  -- Merah Bahaya
-		else
-			barColor = Color3.fromRGB(0, 205, 255)  -- Cyan Stabil
 		end
 
 		progressFill.BackgroundColor3 = barColor
@@ -212,7 +210,7 @@ local function updateHud()
 			progressGlow.Color = barColor
 		end
 
-		progressLabel.Text = "🎣 TARIKAN: " .. percentInt .. "%"
+		progressLabel.Text = string.format("🎣 TARIKAN: %d%% (%d / %d NADA)", percentInt, currentNotes, targetNotes)
 	end
 end
 
@@ -318,7 +316,8 @@ local function registerMistake(reason, col)
 	if state ~= "Playing" then return end
 
 	combo = 0
-	progress = math.clamp(progress - activeMissPenalty, 0, 1.0)
+	currentNotes = math.max(0, currentNotes - activePenaltyNotes)
+	progress = math.clamp(currentNotes / targetNotes, 0, 1.0)
 	updateHud()
 	playMissSound()
 
@@ -342,8 +341,8 @@ local function registerMistake(reason, col)
 		end)
 	end
 
-	-- Cek apakah bar habis (0%) -> Ikan Lepas!
-	if progress <= 0 then
+	-- Cek apakah bar/nada habis (0) -> Ikan Lepas!
+	if currentNotes <= 0 or progress <= 0 then
 		endRound(false, "IKAN TERLEPAS!\n(Tarikan Habis)")
 	end
 end
@@ -357,9 +356,10 @@ local function hitTile(entry)
 	score += 1
 	combo += 1
 
-	-- Tambah progress bar sesuai kalkulasi tier & combo aktif
-	local gain = (combo >= 3 and activeComboHitGain or activeHitGain)
-	progress = math.clamp(progress + gain, 0, 1.0)
+	-- Tambah progress nada (Combo >= 3 memberi +2 nada sekaligus!)
+	local gainNotes = (combo >= 3 and 2 or 1)
+	currentNotes = math.min(currentNotes + gainNotes, targetNotes)
+	progress = math.clamp(currentNotes / targetNotes, 0, 1.0)
 	updateHud()
 	playPianoNote(entry.semitone)
 
@@ -380,8 +380,8 @@ local function hitTile(entry)
 		end)
 	end
 
-	-- Jika bar terisi penuh 100%, menang!
-	if progress >= 1.0 then
+	-- Jika target nada tercapai (100%), menang!
+	if currentNotes >= targetNotes or progress >= 1.0 then
 		endRound(true, "BERHASIL DITANGKAP!")
 	end
 end
@@ -715,27 +715,24 @@ function PianoTilesGame.Start(config, onWin, onLose)
 	if not gui then return false end
 
 	config = config or {}
-	local tierKey = tostring(config.tier or "BIASA"):upper()
 	local castKey = tostring(config.castQuality or "GOOD"):upper()
 
-	activeTier = TIER_CONFIGS[tierKey] or TIER_CONFIGS.BIASA
+	activeTier = FishingRaritySystem.GetTierData(config.tier)
 	activeCast = CAST_BONUSES[castKey] or CAST_BONUSES.GOOD
 
-	-- 1. Hitung Progress Awal Berdasarkan Tier Ikan & Kualitas Lemparan
-	local startProgress = math.clamp(activeTier.baseStart + activeCast.startBonus, 0.12, 0.85)
-	progress = startProgress
+	targetNotes = activeTier.targetNotes or 30
+	local startRatio = math.clamp(activeTier.baseStart + activeCast.startBonus, 0.10, 0.85)
+	currentNotes = math.max(1, math.floor(startRatio * targetNotes))
+	progress = currentNotes / targetNotes
 
-	-- 2. Hitung Nilai Penambahan & Pengurangan Aktif
-	activeHitGain = activeTier.baseHitGain + activeCast.gainBonus
-	activeComboHitGain = activeTier.comboHitGain + activeCast.gainBonus
-	activeMissPenalty = activeTier.baseMissPenalty * activeCast.penaltyMult
+	activePenaltyNotes = math.max(1, math.floor((activeTier.basePenaltyNotes or 3) * activeCast.penaltyMult))
 
 	currentMelody = MELODIES[math.random(1, #MELODIES)]
 	speed = math.clamp(config.speed or activeTier.speed or currentMelody.baseSpeed, 0.2, 1.2)
 	
 	-- Update Tampilan Info Header
 	if tierLabel then
-		tierLabel.Text = "🐟 IKAN: " .. activeTier.name .. " " .. activeTier.stars
+		tierLabel.Text = "[" .. activeTier.name .. "] " .. activeTier.stars
 		tierLabel.TextColor3 = activeTier.color
 	end
 	if castBonusLabel then
@@ -743,7 +740,7 @@ function PianoTilesGame.Start(config, onWin, onLose)
 		castBonusLabel.TextColor3 = activeCast.color
 	end
 	if songLabel then
-		songLabel.Text = "🎵 Melodi: " .. currentMelody.name
+		songLabel.Text = "🎵 Melodi: " .. currentMelody.name .. " | Target: " .. targetNotes .. " Nada"
 	end
 
 	roundToken += 1
