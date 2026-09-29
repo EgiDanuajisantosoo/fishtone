@@ -6,6 +6,9 @@
       "$className": "ReplicatedStorage",
       "PianoTilesGame": {
         "$path": "src/ReplicatedStorage/PianoTilesGame.lua"
+      },
+      "FishingRaritySystem": {
+        "$path": "src/ReplicatedStorage/FishingRaritySystem.lua"
       }
     },
     "ServerScriptService": {
