@@ -954,7 +954,7 @@ executeCastAfterMeter = function()
 		}):Play()
 	end
 
-	showMessage("🎵 [" .. tierData.displayName .. "] " .. tierData.stars .. " (" .. (tierData.targetNotes or 30) .. " NADA) MENYAMBAR!", tierData.color, 3.5)
+	showMessage("🎣 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)
 	AnimSystem.SetPhase("Reeling")
 
 	-- 3. Jalankan Mini-game Piano Tiles dengan Tier Rarity 6 Tingkat

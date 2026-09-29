@@ -58,24 +58,24 @@ local TIER_CONFIGS = {
 -- ============ KONFIGURASI BONUS LEMPARAN AWAL ============
 local CAST_BONUSES = {
 	PERFECT = {
-		startBonus = 0.25,      -- +25% Bar Awal
-		gainBonus = 0.02,       -- +2% per hit
-		penaltyMult = 0.75,     -- Penalti salah berkurang 25%
-		label = "⭐ PERFECT CAST (+25% Bar Start)",
+		startRatio = 0.35,      -- Bar mulai tepat 35% untuk semua ikan
+		gainBonus = 0.02,       -- +2% bonus per hit
+		penaltyMult = 0.70,     -- Penalti kesalahan 30% lebih ringan
+		label = "⭐ PERFECT CAST (+35% Tarikan Awal)",
 		color = Color3.fromRGB(255, 215, 0),
 	},
 	GREAT = {
-		startBonus = 0.12,      -- +12% Bar Awal
+		startRatio = 0.20,      -- Bar mulai tepat 20% untuk semua ikan
 		gainBonus = 0.01,
-		penaltyMult = 0.90,     -- Penalti salah berkurang 10%
-		label = "✨ GREAT CAST (+12% Bar Start)",
+		penaltyMult = 0.85,     -- Penalti kesalahan 15% lebih ringan
+		label = "✨ GREAT CAST (+20% Tarikan Awal)",
 		color = Color3.fromRGB(0, 220, 255),
 	},
 	GOOD = {
-		startBonus = 0.00,      -- Standar
+		startRatio = 0.10,      -- Bar mulai tepat 10% untuk semua ikan
 		gainBonus = 0.00,
 		penaltyMult = 1.00,
-		label = "👍 GOOD CAST",
+		label = "👍 GOOD CAST (+10% Tarikan Awal)",
 		color = Color3.fromRGB(220, 230, 255),
 	},
 }
@@ -198,7 +198,7 @@ local function updateHud()
 		}):Play()
 
 		-- Warna dinamis berdasarkan status tarikan
-		local barColor = activeTier.color or Color3.fromRGB(0, 210, 255)
+		local barColor = Color3.fromRGB(0, 210, 255)
 		if percent >= 0.70 then
 			barColor = Color3.fromRGB(50, 250, 130) -- Hijau Kemenangan
 		elseif percent <= 0.25 then
@@ -210,7 +210,7 @@ local function updateHud()
 			progressGlow.Color = barColor
 		end
 
-		progressLabel.Text = string.format("🎣 TARIKAN: %d%% (%d / %d NADA)", percentInt, currentNotes, targetNotes)
+		progressLabel.Text = string.format("🎣 TARIKAN: %d%%", percentInt)
 	end
 end
 
@@ -228,7 +228,7 @@ local function spawnTile()
 	end
 	lastColumn = col
 
-	local tileColor = activeTier.color or Color3.fromRGB(0, 200, 255)
+	local tileColor = Color3.fromRGB(0, 205, 255)
 
 	local tile = mk("Frame", {
 		Name = "Tile_" .. spawnedCount,
@@ -721,26 +721,27 @@ function PianoTilesGame.Start(config, onWin, onLose)
 	activeCast = CAST_BONUSES[castKey] or CAST_BONUSES.GOOD
 
 	targetNotes = activeTier.targetNotes or 30
-	local startRatio = math.clamp(activeTier.baseStart + activeCast.startBonus, 0.10, 0.85)
+	-- Bar awal 100% murni ditentukan dari kualitas lemparan pertama (Perfect: 35%, Great: 20%, Good: 10%)
+	local startRatio = activeCast.startRatio or 0.10
 	currentNotes = math.max(1, math.floor(startRatio * targetNotes))
-	progress = currentNotes / targetNotes
+	progress = startRatio
 
 	activePenaltyNotes = math.max(1, math.floor((activeTier.basePenaltyNotes or 3) * activeCast.penaltyMult))
 
 	currentMelody = MELODIES[math.random(1, #MELODIES)]
 	speed = math.clamp(config.speed or activeTier.speed or currentMelody.baseSpeed, 0.2, 1.2)
 	
-	-- Update Tampilan Info Header
+	-- Update Tampilan Info Header (Misterius tanpa membocorkan tier atau target nada!)
 	if tierLabel then
-		tierLabel.Text = "[" .. activeTier.name .. "] " .. activeTier.stars
-		tierLabel.TextColor3 = activeTier.color
+		tierLabel.Text = "🎣 TARIKAN KAIL"
+		tierLabel.TextColor3 = Color3.fromRGB(240, 245, 255)
 	end
 	if castBonusLabel then
 		castBonusLabel.Text = activeCast.label
 		castBonusLabel.TextColor3 = activeCast.color
 	end
 	if songLabel then
-		songLabel.Text = "🎵 Melodi: " .. currentMelody.name .. " | Target: " .. targetNotes .. " Nada"
+		songLabel.Text = "🎵 Melodi: " .. currentMelody.name
 	end
 
 	roundToken += 1

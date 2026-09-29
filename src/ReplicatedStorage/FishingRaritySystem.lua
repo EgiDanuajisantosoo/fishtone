@@ -41,7 +41,6 @@ FishingRaritySystem.TIERS = {
 		color = Color3.fromRGB(255, 60, 200),
 		badgeColor = Color3.fromRGB(255, 120, 30),
 		order = 6,
-		baseStart = 0.15,        -- Start 15% (45 nada awal)
 		basePenaltyNotes = 45,   -- Penalti miss 45 nada (~15%)
 		speed = 0.54,
 	},
@@ -53,7 +52,6 @@ FishingRaritySystem.TIERS = {
 		color = Color3.fromRGB(235, 45, 45),
 		badgeColor = Color3.fromRGB(195, 25, 25),
 		order = 5,
-		baseStart = 0.20,        -- Start 20% (40 nada awal)
 		basePenaltyNotes = 30,   -- Penalti miss 30 nada (~15%)
 		speed = 0.49,
 	},
@@ -65,7 +63,6 @@ FishingRaritySystem.TIERS = {
 		color = Color3.fromRGB(240, 185, 20),
 		badgeColor = Color3.fromRGB(210, 160, 10),
 		order = 4,
-		baseStart = 0.25,        -- Start 25% (38 nada awal)
 		basePenaltyNotes = 20,   -- Penalti miss 20 nada (~13%)
 		speed = 0.44,
 	},
@@ -77,7 +74,6 @@ FishingRaritySystem.TIERS = {
 		color = Color3.fromRGB(170, 50, 240),
 		badgeColor = Color3.fromRGB(140, 30, 210),
 		order = 3,
-		baseStart = 0.30,        -- Start 30% (30 nada awal)
 		basePenaltyNotes = 12,   -- Penalti miss 12 nada (~12%)
 		speed = 0.39,
 	},
@@ -89,7 +85,6 @@ FishingRaritySystem.TIERS = {
 		color = Color3.fromRGB(0, 140, 255),
 		badgeColor = Color3.fromRGB(0, 110, 220),
 		order = 2,
-		baseStart = 0.35,        -- Start 35% (21 nada awal)
 		basePenaltyNotes = 6,    -- Penalti miss 6 nada (~10%)
 		speed = 0.34,
 	},
@@ -101,7 +96,6 @@ FishingRaritySystem.TIERS = {
 		color = Color3.fromRGB(150, 155, 165),
 		badgeColor = Color3.fromRGB(120, 125, 135),
 		order = 1,
-		baseStart = 0.40,        -- Start 40% (12 nada awal)
 		basePenaltyNotes = 3,    -- Penalti miss 3 nada (~10%)
 		speed = 0.30,
 	},
