@@ -377,12 +377,28 @@ local function animateFishLeap(startPos, endPos, duration, height)
 	end)
 end
 
--- ============ KEPEMILIKAN PANCINGAN ============
-local function getFishingRod()
-	local backpack = player:FindFirstChild("Backpack")
+-- ============ KEPEMILIKAN & STATUS JORAN PANCING ============
+local function getEquippedRod()
 	local character = player.Character
+	if not character then return nil end
+	local rod = character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan")
+	if rod and rod:IsA("Tool") then
+		return rod
+	end
+	return nil
+end
+
+local function isRodEquipped()
+	return getEquippedRod() ~= nil
+end
+
+local function getFishingRod()
+	local character = player.Character
+	local equipped = getEquippedRod()
+	if equipped then return equipped end
+
+	local backpack = player:FindFirstChild("Backpack")
 	local rod = (backpack and (backpack:FindFirstChild("FishingRod") or backpack:FindFirstChild("Pancingan")))
-		or (character and (character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan")))
 	return rod
 end
 
@@ -675,42 +691,30 @@ local function findWaterTarget()
 	rayParams.FilterDescendantsInstances = { char }
 	rayParams.IgnoreWater = false
 
-	-- 1. Cek Raycast dari posisi kursor mouse pemain ke air/ocean
+	-- 1. Cek Raycast dari posisi kursor mouse pemain ke air (Jangkauan Realistis: 8 - 45 stud)
 	local mouse = player:GetMouse()
 	if mouse and mouse.UnitRay then
-		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 450, rayParams)
+		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 150, rayParams)
 		if mouseResult and isWaterInstance(mouseResult.Instance, mouseResult.Material) then
 			local dist = (mouseResult.Position - hrp.Position).Magnitude
-			if dist <= 300 then
+			if dist >= 6 and dist <= 48 then
 				return mouseResult.Position
 			end
 		end
 	end
 
-	-- 2. Sweep ke arah pandang karakter (LookVector) dengan variasi sudut & jarak
+	-- 2. Sweep ke arah pandang depan karakter (LookVector) dalam sudut wajar (-45 sampai +45 derajat)
 	local lookCFrame = hrp.CFrame
-	local angles = { 0, -20, 20, -40, 40, -65, 65, -90, 90, 180 }
-	local distances = { 18, 30, 45, 65, 90 }
+	local angles = { 0, -15, 15, -30, 30, -45, 45 }
+	local distances = { 12, 20, 30, 42 }
 
 	for _, dist in ipairs(distances) do
 		for _, angleDeg in ipairs(angles) do
 			local checkDir = (lookCFrame * CFrame.Angles(0, math.rad(angleDeg), 0)).LookVector
-			local startPos = hrp.Position + (checkDir * dist) + Vector3.new(0, 20, 0)
-			local downRay = workspace:Raycast(startPos, Vector3.new(0, -80, 0), rayParams)
+			local startPos = hrp.Position + (checkDir * dist) + Vector3.new(0, 10, 0)
+			local downRay = workspace:Raycast(startPos, Vector3.new(0, -35, 0), rayParams)
 			if downRay and isWaterInstance(downRay.Instance, downRay.Material) then
 				return downRay.Position
-			end
-		end
-	end
-
-	-- 3. Fallback pencarian radial 360 derajat di sekitar karakter
-	for r = 15, 140, 25 do
-		for th = 0, 315, 45 do
-			local rad = math.rad(th)
-			local testPos = hrp.Position + Vector3.new(math.cos(rad) * r, 25, math.sin(rad) * r)
-			local res = workspace:Raycast(testPos, Vector3.new(0, -90, 0), rayParams)
-			if res and isWaterInstance(res.Instance, res.Material) then
-				return res.Position
 			end
 		end
 	end
@@ -1017,23 +1021,33 @@ end
 -- ============ LISTENER INPUT AKTIVASI (KLIK MOUSE, SENTUH, ATAU TEKAN E) ============
 
 -- 1. Klik Mouse / Touch / Tombol E saat memegang Joran Pancing
-UserInputService.InputBegan:Connect(function(input, _)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		if hasFishingRod() and not PianoTilesGame.IsPlaying() then
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	-- Jangan trigger jika pemain sedang mengklik UI (Inventory Backpack, Chat, Menu, dsb)
+	if gameProcessed then return end
+
+	if isCastingMeterActive then
+		-- Saat bar lemparan sedang berjalan, klik atau [E] akan mengunci lemparan
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
 			handleInteractionTrigger()
 		end
-	elseif input.KeyCode == Enum.KeyCode.E then
-		if hasFishingRod() and not PianoTilesGame.IsPlaying() then
+		return
+	end
+
+	-- Hanya bisa memancing jika JORAN PANCING SEDANG DIPEGANG di tangan karakter!
+	if isRodEquipped() and not PianoTilesGame.IsPlaying() then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
 			handleInteractionTrigger()
 		end
 	end
 end)
 
--- 2. Hook Tool Activated Event
+-- 2. Hook Tool Activated Event khusus untuk Joran Pancing
 local function hookTool(tool)
 	if tool.Name == "FishingRod" or tool.Name == "Pancingan" then
 		tool.Activated:Connect(function()
-			handleInteractionTrigger()
+			if isCastingMeterActive or (isRodEquipped() and not PianoTilesGame.IsPlaying()) then
+				handleInteractionTrigger()
+			end
 		end)
 	end
 end
