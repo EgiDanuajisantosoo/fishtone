@@ -114,34 +114,28 @@ local function createFishTool(fishName, rarity)
 		fire.Parent = handle
 	end
 
-	-- Script Interaksi Ikan saat dipegang & diklik
-	local localScript = Instance.new("LocalScript")
-	localScript.Name = "FishInteraction"
-	localScript.Source = [[
-		local tool = script.Parent
-		local player = game:GetService("Players").LocalPlayer
+	-- Suara Interaksi saat Ikan dipegang & diklik
+	local equipSound = Instance.new("Sound")
+	equipSound.Name = "EquipSound"
+	equipSound.SoundId = "rbxasset://sounds/splat.wav"
+	equipSound.Volume = 0.4
+	equipSound.PlaybackSpeed = 1.4
+	equipSound.Parent = handle
 
-		tool.Equipped:Connect(function()
-			local s = Instance.new("Sound")
-			s.SoundId = "rbxasset://sounds/splat.wav"
-			s.Volume = 0.4
-			s.PlaybackSpeed = 1.4
-			s.Parent = workspace
-			s:Play()
-			game:GetService("Debris"):AddItem(s, 2)
-		end)
+	local clickSound = Instance.new("Sound")
+	clickSound.Name = "ClickSound"
+	clickSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+	clickSound.Volume = 0.6
+	clickSound.PlaybackSpeed = 1.3
+	clickSound.Parent = handle
 
-		tool.Activated:Connect(function()
-			local s = Instance.new("Sound")
-			s.SoundId = "rbxasset://sounds/electronicpingshort.wav"
-			s.Volume = 0.6
-			s.PlaybackSpeed = 1.3
-			s.Parent = workspace
-			s:Play()
-			game:GetService("Debris"):AddItem(s, 2)
-		end)
-	]]
-	localScript.Parent = tool
+	tool.Equipped:Connect(function()
+		equipSound:Play()
+	end)
+
+	tool.Activated:Connect(function()
+		clickSound:Play()
+	end)
 
 	return tool
 end

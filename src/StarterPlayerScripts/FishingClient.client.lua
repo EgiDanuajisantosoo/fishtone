@@ -678,34 +678,40 @@ local function findWaterTarget()
 	-- 1. Cek Raycast dari posisi kursor mouse pemain ke air/ocean
 	local mouse = player:GetMouse()
 	if mouse and mouse.UnitRay then
-		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 350, rayParams)
-		if mouseResult then
-			if isWaterInstance(mouseResult.Instance, mouseResult.Material) then
-				local dist = (mouseResult.Position - hrp.Position).Magnitude
-				if dist <= 180 then
-					return Vector3.new(mouseResult.Position.X, 1.0, mouseResult.Position.Z)
-				end
+		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 450, rayParams)
+		if mouseResult and isWaterInstance(mouseResult.Instance, mouseResult.Material) then
+			local dist = (mouseResult.Position - hrp.Position).Magnitude
+			if dist <= 300 then
+				return mouseResult.Position
 			end
 		end
 	end
 
-	-- 2. Cek Terrain Water atau Part Ocean di depan karakter
-	local forwardRay = workspace:Raycast(hrp.Position + Vector3.new(0, 2, 0), (hrp.CFrame.LookVector * 40) + Vector3.new(0, -25, 0), rayParams)
-	if forwardRay and (forwardRay.Material == Enum.Material.Water or isWaterInstance(forwardRay.Instance, forwardRay.Material)) then
-		return Vector3.new(forwardRay.Position.X, 1.0, forwardRay.Position.Z)
+	-- 2. Sweep ke arah pandang karakter (LookVector) dengan variasi sudut & jarak
+	local lookCFrame = hrp.CFrame
+	local angles = { 0, -20, 20, -40, 40, -65, 65, -90, 90, 180 }
+	local distances = { 18, 30, 45, 65, 90 }
+
+	for _, dist in ipairs(distances) do
+		for _, angleDeg in ipairs(angles) do
+			local checkDir = (lookCFrame * CFrame.Angles(0, math.rad(angleDeg), 0)).LookVector
+			local startPos = hrp.Position + (checkDir * dist) + Vector3.new(0, 20, 0)
+			local downRay = workspace:Raycast(startPos, Vector3.new(0, -80, 0), rayParams)
+			if downRay and isWaterInstance(downRay.Instance, downRay.Material) then
+				return downRay.Position
+			end
+		end
 	end
 
-	-- 3. Cek Ocean luas dari posisi dermaga / pulau
-	local oceanPart = (workspace:FindFirstChild("OceanMap") and workspace.OceanMap:FindFirstChild("Ocean")) or workspace:FindFirstChild("Ocean")
-	if oceanPart then
-		local topY = oceanPart.Position.Y + (oceanPart.Size.Y / 2)
-		local look = hrp.CFrame.LookVector
-		local targetPos = hrp.Position + (look * 22)
-		local downRay = workspace:Raycast(Vector3.new(targetPos.X, hrp.Position.Y + 4, targetPos.Z), Vector3.new(0, -30, 0), rayParams)
-		if downRay and isWaterInstance(downRay.Instance, downRay.Material) then
-			return Vector3.new(targetPos.X, topY, targetPos.Z)
-		elseif not downRay or downRay.Position.Y <= topY + 0.5 then
-			return Vector3.new(targetPos.X, topY, targetPos.Z)
+	-- 3. Fallback pencarian radial 360 derajat di sekitar karakter
+	for r = 15, 140, 25 do
+		for th = 0, 315, 45 do
+			local rad = math.rad(th)
+			local testPos = hrp.Position + Vector3.new(math.cos(rad) * r, 25, math.sin(rad) * r)
+			local res = workspace:Raycast(testPos, Vector3.new(0, -90, 0), rayParams)
+			if res and isWaterInstance(res.Instance, res.Material) then
+				return res.Position
+			end
 		end
 	end
 
