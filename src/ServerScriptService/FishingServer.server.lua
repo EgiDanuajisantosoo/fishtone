@@ -1,7 +1,7 @@
 --[[
-	FishingServer
+	FishingServer (Universal Water Fishing System)
 	Memvalidasi kepemilikan alat pancing di inventory,
-	memvalidasi hasil memancing Piano Tiles, dan memberi hadiah ikan.
+	memvalidasi hasil memancing Piano Tiles di semua area air, dan memberi hadiah ikan.
 ]]
 
 local Players = game:GetService("Players")
@@ -9,7 +9,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local remote = ReplicatedStorage:FindFirstChild("FishingRemote")
-local spot = workspace:FindFirstChild("FishingSpot")
 
 -- Tier ikan berdasarkan tingkat kesulitan Piano Tiles (jumlah tile)
 local TIERS = {
@@ -67,24 +66,14 @@ if remote then
 		end
 
 		if action ~= "Catch" then return end
-		if not (spot and spot.PrimaryPart) then return end
 
-		-- 1. Validasi pancingan di inventory
+		-- 1. Validasi kepemilikan alat pancing di inventory
 		if not hasFishingRod(player) then
 			remote:FireClient(player, "Notification", "⚠️ Kamu tidak memiliki Joran Pancing di inventory!")
 			return
 		end
 
-		-- 2. Validasi jarak ke fishing spot
-		local character = player.Character
-		local hrp = character and character:FindFirstChild("HumanoidRootPart")
-		if not hrp then return end
-		if (hrp.Position - spot.PrimaryPart.Position).Magnitude > 35 then
-			remote:FireClient(player, "Notification", "⚠️ Kamu terlalu jauh dari area memancing!")
-			return
-		end
-
-		-- 3. Anti-spam validasi
+		-- 2. Anti-spam validasi
 		local last = lastCatch[player.UserId] or 0
 		if os.clock() - last < 2 then return end
 		lastCatch[player.UserId] = os.clock()
@@ -94,7 +83,7 @@ if remote then
 
 		local fishName, category = getFish(math.floor(tiles))
 		
-		-- Update leaderstats
+		-- 3. Update skor ikan di leaderstats
 		local stats = player:FindFirstChild("leaderstats")
 		local fishStat = stats and stats:FindFirstChild("Ikan")
 		if fishStat then

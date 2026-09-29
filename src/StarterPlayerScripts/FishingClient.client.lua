@@ -1,11 +1,12 @@
 --[[
-	FishingClient (Versi Lengkap & Imersif)
+	FishingClient (Universal Water Fishing System)
 	Fitur:
-	1. Animasi melempar joran pancing (Casting animation + Fishing Line + Splash)
-	2. Animasi ikan menyambar (Water splash + Exclamation [!] + Ikan 3D melompat)
-	3. Mini-game Piano Tiles Glassmorphism Semi-Transparan yang seirama dengan nada
-	4. Penguncian gerakan karakter (WalkSpeed = 0 & Input Sink) agar tombol D tidak menggerakkan player
-	5. Penanganan Gagal (Ikan lepas, tidak dapat hadiah) vs Berhasil (Ikan melompat ke tangan, +1 Ikan)
+	1. Mendukung MEMANCING DI SEMUA AREA AIR (Terrain Water & Water Parts seperti Danau, Sungai, Laut).
+	2. Deteksi otomatis air via Raycast (klik mouse / arah hadap karakter).
+	3. Pelampung dinamis (Dynamic Bobber) yang terbang & mendarat di titik air yang ditargetkan.
+	4. Animasi melempar (Casting), cipratan air (Splash), dan ikan 3D melompat saat menyambar.
+	5. Mini-game Piano Tiles Glassmorphism Semi-Transparan yang seirama dengan nada.
+	6. Penguncian gerakan karakter (WalkSpeed = 0 & Input Sink) agar tombol D tidak menggerakkan player.
 ]]
 
 local Players = game:GetService("Players")
@@ -20,11 +21,9 @@ local playerGui = player:WaitForChild("PlayerGui")
 local remote = ReplicatedStorage:WaitForChild("FishingRemote", 10)
 local PianoTilesGame = require(ReplicatedStorage:WaitForChild("PianoTilesGame"))
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
+local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 
-local spot = workspace:WaitForChild("FishingSpot", 10)
-local rodPart = spot and spot:FindFirstChild("Rod")
-local bobber = spot and spot:FindFirstChild("Bobber")
-local prompt = rodPart and rodPart:FindFirstChild("FishPrompt")
+local spot = workspace:FindFirstChild("FishingSpot")
 
 -- ============ GUI STATUS & BANNER ============
 local oldGui = playerGui:FindFirstChild("FishingGui")
@@ -127,12 +126,26 @@ local function createWaterSplash(pos)
 	Debris:AddItem(emitterPart, 1.5)
 end
 
-local function showStrikeAlert(pos)
+local function showStrikeAlert(adorneeOrPos)
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.new(0, 64, 0, 64)
-	billboard.StudsOffset = Vector3.new(0, 3, 0)
 	billboard.AlwaysOnTop = true
-	billboard.Adornee = bobber
+	
+	if typeof(adorneeOrPos) == "Vector3" then
+		local anchor = Instance.new("Part")
+		anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+		anchor.Position = adorneeOrPos + Vector3.new(0, 2.5, 0)
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.Transparency = 1
+		anchor.Parent = workspace
+		billboard.Adornee = anchor
+		Debris:AddItem(anchor, 2)
+	elseif typeof(adorneeOrPos) == "Instance" then
+		billboard.StudsOffset = Vector3.new(0, 3, 0)
+		billboard.Adornee = adorneeOrPos
+	end
+
 	billboard.Parent = gui
 
 	local badge = Instance.new("Frame")
@@ -232,7 +245,6 @@ local function ensureEquipped()
 	end
 end
 
--- ============ KONTROL GERAKAN KARAKTER ============
 local function freezePlayer(freeze)
 	local char = player.Character
 	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
@@ -249,7 +261,83 @@ local function freezePlayer(freeze)
 	end
 end
 
--- ============ ANIMASI MELEMPAR (CASTING ANIMATION) ============
+-- ============ DETEKSI SEMUA AIR DI MAP ============
+local function isWaterInstance(inst, mat)
+	if mat == Enum.Material.Water then
+		return true
+	end
+	if inst and inst:IsA("BasePart") then
+		local name = inst.Name:lower()
+		if inst.Material == Enum.Material.Water
+			or name:find("water")
+			or name:find("lake")
+			or name:find("danau")
+			or name:find("river")
+			or name:find("sungai")
+			or name:find("ocean")
+			or name:find("laut")
+			or name:find("sea")
+			or name:find("pool")
+			or name:find("kolam") then
+			return true
+		end
+	end
+	return false
+end
+
+local function findWaterTarget(clickPos)
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return nil end
+
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { char }
+	rayParams.IgnoreWater = false
+
+	-- 1. Cek Raycast dari posisi kursor / kamera
+	local mouse = player:GetMouse()
+	if mouse and mouse.UnitRay then
+		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 180, rayParams)
+		if mouseResult and isWaterInstance(mouseResult.Instance, mouseResult.Material) then
+			local dist = (mouseResult.Position - hrp.Position).Magnitude
+			if dist <= 65 then
+				return mouseResult.Position
+			end
+		end
+	end
+
+	-- 2. Cek Raycast dari hadap depan karakter ke bawah air
+	local lookDir = hrp.CFrame.LookVector
+	local forwardOrigin = hrp.Position + Vector3.new(0, 2, 0)
+	local forwardRay = workspace:Raycast(forwardOrigin, (lookDir * 25) + Vector3.new(0, -15, 0), rayParams)
+	if forwardRay and isWaterInstance(forwardRay.Instance, forwardRay.Material) then
+		return forwardRay.Position
+	end
+
+	-- 3. Cek area FishingSpot bawaan jika berada dekat
+	if spot and spot.PrimaryPart and (hrp.Position - spot.PrimaryPart.Position).Magnitude <= 35 then
+		local bob = spot:FindFirstChild("Bobber")
+		return bob and bob.Position or (spot.PrimaryPart.Position + Vector3.new(4, -6, 0))
+	end
+
+	-- 4. Cek part danau di workspace jika ada
+	local lakePart = workspace:FindFirstChild("Lake")
+	if lakePart and lakePart:IsA("BasePart") then
+		local dist = (hrp.Position - lakePart.Position).Magnitude
+		if dist <= 60 then
+			return Vector3.new(
+				math.clamp(hrp.Position.X + lookDir.X * 15, lakePart.Position.X - lakePart.Size.X/2 + 2, lakePart.Position.X + lakePart.Size.X/2 - 2),
+				lakePart.Position.Y + lakePart.Size.Y/2 + 0.1,
+				math.clamp(hrp.Position.Z + lookDir.Z * 15, lakePart.Position.Z - lakePart.Size.Z/2 + 2, lakePart.Position.Z + lakePart.Size.Z/2 - 2)
+			)
+		end
+	end
+
+	return nil
+end
+
+-- ============ ANIMASI MELEMPAR ============
 local function playCastingAnimation(char, targetPos)
 	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if hrp then
@@ -280,30 +368,12 @@ local function playCastingAnimation(char, targetPos)
 			}):Play()
 		end)
 	end
-
-	createWaterSplash(targetPos)
 end
 
--- ============ ALUR MEMANCING LENGKAP ============
+-- ============ ALUR MEMANCING UNIVERSAL ============
 local busy = false
-local bobberHome = bobber and bobber.Position or Vector3.new(33.6, 12.8, -7.8)
 
-local function dipBobber()
-	if not bobber then return end
-	local down = TweenService:Create(bobber, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Position = bobberHome - Vector3.new(0, 1.4, 0),
-	})
-	down:Play()
-	down.Completed:Wait()
-	
-	local up = TweenService:Create(bobber, TweenInfo.new(0.28, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
-		Position = bobberHome,
-	})
-	up:Play()
-	up.Completed:Wait()
-end
-
-local function startFishing()
+local function startFishingAtWater(waterPos)
 	if busy or PianoTilesGame.IsPlaying() then return end
 
 	-- 1. Periksa Pancingan di Inventory
@@ -319,28 +389,58 @@ local function startFishing()
 	freezePlayer(true)
 
 	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+	-- Buat Pelampung Dinamis di Air
+	local activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
+	if activeBobber:IsA("Model") then
+		activeBobber:PivotTo(CFrame.new(waterPos + Vector3.new(0, 0.4, 0)))
+	else
+		activeBobber.Size = Vector3.new(0.9, 0.9, 0.9)
+		activeBobber.Shape = Enum.PartType.Ball
+		activeBobber.Color = Color3.fromRGB(240, 40, 40)
+		activeBobber.Material = Enum.Material.SmoothPlastic
+		activeBobber.Anchored = true
+		activeBobber.CanCollide = false
+		activeBobber.Position = waterPos + Vector3.new(0, 0.4, 0)
+	end
+	activeBobber.Parent = workspace
+
 	if char then
-		showMessage("🎣 Melemparkan kail pancing...", Color3.fromRGB(0, 200, 255), 2)
-		playCastingAnimation(char, bobberHome)
+		showMessage("🎣 Melemparkan kail ke air...", Color3.fromRGB(0, 200, 255), 2)
+		playCastingAnimation(char, waterPos)
 	end
 
+	createWaterSplash(waterPos)
 	showMessage("🎣 Kail telah di air... Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 4)
-	
-	task.wait(math.random(20, 40) / 10)
-	if not busy then 
+
+	task.wait(math.random(18, 38) / 10)
+	if not busy then
+		activeBobber:Destroy()
 		freezePlayer(false)
-		return 
+		return
 	end
 
-	-- 2. Ikan Menyambar!
-	showStrikeAlert(bobberHome)
-	createWaterSplash(bobberHome)
-	
-	local fishStart = bobberHome + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
-	local fishEnd = bobberHome + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
+	-- 2. Ikan Menyambar di Posisi Air Ini!
+	showStrikeAlert(waterPos)
+	createWaterSplash(waterPos)
+
+	local fishStart = waterPos + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
+	local fishEnd = waterPos + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
 	animateFishLeap(fishStart, fishEnd, 0.75, 4.5)
-	
-	dipBobber()
+
+	local bobberPart = activeBobber:IsA("Model") and activeBobber.PrimaryPart or activeBobber
+	if bobberPart then
+		local down = TweenService:Create(bobberPart, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = waterPos - Vector3.new(0, 1.2, 0)
+		})
+		down:Play()
+		down.Completed:Wait()
+		TweenService:Create(bobberPart, TweenInfo.new(0.25, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+			Position = waterPos + Vector3.new(0, 0.4, 0)
+		}):Play()
+	end
+
 	showMessage("🎵 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)
 
 	local roll = math.random(100)
@@ -355,38 +455,47 @@ local function startFishing()
 		tiles, speed = 7, 0.32 -- Biasa
 	end
 
-	-- 3. Mulai Mini-game Piano Tiles
+	-- 3. Jalankan Mini-game Piano Tiles
 	PianoTilesGame.Start({
 		tiles = tiles,
 		speed = speed,
 	}, function()
-		-- Player Menang
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1, 0)) or (bobberHome + Vector3.new(0, 5, 0))
-		animateFishLeap(bobberHome, catchTarget, 0.9, 7)
-		
+		-- Menang
+		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1, 0)) or (waterPos + Vector3.new(0, 5, 0))
+		animateFishLeap(waterPos, catchTarget, 0.9, 7)
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
 		if remote then
 			remote:FireServer("Catch", tiles)
 		end
-		
+
 		task.delay(3, function()
+			activeBobber:Destroy()
 			busy = false
 			freezePlayer(false)
 			if prompt then prompt.Enabled = true end
 		end)
 	end, function()
-		-- Player Gagal
-		createWaterSplash(bobberHome)
+		-- Gagal
+		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
-		
+
 		task.delay(2, function()
+			activeBobber:Destroy()
 			busy = false
 			freezePlayer(false)
 			if prompt then prompt.Enabled = true end
 		end)
 	end)
+end
+
+local function tryStartFishing()
+	local waterPos = findWaterTarget()
+	if waterPos then
+		startFishingAtWater(waterPos)
+	else
+		showMessage("Arahkan kursor atau dekati area air untuk mulai memancing!", Color3.fromRGB(220, 220, 240), 2.5)
+	end
 end
 
 -- ============ INTERAKSI ============
@@ -395,23 +504,14 @@ if prompt then
 	prompt.ActionText = "Mancing"
 	prompt.ObjectText = "Danau Pancing"
 	prompt.Triggered:Connect(function()
-		startFishing()
+		tryStartFishing()
 	end)
 end
 
 local function hookTool(tool)
 	if tool.Name == "FishingRod" or tool.Name == "Pancingan" then
 		tool.Activated:Connect(function()
-			local char = player.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-			if hrp and spot and spot.PrimaryPart then
-				local dist = (hrp.Position - spot.PrimaryPart.Position).Magnitude
-				if dist <= 35 then
-					startFishing()
-				else
-					showMessage("Dekati area Danau Pancing untuk mulai memancing!", Color3.fromRGB(200, 210, 230), 2.5)
-				end
-			end
+			tryStartFishing()
 		end)
 	end
 end
@@ -424,7 +524,7 @@ local function watchInventory()
 	for _, child in ipairs(backpack:GetChildren()) do
 		if child:IsA("Tool") then hookTool(child) end
 	end
-	
+
 	player.CharacterAdded:Connect(function(char)
 		char.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") then hookTool(child) end
@@ -451,7 +551,7 @@ if remote then
 				or (category == "LANGKA" and Color3.fromRGB(200, 80, 255))
 				or (category == "SEDANG" and Color3.fromRGB(60, 230, 130))
 				or Color3.fromRGB(0, 200, 255)
-			
+
 			showMessage("🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. category .. "]! (+1 Ikan)", color, 4)
 		elseif action == "Notification" then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
