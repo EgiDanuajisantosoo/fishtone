@@ -1,9 +1,10 @@
 --[[
-	FishingClient (Universal Water Fishing System with Cast Timing Bar & Full Procedural Animations)
+	FishingClient (Universal Water Fishing System with Dynamic Randomized Cast Timing Bar)
 	Fitur:
-	1. BAR MELEMPAR KAIL (CASTING TIMING BAR):
-	   - Bar vertikal dinamis dengan Zona PERFECT (Hijau Neon ⭐⭐⭐), GREAT (Cyan ⭐⭐), dan GOOD (Biru ⭐).
+	1. BAR MELEMPAR KAIL DINAMIS (RANDOMIZED CASTING TIMING BAR):
+	   - Posisi zona PERFECT (Hijau Neon ⭐⭐⭐) dan GREAT (Cyan ⭐⭐) DIAÇAK SECARA OTOMATIS SETIAP KALI MELEMPAR!
 	   - Kursor putih bergerak naik-turun halus; pemain mengklik atau menekan [E] untuk mengunci timing.
+	   - Mencegah double-click / frame-skip sehingga bar PASTI selalu muncul stabil setiap lemparan.
 	   - Lemparan PERFECT mempercepat waktu sambaran ikan & meningkatkan peluang ikan LANGKA / LEGENDARIS!
 	2. Animasi Karakter Lengkap:
 	   - Pose Siaga & Tarik Joran (Windup / Aiming).
@@ -98,11 +99,11 @@ local function showMessage(msg, color, duration)
 	end)
 end
 
--- ============ CASTING POWER & TIMING BAR GUI ============
+-- ============ CASTING POWER & TIMING BAR GUI (DENGAN ZONA ACAK) ============
 local castMeterContainer = Instance.new("Frame")
 castMeterContainer.Name = "CastMeterContainer"
-castMeterContainer.Size = UDim2.new(0, 36, 0, 240)
-castMeterContainer.Position = UDim2.new(0.72, 0, 0.5, -120)
+castMeterContainer.Size = UDim2.new(0, 36, 0, 250)
+castMeterContainer.Position = UDim2.new(0.72, 0, 0.5, -125)
 castMeterContainer.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
 castMeterContainer.BackgroundTransparency = 0.35
 castMeterContainer.BorderSizePixel = 0
@@ -119,33 +120,33 @@ cmStroke.Thickness = 2
 cmStroke.Transparency = 0.3
 cmStroke.Parent = castMeterContainer
 
--- Zona Good (Bawah)
-local zoneGood = Instance.new("Frame")
-zoneGood.Name = "ZoneGood"
-zoneGood.Size = UDim2.fromScale(0.75, 0.60)
-zoneGood.Position = UDim2.fromScale(0.125, 0.36)
-zoneGood.BackgroundColor3 = Color3.fromRGB(30, 48, 70)
-zoneGood.BackgroundTransparency = 0.4
-zoneGood.BorderSizePixel = 0
-zoneGood.Parent = castMeterContainer
-Instance.new("UICorner", zoneGood).CornerRadius = UDim.new(0, 8)
+-- Base Meter Fill (Good Zone / Latar Belakang)
+local zoneGoodBase = Instance.new("Frame")
+zoneGoodBase.Name = "ZoneGoodBase"
+zoneGoodBase.Size = UDim2.fromScale(0.75, 0.92)
+zoneGoodBase.Position = UDim2.fromScale(0.125, 0.04)
+zoneGoodBase.BackgroundColor3 = Color3.fromRGB(25, 40, 60)
+zoneGoodBase.BackgroundTransparency = 0.45
+zoneGoodBase.BorderSizePixel = 0
+zoneGoodBase.Parent = castMeterContainer
+Instance.new("UICorner", zoneGoodBase).CornerRadius = UDim.new(0, 8)
 
--- Zona Great (Tengah)
+-- Zona Great (Acak)
 local zoneGreat = Instance.new("Frame")
 zoneGreat.Name = "ZoneGreat"
-zoneGreat.Size = UDim2.fromScale(0.75, 0.18)
-zoneGreat.Position = UDim2.fromScale(0.125, 0.18)
+zoneGreat.Size = UDim2.fromScale(0.75, 0.28)
+zoneGreat.Position = UDim2.fromScale(0.125, 0.15)
 zoneGreat.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
 zoneGreat.BackgroundTransparency = 0.35
 zoneGreat.BorderSizePixel = 0
 zoneGreat.Parent = castMeterContainer
 Instance.new("UICorner", zoneGreat).CornerRadius = UDim.new(0, 8)
 
--- Zona Perfect (Atas)
+-- Zona Perfect (Acak)
 local zonePerfect = Instance.new("Frame")
 zonePerfect.Name = "ZonePerfect"
 zonePerfect.Size = UDim2.fromScale(0.75, 0.14)
-zonePerfect.Position = UDim2.fromScale(0.125, 0.04)
+zonePerfect.Position = UDim2.fromScale(0.125, 0.22)
 zonePerfect.BackgroundColor3 = Color3.fromRGB(45, 245, 120)
 zonePerfect.BackgroundTransparency = 0.15
 zonePerfect.BorderSizePixel = 0
@@ -157,10 +158,11 @@ pStroke.Color = Color3.fromRGB(180, 255, 200)
 pStroke.Thickness = 1.5
 pStroke.Parent = zonePerfect
 
--- Label Perfect & Stars
+-- Label Perfect & Stars yang Mengikuti Posisi Zona Perfect
 local perfectBadge = Instance.new("TextLabel")
-perfectBadge.Size = UDim2.new(0, 90, 0, 22)
-perfectBadge.Position = UDim2.new(1.15, 0, 0.03, 0)
+perfectBadge.Name = "PerfectBadge"
+perfectBadge.Size = UDim2.new(0, 95, 0, 22)
+perfectBadge.Position = UDim2.new(1.15, 0, 0.22, -2)
 perfectBadge.BackgroundTransparency = 1
 perfectBadge.Text = "PERFECT ⭐"
 perfectBadge.TextColor3 = Color3.fromRGB(50, 255, 140)
@@ -187,8 +189,8 @@ indStroke.Parent = indicator
 -- Label Petunjuk Melempar
 local castHint = Instance.new("TextLabel")
 castHint.Name = "CastHint"
-castHint.Size = UDim2.new(0, 180, 0, 24)
-castHint.Position = UDim2.new(0.5, -90, 1.05, 0)
+castHint.Size = UDim2.new(0, 190, 0, 24)
+castHint.Position = UDim2.new(0.5, -95, 1.05, 0)
 castHint.BackgroundTransparency = 1
 castHint.Text = "Tekan [E] / Klik untuk Kunci!"
 castHint.TextColor3 = Color3.fromRGB(220, 240, 255)
@@ -199,8 +201,8 @@ castHint.Parent = castMeterContainer
 -- Banner Rating Popup (Muncul saat dikunci)
 local ratingPopup = Instance.new("Frame")
 ratingPopup.Name = "RatingPopup"
-ratingPopup.Size = UDim2.new(0, 220, 0, 46)
-ratingPopup.Position = UDim2.new(0.5, -110, 0.38, 0)
+ratingPopup.Size = UDim2.new(0, 230, 0, 48)
+ratingPopup.Position = UDim2.new(0.5, -115, 0.36, 0)
 ratingPopup.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
 ratingPopup.BackgroundTransparency = 0.2
 ratingPopup.BorderSizePixel = 0
@@ -707,7 +709,7 @@ local function findWaterTarget()
 	return nil
 end
 
--- ============ MEKANISME BAR MELEMPAR KAIL (CASTING TIMING BAR) ============
+-- ============ MEKANISME BAR MELEMPAR KAIL (RANDOMIZED ZONES) ============
 local isCastingMeterActive = false
 local meterStartTime = 0
 local meterConn = nil
@@ -715,17 +717,57 @@ local currentWaterTarget = nil
 local currentCastPower = 0.5
 local meterSpeed = 3.2
 
+-- State Zona Dinamis yang Diacak Setiap Lemparan
+local currentZones = {
+	perfectMin = 0.78,
+	perfectMax = 0.94,
+	greatMin = 0.60,
+	greatMax = 0.98,
+}
+
+local function randomizeZones()
+	-- Acak posisi tengah zona Perfect antara 20% sampai 82% tinggi bar
+	local perfectCenter = math.random(22, 80) / 100
+	local perfectHalfWidth = 0.075 -- Lebar zona Perfect = 15%
+	local greatHalfWidth = 0.16    -- Lebar zona Great = 32%
+
+	local pMin = math.clamp(perfectCenter - perfectHalfWidth, 0.04, 0.88)
+	local pMax = math.clamp(perfectCenter + perfectHalfWidth, 0.16, 0.96)
+
+	local gMin = math.clamp(perfectCenter - greatHalfWidth, 0.02, pMin)
+	local gMax = math.clamp(perfectCenter + greatHalfWidth, pMax, 0.98)
+
+	currentZones.perfectMin = pMin
+	currentZones.perfectMax = pMax
+	currentZones.greatMin = gMin
+	currentZones.greatMax = gMax
+
+	-- Update Posisi Visual Zona Great
+	local gTop = (1 - gMax) * 0.92 + 0.04
+	local gHeight = (gMax - gMin) * 0.92
+	zoneGreat.Position = UDim2.fromScale(0.125, gTop)
+	zoneGreat.Size = UDim2.fromScale(0.75, gHeight)
+
+	-- Update Posisi Visual Zona Perfect
+	local pTop = (1 - pMax) * 0.92 + 0.04
+	local pHeight = (pMax - pMin) * 0.92
+	zonePerfect.Position = UDim2.fromScale(0.125, pTop)
+	zonePerfect.Size = UDim2.fromScale(0.75, pHeight)
+
+	-- Update Posisi Badge PERFECT di sebelah zona hijau
+	perfectBadge.Position = UDim2.new(1.15, 0, pTop, -2)
+end
+
 local function updateMeterVisual(power)
-	-- power: 0.0 (Bawah) sampai 1.0 (Atas)
-	-- Posisi indicator Y: 0.03 (Atas) sampai 0.93 (Bawah)
+	-- Posisi indicator Y: 0.04 (Atas = power 1.0) sampai 0.92 (Bawah = power 0.0)
 	local yPercent = (1 - power) * 0.88 + 0.04
 	indicator.Position = UDim2.new(-0.09, 0, yPercent, -4)
 
-	-- Indikator berubah warna sesuai zona saat ini
-	if power >= 0.78 and power <= 0.94 then
+	-- Indikator berubah warna dinamis sesuai zona acak saat ini
+	if power >= currentZones.perfectMin and power <= currentZones.perfectMax then
 		indicator.BackgroundColor3 = Color3.fromRGB(50, 255, 140)
 		indStroke.Color = Color3.fromRGB(180, 255, 200)
-	elseif power >= 0.58 and power <= 0.98 then
+	elseif power >= currentZones.greatMin and power <= currentZones.greatMax then
 		indicator.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
 		indStroke.Color = Color3.fromRGB(150, 240, 255)
 	else
@@ -747,6 +789,9 @@ local function startCastingMeter(waterPos)
 		playSound("rbxasset://sounds/splat.wav", 0.5, 0.7)
 		return
 	end
+
+	-- Acak posisi zona Perfect & Great untuk lemparan ini!
+	randomizeZones()
 
 	isCastingMeterActive = true
 	currentWaterTarget = waterPos
@@ -797,16 +842,16 @@ executeCastAfterMeter = function()
 
 	busy = true
 
-	-- Tentukan Kualitas Lemparan (Cast Rating)
+	-- Evaluasi Kualitas Lemparan Berdasarkan Zona Acak Saat Ini
 	local castQuality = "GOOD"
 	local waitDuration = math.random(28, 42) / 10
 
-	if finalPower >= 0.78 and finalPower <= 0.94 then
+	if finalPower >= currentZones.perfectMin and finalPower <= currentZones.perfectMax then
 		castQuality = "PERFECT"
 		showRatingPopup("⭐ PERFECT CAST! ⭐", Color3.fromRGB(255, 215, 0))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
-		waitDuration = math.random(12, 20) / 10 -- Sambaran sangat cepat (1.2s - 2.0s)
-	elseif finalPower >= 0.58 and finalPower <= 0.98 then
+		waitDuration = math.random(12, 20) / 10 -- Sambaran kilat (1.2s - 2.0s)
+	elseif finalPower >= currentZones.greatMin and finalPower <= currentZones.greatMax then
 		castQuality = "GREAT"
 		showRatingPopup("✨ GREAT CAST! ✨", Color3.fromRGB(0, 220, 255))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.5)
@@ -932,9 +977,16 @@ executeCastAfterMeter = function()
 	end)
 end
 
+local lastTriggerTime = 0
+
 local function handleInteractionTrigger()
+	local now = os.clock()
+	if now - lastTriggerTime < 0.12 then return end
+	lastTriggerTime = now
+
 	if isCastingMeterActive then
-		-- Klik / Tombol kedua: Kunci Bar & Lempar!
+		-- Debounce 0.2s dari pembukaan bar agar klik pertama tidak langsung mengunci bar secara instan!
+		if now - meterStartTime < 0.20 then return end
 		executeCastAfterMeter()
 		return
 	end
