@@ -1,5 +1,5 @@
 --[[
-	FishingClient (Universal Water Fishing System with Server-Authoritative Sessions & RPG Progression)
+	FishingClient (Universal Water Fishing System with Server-Authoritative Sessions, Fish Inventory & Economy)
 	Fitur:
 	1. BAR MELEMPAR KAIL DINAMIS (RANDOMIZED CASTING TIMING BAR):
 	   - Posisi zona PERFECT (Hijau Neon ⭐⭐⭐) dan GREAT (Cyan ⭐⭐) DIACAK SETIAP LEMPARAN.
@@ -8,8 +8,11 @@
 	   - Windup, Casting Swing, Idle Breathing Sway, Biting Tension, Reeling, Victory Lift.
 	3. Tali Pancing Dinamis (Beam berkurva) dari ujung Joran ke Pelampung.
 	4. Mini-game Piano Tiles Glassmorphism Anti-Spam & Blind Mystery.
-	5. Server-Authoritative Session & Catch Submission (Anti-Cheat).
-	6. Full Reveal Pop-up saat Berhasil Menangkap (Nama, Rarity, Bintang, Bobot Kg, Koin, EXP, Level Up).
+	5. INTERAKTIF INVENTORY GUI & SISTEM JUAL IKAN:
+	   - Tombol HUD & Hotkey [B] / [I] untuk membuka Inventory Ikan.
+	   - Menampilkan seluruh ikan di Backpack dengan Rarity Badge, Bobot (Kg), dan Nilai Koin.
+	   - Fitur "Jual Ikan" per item dan "Jual Semua Ikan" untuk menambah Koin pemain.
+	6. Server-Authoritative Session & Catch Submission (Anti-Cheat).
 ]]
 
 local Players = game:GetService("Players")
@@ -49,8 +52,8 @@ gui.Parent = pGui or workspace
 -- ============ TOAST NOTIFICATION & REVEAL POPUP ============
 local statusFrame = Instance.new("Frame")
 statusFrame.Name = "StatusFrame"
-statusFrame.Size = UDim2.new(0, 480, 0, 58)
-statusFrame.Position = UDim2.new(0.5, -240, 0.04, 0)
+statusFrame.Size = UDim2.new(0, 500, 0, 64)
+statusFrame.Position = UDim2.new(0.5, -250, 0.04, 0)
 statusFrame.BackgroundColor3 = Color3.fromRGB(15, 18, 28)
 statusFrame.BackgroundTransparency = 0.2
 statusFrame.BorderSizePixel = 0
@@ -97,7 +100,7 @@ local function showMessage(msg, color, duration)
 	end)
 end
 
--- ============ CASTING POWER & TIMING BAR GUI (ZONA ACAK) ============
+-- ============ CASTING POWER & TIMING BAR GUI ============
 local castMeterContainer = Instance.new("Frame")
 castMeterContainer.Name = "CastMeterContainer"
 castMeterContainer.Size = UDim2.new(0, 36, 0, 250)
@@ -118,7 +121,6 @@ cmStroke.Thickness = 2
 cmStroke.Transparency = 0.3
 cmStroke.Parent = castMeterContainer
 
--- Base Meter Fill (Good Zone / Latar Belakang)
 local zoneGoodBase = Instance.new("Frame")
 zoneGoodBase.Name = "ZoneGoodBase"
 zoneGoodBase.Size = UDim2.fromScale(0.75, 0.92)
@@ -129,7 +131,6 @@ zoneGoodBase.BorderSizePixel = 0
 zoneGoodBase.Parent = castMeterContainer
 Instance.new("UICorner", zoneGoodBase).CornerRadius = UDim.new(0, 8)
 
--- Zona Great (Acak)
 local zoneGreat = Instance.new("Frame")
 zoneGreat.Name = "ZoneGreat"
 zoneGreat.Size = UDim2.fromScale(0.75, 0.28)
@@ -140,7 +141,6 @@ zoneGreat.BorderSizePixel = 0
 zoneGreat.Parent = castMeterContainer
 Instance.new("UICorner", zoneGreat).CornerRadius = UDim.new(0, 8)
 
--- Zona Perfect (Acak)
 local zonePerfect = Instance.new("Frame")
 zonePerfect.Name = "ZonePerfect"
 zonePerfect.Size = UDim2.fromScale(0.75, 0.14)
@@ -156,7 +156,6 @@ pStroke.Color = Color3.fromRGB(180, 255, 200)
 pStroke.Thickness = 1.5
 pStroke.Parent = zonePerfect
 
--- Label Perfect & Stars
 local perfectBadge = Instance.new("TextLabel")
 perfectBadge.Name = "PerfectBadge"
 perfectBadge.Size = UDim2.new(0, 95, 0, 22)
@@ -169,7 +168,6 @@ perfectBadge.TextSize = 13
 perfectBadge.TextXAlignment = Enum.TextXAlignment.Left
 perfectBadge.Parent = castMeterContainer
 
--- Kursor Indikator Putih
 local indicator = Instance.new("Frame")
 indicator.Name = "Indicator"
 indicator.Size = UDim2.new(1.18, 0, 0, 8)
@@ -184,7 +182,6 @@ indStroke.Color = Color3.fromRGB(255, 255, 255)
 indStroke.Thickness = 1.5
 indStroke.Parent = indicator
 
--- Label Petunjuk Melempar
 local castHint = Instance.new("TextLabel")
 castHint.Name = "CastHint"
 castHint.Size = UDim2.new(0, 190, 0, 24)
@@ -196,7 +193,6 @@ castHint.Font = Enum.Font.GothamBold
 castHint.TextSize = 13
 castHint.Parent = castMeterContainer
 
--- Banner Rating Popup (Muncul saat dikunci)
 local ratingPopup = Instance.new("Frame")
 ratingPopup.Name = "RatingPopup"
 ratingPopup.Size = UDim2.new(0, 230, 0, 48)
@@ -372,7 +368,7 @@ local function animateFishLeap(startPos, endPos, duration, height)
 	end)
 end
 
--- ============ KEPEMILIKAN & STATUS JORAN PANCING ============
+-- ============ KEPEMILIKAN JORAN PANCING ============
 local function getEquippedRod()
 	local character = player.Character
 	if not character then return nil end
@@ -432,7 +428,7 @@ local function freezePlayer(freeze)
 	end
 end
 
--- ============ SISTEM ANIMASI KARAKTER (R15 & R6) ============
+-- ============ SISTEM ANIMASI KARAKTER ============
 local AnimSystem = {
 	savedC0 = {},
 	activeConn = nil,
@@ -849,7 +845,6 @@ executeCastAfterMeter = function()
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-	-- Buat Pelampung di Air
 	if activeBobber then activeBobber:Destroy() end
 	activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
 	if activeBobber:IsA("Model") then
@@ -873,7 +868,6 @@ executeCastAfterMeter = function()
 
 	createWaterSplash(waterPos)
 
-	-- 1. Request Sesi Memancing Server-Authoritative
 	if remote then
 		remote:FireServer("StartFishing", waterPos, castQuality, finalPower)
 	end
@@ -900,7 +894,6 @@ local function onSessionStarted(sessionId, waitDuration, castQuality)
 		return
 	end
 
-	-- 2. Ikan Menyambar!
 	AnimSystem.SetPhase("Biting")
 	showStrikeAlert(waterPos)
 	createWaterSplash(waterPos)
@@ -927,11 +920,9 @@ local function onSessionStarted(sessionId, waitDuration, castQuality)
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-	-- 3. Jalankan Piano Tiles (Blind Mystery)
 	PianoTilesGame.Start({
 		castQuality = castQuality,
 	}, function(metrics)
-		-- Player Menang (Kirim Performa ke Server)
 		AnimSystem.PlayVictoryLift(char)
 		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1.5, 0)) or (waterPos + Vector3.new(0, 5, 0))
 		animateFishLeap(waterPos, catchTarget, 0.9, 7)
@@ -948,7 +939,6 @@ local function onSessionStarted(sessionId, waitDuration, castQuality)
 			freezePlayer(false)
 		end)
 	end, function(metrics)
-		-- Player Gagal (Ikan Lepas)
 		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
@@ -965,8 +955,354 @@ local function onSessionStarted(sessionId, waitDuration, castQuality)
 	end)
 end
 
-local lastTriggerTime = 0
+-- ============ SISTEM INVENTORY & PENJUALAN IKAN ============
+local inventoryFrame, inventoryList, invTotalFishLabel, invTotalCoinsLabel, invSellAllBtn
+local invToggleBtn, invBadge
 
+local function getFishInBackpack()
+	local fishList = {}
+	local backpack = player:FindFirstChild("Backpack")
+	local char = player.Character
+
+	if backpack then
+		for _, item in ipairs(backpack:GetChildren()) do
+			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+				table.insert(fishList, item)
+			end
+		end
+	end
+	if char then
+		for _, item in ipairs(char:GetChildren()) do
+			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+				table.insert(fishList, item)
+			end
+		end
+	end
+
+	return fishList
+end
+
+local function updateInventoryUI()
+	if not inventoryFrame or not inventoryList then return end
+
+	-- Bersihkan list sebelumnya
+	for _, child in ipairs(inventoryList:GetChildren()) do
+		if child:IsA("Frame") or child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+
+	local allFish = getFishInBackpack()
+	local totalCoins = 0
+
+	if invBadge then
+		invBadge.Text = tostring(#allFish)
+		invBadge.Visible = #allFish > 0
+	end
+
+	if invTotalFishLabel then
+		invTotalFishLabel.Text = "🎣 Total Ikan: " .. #allFish
+	end
+
+	if #allFish == 0 then
+		local emptyLabel = Instance.new("TextLabel")
+		emptyLabel.Size = UDim2.new(1, -20, 0, 120)
+		emptyLabel.Position = UDim2.new(0, 10, 0, 40)
+		emptyLabel.BackgroundTransparency = 1
+		emptyLabel.Text = "🎣 Belum ada ikan di inventory.\nAyo memancing di lautan luas!"
+		emptyLabel.TextColor3 = Color3.fromRGB(160, 180, 200)
+		emptyLabel.Font = Enum.Font.GothamMedium
+		emptyLabel.TextSize = 15
+		emptyLabel.Parent = inventoryList
+
+		if invTotalCoinsLabel then
+			invTotalCoinsLabel.Text = "💰 Estimasi Nilai: 0 Koin"
+		end
+		if invSellAllBtn then
+			invSellAllBtn.Text = "💰 JUAL SEMUA IKAN (0 Koin)"
+			invSellAllBtn.BackgroundColor3 = Color3.fromRGB(50, 60, 75)
+		end
+		return
+	end
+
+	for _, tool in ipairs(allFish) do
+		local rName = tool:GetAttribute("Rarity") or "COMMON"
+		local tierData = FishingRaritySystem.GetTierData(rName)
+		local fishName = tool:GetAttribute("FishName") or tool.Name
+		local dispName = tool:GetAttribute("DisplayName") or tierData.displayName
+		local stars = tool:GetAttribute("Stars") or tierData.stars
+		local weight = tonumber(tool:GetAttribute("Weight")) or 1.0
+		local coins = tonumber(tool:GetAttribute("Coins")) or 15
+		local color = tierData.color or Color3.fromRGB(0, 200, 255)
+
+		totalCoins += coins
+
+		local card = Instance.new("Frame")
+		card.Name = "FishCard_" .. tool.Name
+		card.Size = UDim2.new(1, -12, 0, 64)
+		card.BackgroundColor3 = Color3.fromRGB(20, 26, 38)
+		card.BackgroundTransparency = 0.25
+		card.BorderSizePixel = 0
+		card.Parent = inventoryList
+		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+
+		local cardStroke = Instance.new("UIStroke")
+		cardStroke.Color = color
+		cardStroke.Thickness = 1.5
+		cardStroke.Transparency = 0.35
+		cardStroke.Parent = card
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(0.62, 0, 0, 22)
+		nameLabel.Position = UDim2.new(0, 14, 0, 8)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = string.format("[%s] %s %s", dispName, fishName, stars)
+		nameLabel.TextColor3 = color
+		nameLabel.Font = Enum.Font.GothamBlack
+		nameLabel.TextSize = 13
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.Parent = card
+
+		local statsLabel = Instance.new("TextLabel")
+		statsLabel.Size = UDim2.new(0.62, 0, 0, 18)
+		statsLabel.Position = UDim2.new(0, 14, 0, 32)
+		statsLabel.BackgroundTransparency = 1
+		statsLabel.Text = string.format("⚖️ %.1f Kg  |  💰 Nilai: %d Koin", weight, coins)
+		statsLabel.TextColor3 = Color3.fromRGB(220, 235, 255)
+		statsLabel.Font = Enum.Font.GothamMedium
+		statsLabel.TextSize = 12
+		statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+		statsLabel.Parent = card
+
+		local sellBtn = Instance.new("TextButton")
+		sellBtn.Name = "SellBtn"
+		sellBtn.Size = UDim2.new(0, 110, 0, 36)
+		sellBtn.Position = UDim2.new(1, -124, 0.5, -18)
+		sellBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 90)
+		sellBtn.BorderSizePixel = 0
+		sellBtn.Text = string.format("Jual (💰 %d)", coins)
+		sellBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		sellBtn.Font = Enum.Font.GothamBold
+		sellBtn.TextSize = 12
+		sellBtn.Parent = card
+		Instance.new("UICorner", sellBtn).CornerRadius = UDim.new(0, 8)
+
+		sellBtn.MouseButton1Click:Connect(function()
+			playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.4)
+			if remote and tool and tool.Parent then
+				remote:FireServer("SellFish", tool)
+			end
+		end)
+	end
+
+	if invTotalCoinsLabel then
+		invTotalCoinsLabel.Text = string.format("💰 Total Nilai: %d Koin", totalCoins)
+	end
+	if invSellAllBtn then
+		invSellAllBtn.Text = string.format("💰 JUAL SEMUA IKAN (💰 %d Koin)", totalCoins)
+		invSellAllBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 95)
+	end
+end
+
+local function toggleInventory(forcedState)
+	if not inventoryFrame then return end
+	local newState = (forcedState ~= nil) and forcedState or (not inventoryFrame.Visible)
+	if newState then
+		updateInventoryUI()
+		inventoryFrame.Visible = true
+		inventoryFrame.Size = UDim2.new(0, 480, 0, 420)
+		inventoryFrame.Position = UDim2.new(0.5, -240, 0.5, -210)
+		TweenService:Create(inventoryFrame, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 520, 0, 460),
+			Position = UDim2.new(0.5, -260, 0.5, -230)
+		}):Play()
+	else
+		inventoryFrame.Visible = false
+	end
+end
+
+-- ============ MEMBANGUN INVENTORY MODAL GUI ============
+local function buildInventoryUI()
+	-- 1. Tombol Toggle Inventory di Layar (HUD)
+	invToggleBtn = Instance.new("TextButton")
+	invToggleBtn.Name = "InvToggleBtn"
+	invToggleBtn.Size = UDim2.new(0, 140, 0, 44)
+	invToggleBtn.Position = UDim2.new(0, 20, 0.24, 0)
+	invToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
+	invToggleBtn.BackgroundTransparency = 0.25
+	invToggleBtn.BorderSizePixel = 0
+	invToggleBtn.Text = "🎒 INVENTORY"
+	invToggleBtn.TextColor3 = Color3.fromRGB(0, 220, 255)
+	invToggleBtn.Font = Enum.Font.GothamBlack
+	invToggleBtn.TextSize = 13
+	invToggleBtn.Parent = gui
+	Instance.new("UICorner", invToggleBtn).CornerRadius = UDim.new(0, 12)
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(0, 200, 255)
+	btnStroke.Thickness = 1.5
+	btnStroke.Transparency = 0.3
+	btnStroke.Parent = invToggleBtn
+
+	invBadge = Instance.new("TextLabel")
+	invBadge.Name = "Badge"
+	invBadge.Size = UDim2.new(0, 22, 0, 22)
+	invBadge.Position = UDim2.new(1, -12, 0, -8)
+	invBadge.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+	invBadge.BorderSizePixel = 0
+	invBadge.Text = "0"
+	invBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+	invBadge.Font = Enum.Font.GothamBold
+	invBadge.TextSize = 11
+	invBadge.Visible = false
+	invBadge.Parent = invToggleBtn
+	Instance.new("UICorner", invBadge).CornerRadius = UDim.new(1, 0)
+
+	invToggleBtn.MouseButton1Click:Connect(function()
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.2)
+		toggleInventory()
+	end)
+
+	-- 2. Modal Frame Inventory
+	inventoryFrame = Instance.new("Frame")
+	inventoryFrame.Name = "InventoryFrame"
+	inventoryFrame.Size = UDim2.new(0, 520, 0, 460)
+	inventoryFrame.Position = UDim2.new(0.5, -260, 0.5, -230)
+	inventoryFrame.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
+	inventoryFrame.BackgroundTransparency = 0.15
+	inventoryFrame.BorderSizePixel = 0
+	inventoryFrame.Visible = false
+	inventoryFrame.Parent = gui
+	Instance.new("UICorner", inventoryFrame).CornerRadius = UDim.new(0, 16)
+
+	local frameStroke = Instance.new("UIStroke")
+	frameStroke.Color = Color3.fromRGB(0, 200, 255)
+	frameStroke.Thickness = 2
+	frameStroke.Transparency = 0.3
+	frameStroke.Parent = inventoryFrame
+
+	-- Header
+	local header = Instance.new("Frame")
+	header.Size = UDim2.new(1, 0, 0, 56)
+	header.BackgroundTransparency = 1
+	header.Parent = inventoryFrame
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(0.7, 0, 0, 26)
+	title.Position = UDim2.new(0, 18, 0, 8)
+	title.BackgroundTransparency = 1
+	title.Text = "🎒 INVENTORY IKAN"
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.Font = Enum.Font.GothamBlack
+	title.TextSize = 18
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = header
+
+	local subtitle = Instance.new("TextLabel")
+	subtitle.Size = UDim2.new(0.7, 0, 0, 16)
+	subtitle.Position = UDim2.new(0, 18, 0, 32)
+	subtitle.BackgroundTransparency = 1
+	subtitle.Text = "Jual hasil tangkapan untuk menambah Koin!"
+	subtitle.TextColor3 = Color3.fromRGB(160, 200, 230)
+	subtitle.Font = Enum.Font.GothamMedium
+	subtitle.TextSize = 12
+	subtitle.TextXAlignment = Enum.TextXAlignment.Left
+	subtitle.Parent = header
+
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Size = UDim2.new(0, 34, 0, 34)
+	closeBtn.Position = UDim2.new(1, -44, 0, 11)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(35, 45, 65)
+	closeBtn.BorderSizePixel = 0
+	closeBtn.Text = "✕"
+	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeBtn.Font = Enum.Font.GothamBlack
+	closeBtn.TextSize = 16
+	closeBtn.Parent = header
+	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+	closeBtn.MouseButton1Click:Connect(function()
+		toggleInventory(false)
+	end)
+
+	-- Subheader Stats
+	local statsBar = Instance.new("Frame")
+	statsBar.Size = UDim2.new(1, -36, 0, 30)
+	statsBar.Position = UDim2.new(0, 18, 0, 60)
+	statsBar.BackgroundColor3 = Color3.fromRGB(20, 28, 44)
+	statsBar.BackgroundTransparency = 0.5
+	statsBar.BorderSizePixel = 0
+	statsBar.Parent = inventoryFrame
+	Instance.new("UICorner", statsBar).CornerRadius = UDim.new(0, 8)
+
+	invTotalFishLabel = Instance.new("TextLabel")
+	invTotalFishLabel.Size = UDim2.new(0.48, 0, 1, 0)
+	invTotalFishLabel.Position = UDim2.new(0.03, 0, 0, 0)
+	invTotalFishLabel.BackgroundTransparency = 1
+	invTotalFishLabel.Text = "🎣 Total Ikan: 0"
+	invTotalFishLabel.TextColor3 = Color3.fromRGB(0, 210, 255)
+	invTotalFishLabel.Font = Enum.Font.GothamBold
+	invTotalFishLabel.TextSize = 12
+	invTotalFishLabel.TextXAlignment = Enum.TextXAlignment.Left
+	invTotalFishLabel.Parent = statsBar
+
+	invTotalCoinsLabel = Instance.new("TextLabel")
+	invTotalCoinsLabel.Size = UDim2.new(0.48, 0, 1, 0)
+	invTotalCoinsLabel.Position = UDim2.new(0.49, 0, 0, 0)
+	invTotalCoinsLabel.BackgroundTransparency = 1
+	invTotalCoinsLabel.Text = "💰 Total Nilai: 0 Koin"
+	invTotalCoinsLabel.TextColor3 = Color3.fromRGB(255, 220, 60)
+	invTotalCoinsLabel.Font = Enum.Font.GothamBold
+	invTotalCoinsLabel.TextSize = 12
+	invTotalCoinsLabel.TextXAlignment = Enum.TextXAlignment.Right
+	invTotalCoinsLabel.Parent = statsBar
+
+	-- Scrollable List Ikan
+	inventoryList = Instance.new("ScrollingFrame")
+	inventoryList.Name = "InventoryList"
+	inventoryList.Size = UDim2.new(1, -36, 1, -165)
+	inventoryList.Position = UDim2.new(0, 18, 0, 98)
+	inventoryList.BackgroundTransparency = 1
+	inventoryList.BorderSizePixel = 0
+	inventoryList.ScrollBarThickness = 5
+	inventoryList.ScrollBarImageColor3 = Color3.fromRGB(0, 200, 255)
+	inventoryList.CanvasSize = UDim2.new(0, 0, 0, 0)
+	inventoryList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	inventoryList.Parent = inventoryFrame
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = inventoryList
+
+	-- Bottom Bar (Sell All)
+	invSellAllBtn = Instance.new("TextButton")
+	invSellAllBtn.Name = "SellAllBtn"
+	invSellAllBtn.Size = UDim2.new(1, -36, 0, 44)
+	invSellAllBtn.Position = UDim2.new(0, 18, 1, -54)
+	invSellAllBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 95)
+	invSellAllBtn.BorderSizePixel = 0
+	invSellAllBtn.Text = "💰 JUAL SEMUA IKAN (0 Koin)"
+	invSellAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	invSellAllBtn.Font = Enum.Font.GothamBlack
+	invSellAllBtn.TextSize = 14
+	invSellAllBtn.Parent = inventoryFrame
+	Instance.new("UICorner", invSellAllBtn).CornerRadius = UDim.new(0, 10)
+
+	invSellAllBtn.MouseButton1Click:Connect(function()
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 1.4)
+		if remote then
+			remote:FireServer("SellAllFish")
+		end
+	end)
+
+	updateInventoryUI()
+end
+
+buildInventoryUI()
+
+-- ============ LISTENER INPUT AKTIVASI ============
+local lastTriggerTime = 0
 local function handleInteractionTrigger()
 	local now = os.clock()
 	if now - lastTriggerTime < 0.12 then return end
@@ -988,8 +1324,13 @@ local function handleInteractionTrigger()
 	end
 end
 
--- ============ LISTENER INPUT AKTIVASI ============
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	-- Hotkey B atau I untuk Toggle Inventory
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.I) then
+		toggleInventory()
+		return
+	end
+
 	if gameProcessed then return end
 
 	if isCastingMeterActive then
@@ -1020,7 +1361,12 @@ local function watchInventory()
 	local backpack = player:WaitForChild("Backpack")
 	backpack.ChildAdded:Connect(function(child)
 		if child:IsA("Tool") then hookTool(child) end
+		updateInventoryUI()
 	end)
+	backpack.ChildRemoved:Connect(function()
+		updateInventoryUI()
+	end)
+
 	for _, child in ipairs(backpack:GetChildren()) do
 		if child:IsA("Tool") then hookTool(child) end
 	end
@@ -1029,6 +1375,10 @@ local function watchInventory()
 		AnimSystem.ResetJoints()
 		char.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") then hookTool(child) end
+			updateInventoryUI()
+		end)
+		char.ChildRemoved:Connect(function()
+			updateInventoryUI()
 		end)
 	end)
 	if player.Character then
@@ -1037,6 +1387,10 @@ local function watchInventory()
 		end
 		player.Character.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") then hookTool(child) end
+			updateInventoryUI()
+		end)
+		player.Character.ChildRemoved:Connect(function()
+			updateInventoryUI()
 		end)
 	end
 end
@@ -1065,14 +1419,31 @@ if remote then
 			local disp = fishData.displayName or "COMMON"
 			local stars = fishData.stars or "⭐"
 			local weight = fishData.weight or 1.0
-			local coins = rewardInfo.coins or 0
-			local exp = rewardInfo.exp or 0
+			local coins = rewardInfo.coins or (fishData.coins or 0)
+			local exp = rewardInfo.exp or (fishData.exp or 0)
 			local color = fishData.color or Color3.fromRGB(0, 200, 255)
 
-			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!\n[%s] %s %s\n⚖️ %.1f Kg | 💰 +%d Koin | ⭐ +%d EXP", disp, name, stars, weight, coins, exp)
+			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!\n[%s] %s %s\n⚖️ %.1f Kg | 💰 Nilai: %d Koin (Bisa Dijual) | ⭐ +%d EXP", disp, name, stars, weight, coins, exp)
 			showMessage(revealMsg, color, 5.0)
 
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+			updateInventoryUI()
+		elseif action == "FishSold" then
+			local fishName = arg1 or "Ikan"
+			local coinsGained = arg2 or 0
+			local currentCoins = arg3 or 0
+
+			showMessage(string.format("💰 Berhasil menjual %s seharga +%d Koin!", fishName, coinsGained), Color3.fromRGB(50, 255, 130), 3.5)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.6)
+			updateInventoryUI()
+		elseif action == "AllFishSold" then
+			local count = arg1 or 0
+			local totalCoins = arg2 or 0
+			local currentCoins = arg3 or 0
+
+			showMessage(string.format("💰 Berhasil menjual %d Ikan seharga total +%d Koin!", count, totalCoins), Color3.fromRGB(50, 255, 130), 4.0)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.6)
+			updateInventoryUI()
 		elseif action == "LevelUp" then
 			local newLevel = arg1 or 2
 			showMessage("⭐ LEVEL UP! Selamat, kamu sekarang Level " .. newLevel .. "! ⭐", Color3.fromRGB(255, 215, 0), 4.5)

@@ -1,10 +1,11 @@
 --[[
-	FishingServer (Universal Water Fishing System with Server-Authoritative Sessions & RPG Progression)
+	FishingServer (Universal Water Fishing System with Server-Authoritative Sessions, Fish Economy & Progression)
 	Fitur:
 	1. Validasi Sesi Memancing Server-Authoritative (Anti-Exploit).
 	2. Server-Side RNG, Soft Level Gating, dan Hierarchical Pity System.
-	3. Sistem Level, EXP, Koin, dan Leaderstats Lengkap.
-	4. Generator Item Ikan 3D Tool dengan Visual Aura (Sparkles, Light, Fire) & Efek Suara.
+	3. Sistem Ekonomi: Ikan harus dijual (Sell / Sell All) agar Koin bertambah.
+	4. Sistem Level, EXP, Koin, dan Leaderstats Lengkap.
+	5. Generator Item Ikan 3D Tool dengan Metadata Lengkap & Visual Aura.
 ]]
 
 local Players = game:GetService("Players")
@@ -100,12 +101,16 @@ local function createFishTool(fishData)
 
 	local tool = Instance.new("Tool")
 	tool.Name = fishData.name .. " [" .. fishData.displayName .. "]"
-	tool.ToolTip = string.format("Tangkapan: %s (%s %s | %.1f Kg | %d Koin)", fishData.name, fishData.displayName, fishData.stars, fishData.weight, fishData.coins)
+	tool.ToolTip = string.format("Tangkapan: %s (%s %s | %.1f Kg | Nilai: %d Koin)", fishData.name, fishData.displayName, fishData.stars, fishData.weight, fishData.coins)
 	tool.RequiresHandle = true
 	tool.CanBeDropped = true
 
-	-- Metadata Ikan
+	-- Metadata Ikan Lengkap
+	tool:SetAttribute("IsFish", true)
+	tool:SetAttribute("FishName", fishData.name)
+	tool:SetAttribute("DisplayName", fishData.displayName)
 	tool:SetAttribute("Rarity", r)
+	tool:SetAttribute("Stars", fishData.stars)
 	tool:SetAttribute("Weight", fishData.weight)
 	tool:SetAttribute("Coins", fishData.coins)
 	tool:SetAttribute("Exp", fishData.exp)
@@ -266,7 +271,6 @@ if remote then
 				return
 			end
 
-			-- Bersihkan sesi lama jika ada
 			local oldSess = playerSessions[player.UserId]
 			if oldSess then
 				activeSessions[oldSess] = nil
@@ -302,7 +306,7 @@ if remote then
 			return
 		end
 
-		-- 2. Pengiriman Hasil Tangkapan Rhythm (SubmitCatch) - SERVER AUTHORITATIVE
+		-- 2. Pengiriman Hasil Tangkapan Rhythm (SubmitCatch)
 		if action == "SubmitCatch" then
 			local sessionId = tostring(arg1 or "")
 			local metrics = arg2 or {}
@@ -313,12 +317,10 @@ if remote then
 				return
 			end
 
-			-- Tandai sesi selesai
 			session.status = "Completed"
 			activeSessions[sessionId] = nil
 			playerSessions[player.UserId] = nil
 
-			-- Validasi kepemilikan joran
 			if not hasFishingRod(player) then
 				remote:FireClient(player, "Notification", "⚠️ Kamu tidak memiliki Joran Pancing di inventory!")
 				return
@@ -340,15 +342,14 @@ if remote then
 
 			local effectiveLuck = math.clamp(rodLuck + levelLuck + castLuck + rhythmBonus, FishingRaritySystem.MIN_LUCK, FishingRaritySystem.MAX_LUCK)
 
-			-- SERVER ROLL RNG & PITY EVALUATION
+			-- Roll RNG & Pity di Server
 			local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(effectiveLuck, pData.level, pData.pity)
 			local fishData = FishingRaritySystem.GenerateFish(rolledRarity, pData.level)
 
 			-- Update Pity State
 			pData.pity = FishingRaritySystem.UpdatePityOnCatch(pData.pity, rolledRarity)
 
-			-- Tambah EXP, Koin, dan Total Ikan
-			pData.coins += fishData.coins
+			-- Tambah EXP dan Total Ikan (Koin didapat saat ikan dijual!)
 			pData.totalFish += 1
 			addExp(player, fishData.exp)
 			syncLeaderstats(player)
@@ -361,18 +362,93 @@ if remote then
 			end
 
 			local rewardInfo = {
-				coins = fishData.coins,
+				coins = fishData.coins, -- Nilai estimasi koin saat dijual
 				exp = fishData.exp,
 				wasPity = wasPity,
 				effectiveLuck = effectiveLuck,
 			}
 
-			-- Kirim Reveal Lengkap ke Client
 			remote:FireClient(player, "CatchSuccess", fishData, rewardInfo, pData, pData.pity)
 			return
 		end
 
-		-- 3. Pembatalan Sesi (CancelFishing / Fish Escaped)
+		-- 3. Menjual Satu Ikan Tertentu (SellFish)
+		if action == "SellFish" then
+			local targetArg = arg1
+			local foundTool = nil
+
+			local backpack = player:FindFirstChild("Backpack")
+			local char = player.Character
+
+			if typeof(targetArg) == "Instance" and targetArg:IsA("Tool") then
+				if (backpack and targetArg.Parent == backpack) or (char and targetArg.Parent == char) then
+					foundTool = targetArg
+				end
+			elseif typeof(targetArg) == "string" then
+				if backpack and backpack:FindFirstChild(targetArg) then
+					foundTool = backpack:FindFirstChild(targetArg)
+				elseif char and char:FindFirstChild(targetArg) then
+					foundTool = char:FindFirstChild(targetArg)
+				end
+			end
+
+			if foundTool and (foundTool:GetAttribute("IsFish") == true or (foundTool.Name ~= "FishingRod" and foundTool.Name ~= "Pancingan")) then
+				local coins = foundTool:GetAttribute("Coins") or 15
+				local fishName = foundTool:GetAttribute("FishName") or foundTool.Name
+				foundTool:Destroy()
+
+				pData.coins += coins
+				syncLeaderstats(player)
+
+				remote:FireClient(player, "FishSold", fishName, coins, pData.coins)
+			else
+				remote:FireClient(player, "Notification", "⚠️ Ikan tidak ditemukan atau sudah terjual!")
+			end
+			return
+		end
+
+		-- 4. Menjual Semua Ikan di Inventory (SellAllFish)
+		if action == "SellAllFish" then
+			local backpack = player:FindFirstChild("Backpack")
+			local char = player.Character
+
+			local totalGained = 0
+			local count = 0
+			local toolsToSell = {}
+
+			if backpack then
+				for _, item in ipairs(backpack:GetChildren()) do
+					if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+						table.insert(toolsToSell, item)
+					end
+				end
+			end
+			if char then
+				for _, item in ipairs(char:GetChildren()) do
+					if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+						table.insert(toolsToSell, item)
+					end
+				end
+			end
+
+			for _, tool in ipairs(toolsToSell) do
+				local val = tool:GetAttribute("Coins") or 15
+				totalGained += val
+				count += 1
+				tool:Destroy()
+			end
+
+			if count > 0 then
+				pData.coins += totalGained
+				syncLeaderstats(player)
+				remote:FireClient(player, "AllFishSold", count, totalGained, pData.coins)
+			else
+				remote:FireClient(player, "Notification", "⚠️ Tidak ada ikan di inventory untuk dijual!")
+			end
+			return
+		end
+
+		-- 5. Pembatalan Sesi (CancelFishing)
 		if action == "CancelFishing" then
 			local sessionId = tostring(arg1 or "")
 			if activeSessions[sessionId] and activeSessions[sessionId].userId == player.UserId then
@@ -384,7 +460,7 @@ if remote then
 			return
 		end
 
-		-- 4. Get Player Data
+		-- 6. Get Player Data
 		if action == "GetPlayerData" then
 			remote:FireClient(player, "PlayerDataUpdate", pData, pData.pity)
 			return
