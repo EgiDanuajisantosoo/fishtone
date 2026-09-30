@@ -1,30 +1,70 @@
 --[[
 	FishingRaritySystem (ModuleScript)
-	Sistem Rarity Server-Authoritative Berbasis Weighted Base Table,
-	Soft Level Gating, Effective Luck Scaling, dan Hierarchical Pity System.
+	FISH!TUNE — Game Balance Specification v1.0
 	
-	6 Tingkatan Rarity & Target Nada:
-	1. COMMON     -> 30 Nada  (Abu-abu)
-	2. RARE       -> 60 Nada  (Biru)
-	3. SUPER RARE -> 100 Nada (Ungu)
-	4. LEGENDARY  -> 150 Nada (Emas)       - Pity: 100
-	5. MYTHIC     -> 200 Nada (Merah)      - Pity: 500
-	6. SPECIAL    -> 300 Nada (Pelangi)    - Pity: 1000
+	Sistem Sentral Balancing Matematis:
+	1. Formula XP Non-linear: XP Required(level) = floor(100 * level^1.65)
+	2. Effective Luck Diminishing Returns: 0 - 100 Luck (Max 1.50x Multiplier)
+	3. Non-Uniform Skewed Weight Distribution (Pangkat 1.8)
+	4. Economy Value & XP Scaled by Weight & Rhythm Performance
+	5. Soft Pity Scaling & Hierarchical Reset
+	6. Weighted Rarity Base Table (Common 80%, Rare 15%, Super Rare 4.5%, Legendary 0.45%, Mythic 0.049%, Special 0.001%)
+	7. Built-in Simulation Function untuk Validasi Balancing
 ]]
 
 local FishingRaritySystem = {}
 
-FishingRaritySystem.MIN_LUCK = 1
-FishingRaritySystem.MAX_LUCK = 150
-
-FishingRaritySystem.PITY_LIMITS = {
-	LEGENDARY = 100,
-	MYTHIC = 500,
-	SPECIAL = 1000,
-	-- Aliases
-	SSR = 100,
-	UR = 500,
-	EX = 1000,
+-- ============ CONFIG BALANCING CENTRAL v1.0 ============
+FishingRaritySystem.CONFIG = {
+	LUCK = {
+		MIN = 0,
+		MAX = 100,
+		PERFORMANCE_COEFF = 0.25, -- Performance Score (0-100) * 0.25 -> Max +25 Luck
+	},
+	XP = {
+		BASE_FORMULA = 100,
+		EXPONENT = 1.65,
+		BASE_XP = {
+			COMMON = 10,
+			RARE = 18,
+			SUPER_RARE = 30,
+			LEGENDARY = 55,
+			MYTHIC = 100,
+			SPECIAL = 175,
+		},
+		PERF_MULTIPLIERS = {
+			{ maxScore = 39, mult = 0.75 },
+			{ maxScore = 59, mult = 0.90 },
+			{ maxScore = 74, mult = 1.00 },
+			{ maxScore = 89, mult = 1.10 },
+			{ maxScore = 99, mult = 1.20 },
+			{ maxScore = 100, mult = 1.30 },
+		}
+	},
+	ECONOMY = {
+		BASE_COINS = {
+			COMMON = 15,
+			RARE = 45,
+			SUPER_RARE = 120,
+			LEGENDARY = 350,
+			MYTHIC = 1100,
+			SPECIAL = 3500,
+		},
+		WEIGHT_POW = 1.8, -- Skew berat ikan condong ke ukuran wajar
+	},
+	RARITY_BASE_WEIGHTS = {
+		COMMON = 8000,     -- ~80.00%
+		RARE = 1500,       -- ~15.00%
+		SUPER_RARE = 450,  -- ~4.50%
+		LEGENDARY = 45,    -- ~0.45%
+		MYTHIC = 4.9,      -- ~0.049%
+		SPECIAL = 0.1,     -- ~0.001%
+	},
+	PITY = {
+		LEGENDARY = { start = 50, rate = 0.04, hard = 120 },
+		MYTHIC = { start = 250, rate = 0.02, hard = 500 },
+		SPECIAL = { start = 500, rate = 0.01, hard = 1000 },
+	}
 }
 
 -- Definisi 6 Tier Rarity & Visual & Target Nada
@@ -107,54 +147,44 @@ FishingRaritySystem.TIERS.SuperRare = FishingRaritySystem.TIERS.SUPER_RARE
 FishingRaritySystem.TIERS.Rare = FishingRaritySystem.TIERS.RARE
 FishingRaritySystem.TIERS.Common = FishingRaritySystem.TIERS.COMMON
 
--- Bobot Dasar Loot Table (Total Base Weight = 10,000)
-local BASE_WEIGHTS = {
-	COMMON = 7500,     -- ~75.0%
-	RARE = 2000,       -- ~20.0%
-	SUPER_RARE = 450,  -- ~4.5%
-	LEGENDARY = 45,    -- ~0.45%
-	MYTHIC = 4,        -- ~0.04%
-	SPECIAL = 1,       -- ~0.01%
-}
-
--- Database Ikan dengan Statistik Bobot (Kg), Nilai Koin, dan EXP
+-- Database Ikan dengan Rentang Bobot Spesifik
 FishingRaritySystem.FISH_DATABASE = {
 	SPECIAL = {
-		{ name = "Dewi Samudra Poseidon", minWeight = 120.0, maxWeight = 350.0, baseCoins = 2500, baseExp = 1200 },
-		{ name = "Naga Bintang Kosmik", minWeight = 150.0, maxWeight = 420.0, baseCoins = 3000, baseExp = 1500 },
-		{ name = "Leviathan Abyss", minWeight = 200.0, maxWeight = 500.0, baseCoins = 3500, baseExp = 1800 },
-		{ name = "Kraken Kuno Abadi", minWeight = 180.0, maxWeight = 450.0, baseCoins = 2800, baseExp = 1400 }
+		{ name = "Dewi Samudra Poseidon", minWeight = 25.0, maxWeight = 100.0 },
+		{ name = "Naga Bintang Kosmik", minWeight = 30.0, maxWeight = 120.0 },
+		{ name = "Leviathan Abyss", minWeight = 40.0, maxWeight = 150.0 },
+		{ name = "Kraken Kuno Abadi", minWeight = 35.0, maxWeight = 130.0 }
 	},
 	MYTHIC = {
-		{ name = "Hiu Megalodon Merah", minWeight = 60.0, maxWeight = 140.0, baseCoins = 950, baseExp = 500 },
-		{ name = "Naga Laut Api", minWeight = 50.0, maxWeight = 120.0, baseCoins = 850, baseExp = 450 },
-		{ name = "Kraken Laut Dalam", minWeight = 70.0, maxWeight = 160.0, baseCoins = 1050, baseExp = 550 },
-		{ name = "Pari Raksasa Nebula", minWeight = 45.0, maxWeight = 110.0, baseCoins = 800, baseExp = 420 }
+		{ name = "Hiu Megalodon Merah", minWeight = 15.0, maxWeight = 50.0 },
+		{ name = "Naga Laut Api", minWeight = 12.0, maxWeight = 45.0 },
+		{ name = "Kraken Laut Dalam", minWeight = 18.0, maxWeight = 60.0 },
+		{ name = "Pari Raksasa Nebula", minWeight = 14.0, maxWeight = 40.0 }
 	},
 	LEGENDARY = {
-		{ name = "Naga Laut Mistis", minWeight = 25.0, maxWeight = 55.0, baseCoins = 400, baseExp = 220 },
-		{ name = "Hiu Emas Murni", minWeight = 30.0, maxWeight = 65.0, baseCoins = 450, baseExp = 250 },
-		{ name = "Ikan Mas Raja", minWeight = 18.0, maxWeight = 40.0, baseCoins = 350, baseExp = 190 },
-		{ name = "Belida Emas Suci", minWeight = 20.0, maxWeight = 45.0, baseCoins = 380, baseExp = 200 }
+		{ name = "Naga Laut Mistis", minWeight = 8.0, maxWeight = 25.0 },
+		{ name = "Hiu Emas Murni", minWeight = 10.0, maxWeight = 28.0 },
+		{ name = "Ikan Mas Raja", minWeight = 7.0, maxWeight = 20.0 },
+		{ name = "Belida Emas Suci", minWeight = 8.5, maxWeight = 22.0 }
 	},
 	SUPER_RARE = {
-		{ name = "Arapaima Raksasa", minWeight = 12.0, maxWeight = 25.0, baseCoins = 160, baseExp = 90 },
-		{ name = "Pari Listrik Laut", minWeight = 10.0, maxWeight = 22.0, baseCoins = 140, baseExp = 80 },
-		{ name = "Lele Monster Raksasa", minWeight = 14.0, maxWeight = 28.0, baseCoins = 175, baseExp = 95 },
-		{ name = "Toman Raja Hitam", minWeight = 9.0, maxWeight = 20.0, baseCoins = 130, baseExp = 75 }
+		{ name = "Arapaima Raksasa", minWeight = 3.0, maxWeight = 10.0 },
+		{ name = "Pari Listrik Laut", minWeight = 2.5, maxWeight = 8.5 },
+		{ name = "Lele Monster Raksasa", minWeight = 3.5, maxWeight = 11.0 },
+		{ name = "Toman Raja Hitam", minWeight = 2.8, maxWeight = 9.0 }
 	},
 	RARE = {
-		{ name = "Gurame Super", minWeight = 3.5, maxWeight = 8.0, baseCoins = 60, baseExp = 35 },
-		{ name = "Ikan Salmon Perak", minWeight = 4.0, maxWeight = 9.5, baseCoins = 75, baseExp = 40 },
-		{ name = "Bawal Emas", minWeight = 3.0, maxWeight = 7.5, baseCoins = 55, baseExp = 30 },
-		{ name = "Kakap Merah Segar", minWeight = 4.5, maxWeight = 10.0, baseCoins = 70, baseExp = 38 }
+		{ name = "Gurame Super", minWeight = 1.5, maxWeight = 5.0 },
+		{ name = "Ikan Salmon Perak", minWeight = 1.8, maxWeight = 5.5 },
+		{ name = "Bawal Emas", minWeight = 1.2, maxWeight = 4.2 },
+		{ name = "Kakap Merah Segar", minWeight = 2.0, maxWeight = 6.0 }
 	},
 	COMMON = {
-		{ name = "Ikan Mas Kecil", minWeight = 0.8, maxWeight = 2.5, baseCoins = 15, baseExp = 10 },
-		{ name = "Lele Lokal", minWeight = 0.5, maxWeight = 2.0, baseCoins = 12, baseExp = 8 },
-		{ name = "Mujair Sungai", minWeight = 0.6, maxWeight = 2.2, baseCoins = 14, baseExp = 9 },
-		{ name = "Ikan Nila Segar", minWeight = 0.7, maxWeight = 2.6, baseCoins = 16, baseExp = 11 },
-		{ name = "Ikan Cupang Liar", minWeight = 0.1, maxWeight = 0.4, baseCoins = 10, baseExp = 6 }
+		{ name = "Ikan Mas Kecil", minWeight = 0.5, maxWeight = 2.0 },
+		{ name = "Lele Lokal", minWeight = 0.4, maxWeight = 1.8 },
+		{ name = "Mujair Sungai", minWeight = 0.5, maxWeight = 1.9 },
+		{ name = "Ikan Nila Segar", minWeight = 0.6, maxWeight = 2.2 },
+		{ name = "Ikan Cupang Liar", minWeight = 0.1, maxWeight = 0.5 }
 	}
 }
 
@@ -177,46 +207,108 @@ FishingRaritySystem.RARITY_ORDER = {
 	"SPECIAL"
 }
 
--- 1. Soft Level Gating Multiplier (Mencegah Pemain Baru Dibanjiri Rarity Tinggi)
+-- ============ 1. FORMULA PROGRESSION LEVEL & XP ============
+function FishingRaritySystem.GetExpRequiredForLevel(level)
+	level = math.max(1, tonumber(level) or 1)
+	return math.floor(FishingRaritySystem.CONFIG.XP.BASE_FORMULA * (level ^ FishingRaritySystem.CONFIG.XP.EXPONENT))
+end
+
+function FishingRaritySystem.GetLevelFromTotalExp(totalExp)
+	totalExp = math.max(0, tonumber(totalExp) or 0)
+	local level = 1
+	local accExp = 0
+
+	while true do
+		local req = FishingRaritySystem.GetExpRequiredForLevel(level)
+		if accExp + req <= totalExp then
+			accExp += req
+			level += 1
+		else
+			break
+		end
+	end
+
+	local currentLevelExp = totalExp - accExp
+	local nextLevelExp = FishingRaritySystem.GetExpRequiredForLevel(level)
+	local percent = math.clamp(currentLevelExp / math.max(1, nextLevelExp), 0, 1)
+
+	return level, currentLevelExp, nextLevelExp, percent
+end
+
+-- ============ 2. FORMULA EFFECTIVE LUCK & DIMINISHING RETURNS ============
+function FishingRaritySystem.CalculateEffectiveLuck(baseLuck, castLuck, perfLuck, instLuck)
+	local raw = (tonumber(baseLuck) or 0) + (tonumber(castLuck) or 0) + (tonumber(perfLuck) or 0) + (tonumber(instLuck) or 0)
+	return math.clamp(raw, FishingRaritySystem.CONFIG.LUCK.MIN, FishingRaritySystem.CONFIG.LUCK.MAX)
+end
+
+function FishingRaritySystem.GetLuckMultiplier(effectiveLuck)
+	effectiveLuck = math.clamp(tonumber(effectiveLuck) or 0, 0, 100)
+	-- Diminishing Return: 1 + (Luck / (Luck + 100)) -> Range: 1.00x - 1.50x
+	return 1 + (effectiveLuck / (effectiveLuck + 100))
+end
+
+-- ============ 3. SOFT LEVEL GATING MULTIPLIER ============
 function FishingRaritySystem.GetLevelMultiplier(level, rarity)
 	level = math.max(1, tonumber(level) or 1)
 	rarity = tostring(rarity):upper()
 
 	if rarity == "SPECIAL" or rarity == "EX" then
-		if level < 15 then return 0.02 end
-		if level < 25 then return 0.20 end
+		if level < 15 then return 0.05 end
+		if level < 25 then return 0.35 end
 		return 1.00
 	elseif rarity == "MYTHIC" or rarity == "UR" then
-		if level < 10 then return 0.05 end
-		if level < 20 then return 0.30 end
+		if level < 10 then return 0.10 end
+		if level < 20 then return 0.50 end
 		return 1.00
 	elseif rarity == "LEGENDARY" or rarity == "SSR" then
-		if level < 5 then return 0.15 end
-		if level < 10 then return 0.40 end
-		if level < 20 then return 0.75 end
+		if level < 5 then return 0.20 end
+		if level < 10 then return 0.50 end
+		if level < 20 then return 0.80 end
 		return 1.00
 	elseif rarity == "SUPER_RARE" or rarity == "SR" then
-		if level < 3 then return 0.50 end
+		if level < 3 then return 0.60 end
 		return 1.00
 	end
 
 	return 1.00
 end
 
--- 2. Hitung Distribusi Probabilitas Nyata Berdasarkan Effective Luck & Level Pemain
-function FishingRaritySystem.GetRarityChances(luck, level)
-	luck = math.clamp(tonumber(luck) or 1, FishingRaritySystem.MIN_LUCK, FishingRaritySystem.MAX_LUCK)
+-- ============ 4. HITUNG DISTRIBUSI PELUANG NYATA ============
+function FishingRaritySystem.GetRarityChances(luck, level, pityState)
+	luck = math.clamp(tonumber(luck) or 0, 0, 100)
 	level = math.max(1, tonumber(level) or 1)
+	pityState = pityState or {}
 
-	local luckFactor = (luck - 1) / 100
+	local luckMult = FishingRaritySystem.GetLuckMultiplier(luck)
+	local baseW = FishingRaritySystem.CONFIG.RARITY_BASE_WEIGHTS
+
+	-- Soft Pity Multipliers
+	local pLeg = pityState.LEGENDARY or pityState.SSR or 0
+	local pMyt = pityState.MYTHIC or pityState.UR or 0
+	local pSpe = pityState.SPECIAL or pityState.EX or 0
+
+	local legPityMult = 1
+	if pLeg >= FishingRaritySystem.CONFIG.PITY.LEGENDARY.start then
+		legPityMult = 1 + ((pLeg - FishingRaritySystem.CONFIG.PITY.LEGENDARY.start) * FishingRaritySystem.CONFIG.PITY.LEGENDARY.rate)
+	end
+
+	local mytPityMult = 1
+	if pMyt >= FishingRaritySystem.CONFIG.PITY.MYTHIC.start then
+		mytPityMult = 1 + ((pMyt - FishingRaritySystem.CONFIG.PITY.MYTHIC.start) * FishingRaritySystem.CONFIG.PITY.MYTHIC.rate)
+	end
+
+	local spePityMult = 1
+	if pSpe >= FishingRaritySystem.CONFIG.PITY.SPECIAL.start then
+		spePityMult = 1 + ((pSpe - FishingRaritySystem.CONFIG.PITY.SPECIAL.start) * FishingRaritySystem.CONFIG.PITY.SPECIAL.rate)
+	end
 
 	local weights = {
-		COMMON = BASE_WEIGHTS.COMMON * math.max(0.15, 1 - (0.75 * luckFactor)),
-		RARE = BASE_WEIGHTS.RARE * (1 + 0.6 * luckFactor),
-		SUPER_RARE = BASE_WEIGHTS.SUPER_RARE * (1 + 2.2 * luckFactor) * FishingRaritySystem.GetLevelMultiplier(level, "SUPER_RARE"),
-		LEGENDARY = BASE_WEIGHTS.LEGENDARY * (1 + 4.5 * luckFactor) * FishingRaritySystem.GetLevelMultiplier(level, "LEGENDARY"),
-		MYTHIC = BASE_WEIGHTS.MYTHIC * (1 + 7.0 * luckFactor) * FishingRaritySystem.GetLevelMultiplier(level, "MYTHIC"),
-		SPECIAL = BASE_WEIGHTS.SPECIAL * (1 + 12.0 * luckFactor) * FishingRaritySystem.GetLevelMultiplier(level, "SPECIAL"),
+		SPECIAL = baseW.SPECIAL * (luckMult ^ 2.5) * FishingRaritySystem.GetLevelMultiplier(level, "SPECIAL") * spePityMult,
+		MYTHIC = baseW.MYTHIC * (luckMult ^ 2.0) * FishingRaritySystem.GetLevelMultiplier(level, "MYTHIC") * mytPityMult,
+		LEGENDARY = baseW.LEGENDARY * (luckMult ^ 1.6) * FishingRaritySystem.GetLevelMultiplier(level, "LEGENDARY") * legPityMult,
+		SUPER_RARE = baseW.SUPER_RARE * (luckMult ^ 1.2) * FishingRaritySystem.GetLevelMultiplier(level, "SUPER_RARE"),
+		RARE = baseW.RARE * (luckMult ^ 0.8),
+		COMMON = baseW.COMMON * math.max(0.3, 2 - luckMult),
 	}
 
 	local totalWeight = 0
@@ -232,9 +324,9 @@ function FishingRaritySystem.GetRarityChances(luck, level)
 	return chances, weights, totalWeight
 end
 
--- 3. Roll RNG Berdasarkan Weighted Distribution & Level
-function FishingRaritySystem.RollRarity(luck, level)
-	local _, weights, totalWeight = FishingRaritySystem.GetRarityChances(luck, level)
+-- ============ 5. ROLL RNG & PITY EVALUATION ============
+function FishingRaritySystem.RollRarity(luck, level, pityState)
+	local _, weights, totalWeight = FishingRaritySystem.GetRarityChances(luck, level, pityState)
 	local roll = math.random() * totalWeight
 	local cumulative = 0
 
@@ -248,7 +340,6 @@ function FishingRaritySystem.RollRarity(luck, level)
 	return "COMMON"
 end
 
--- 4. Evaluasi Pity System Hierarkis
 function FishingRaritySystem.EvaluateWithPity(luck, level, pityState)
 	pityState = pityState or { SPECIAL = 0, MYTHIC = 0, LEGENDARY = 0 }
 
@@ -256,19 +347,18 @@ function FishingRaritySystem.EvaluateWithPity(luck, level, pityState)
 	local pMythic = pityState.MYTHIC or pityState.UR or 0
 	local pLegendary = pityState.LEGENDARY or pityState.SSR or 0
 
-	-- Cek Pity dari tingkat tertinggi
-	if pSpecial >= FishingRaritySystem.PITY_LIMITS.SPECIAL then
+	-- Cek Hard Pity Threshold
+	if pSpecial >= FishingRaritySystem.CONFIG.PITY.SPECIAL.hard then
 		return "SPECIAL", true
-	elseif pMythic >= FishingRaritySystem.PITY_LIMITS.MYTHIC then
+	elseif pMythic >= FishingRaritySystem.CONFIG.PITY.MYTHIC.hard then
 		return "MYTHIC", true
-	elseif pLegendary >= FishingRaritySystem.PITY_LIMITS.LEGENDARY then
+	elseif pLegendary >= FishingRaritySystem.CONFIG.PITY.LEGENDARY.hard then
 		return "LEGENDARY", true
 	end
 
-	return FishingRaritySystem.RollRarity(luck, level), false
+	return FishingRaritySystem.RollRarity(luck, level, pityState), false
 end
 
--- 5. Perbarui State Pity setelah Ikan Berhasil Ditangkap
 function FishingRaritySystem.UpdatePityOnCatch(pityState, obtainedRarity)
 	pityState = pityState or {}
 	local r = tostring(obtainedRarity):upper()
@@ -277,49 +367,61 @@ function FishingRaritySystem.UpdatePityOnCatch(pityState, obtainedRarity)
 		pityState.SPECIAL = 0
 		pityState.MYTHIC = 0
 		pityState.LEGENDARY = 0
-		pityState.EX = 0
-		pityState.UR = 0
-		pityState.SSR = 0
 	elseif r == "MYTHIC" or r == "UR" then
 		pityState.MYTHIC = 0
 		pityState.LEGENDARY = 0
-		pityState.UR = 0
-		pityState.SSR = 0
-		pityState.SPECIAL = (pityState.SPECIAL or pityState.EX or 0) + 1
-		pityState.EX = pityState.SPECIAL
+		pityState.SPECIAL = (pityState.SPECIAL or 0) + 1
 	elseif r == "LEGENDARY" or r == "SSR" then
 		pityState.LEGENDARY = 0
-		pityState.SSR = 0
-		pityState.MYTHIC = (pityState.MYTHIC or pityState.UR or 0) + 1
-		pityState.UR = pityState.MYTHIC
-		pityState.SPECIAL = (pityState.SPECIAL or pityState.EX or 0) + 1
-		pityState.EX = pityState.SPECIAL
+		pityState.MYTHIC = (pityState.MYTHIC or 0) + 1
+		pityState.SPECIAL = (pityState.SPECIAL or 0) + 1
 	else
-		-- COMMON, RARE, SUPER_RARE menaikkan semua pity counter
-		pityState.LEGENDARY = (pityState.LEGENDARY or pityState.SSR or 0) + 1
-		pityState.SSR = pityState.LEGENDARY
-		pityState.MYTHIC = (pityState.MYTHIC or pityState.UR or 0) + 1
-		pityState.UR = pityState.MYTHIC
-		pityState.SPECIAL = (pityState.SPECIAL or pityState.EX or 0) + 1
-		pityState.EX = pityState.SPECIAL
+		pityState.LEGENDARY = (pityState.LEGENDARY or 0) + 1
+		pityState.MYTHIC = (pityState.MYTHIC or 0) + 1
+		pityState.SPECIAL = (pityState.SPECIAL or 0) + 1
 	end
+
+	-- Sync aliases
+	pityState.EX = pityState.SPECIAL
+	pityState.UR = pityState.MYTHIC
+	pityState.SSR = pityState.LEGENDARY
 
 	return pityState
 end
 
--- 6. Generate Data Ikan Lengkap (Nama, Bobot Kg, Koin, Exp)
-function FishingRaritySystem.GenerateFish(rarity, playerLevel)
+-- ============ 6. GENERATOR IKAN DENGAN STATS LENGKAP ============
+function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore)
 	local tierKey = tostring(rarity or "COMMON"):upper():gsub("%s+", "_")
 	local list = FishingRaritySystem.FISH_DATABASE[tierKey] or FishingRaritySystem.FISH_DATABASE.COMMON
 	local template = list[math.random(1, #list)]
 	local tierData = FishingRaritySystem.GetTierData(tierKey)
 
-	local weight = template.minWeight + (math.random() * (template.maxWeight - template.minWeight))
-	weight = math.floor(weight * 10) / 10 -- 1 desimal (contoh: 14.5 Kg)
+	playerLevel = math.max(1, tonumber(playerLevel) or 1)
+	performanceScore = math.clamp(tonumber(performanceScore) or 80, 0, 100)
 
-	local levelBonus = 1 + (math.max(1, tonumber(playerLevel) or 1) * 0.02)
-	local coins = math.floor(template.baseCoins * levelBonus)
-	local exp = math.floor(template.baseExp * levelBonus)
+	-- 1. Bobot Skewed (Pangkat 1.8)
+	local normWeight = (math.random()) ^ FishingRaritySystem.CONFIG.ECONOMY.WEIGHT_POW
+	local weight = template.minWeight + (normWeight * (template.maxWeight - template.minWeight))
+	weight = math.floor(weight * 10) / 10
+
+	-- 2. Nilai Koin berdasarkan Bobot & Rarity
+	local avgWeight = (template.minWeight + template.maxWeight) / 2
+	local weightFactor = math.clamp(0.80 + 0.40 * (weight / math.max(0.1, avgWeight)), 0.80, 1.40)
+	local baseCoins = FishingRaritySystem.CONFIG.ECONOMY.BASE_COINS[tierKey] or 15
+	local coins = math.floor(baseCoins * weightFactor)
+
+	-- 3. EXP berdasarkan Rarity, Bobot & Performance Rhythm
+	local baseExp = FishingRaritySystem.CONFIG.XP.BASE_XP[tierKey] or 10
+	local perfMult = 1.0
+	for _, entry in ipairs(FishingRaritySystem.CONFIG.XP.PERF_MULTIPLIERS) do
+		if performanceScore <= entry.maxScore then
+			perfMult = entry.mult
+			break
+		end
+	end
+
+	local weightExpMult = 0.85 + (0.30 * normWeight)
+	local exp = math.floor(baseExp * weightExpMult * perfMult)
 
 	return {
 		name = template.name,
@@ -332,19 +434,48 @@ function FishingRaritySystem.GenerateFish(rarity, playerLevel)
 		weight = weight,
 		coins = coins,
 		exp = exp,
+		normWeight = normWeight,
+		performanceMultiplier = perfMult,
 	}
 end
 
--- 7. Ambil Nama Ikan Acak
 function FishingRaritySystem.GetRandomFishName(rarity)
-	local fish = FishingRaritySystem.GenerateFish(rarity, 1)
+	local fish = FishingRaritySystem.GenerateFish(rarity, 1, 80)
 	return fish.name
 end
 
--- 8. Helper Standarisasi Data Tier
 function FishingRaritySystem.GetTierData(tierName)
 	local key = tostring(tierName or "COMMON"):upper():gsub("%s+", "_")
 	return FishingRaritySystem.TIERS[key] or FishingRaritySystem.TIERS.COMMON
+end
+
+-- ============ 7. SIMULATOR BALANCING (UNTUK TESTING / QA) ============
+function FishingRaritySystem.SimulateCatches(luck, level, numCatches)
+	numCatches = numCatches or 10000
+	local counts = { COMMON = 0, RARE = 0, SUPER_RARE = 0, LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
+	local totalCoins = 0
+	local totalExp = 0
+	local mockPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
+
+	for i = 1, numCatches do
+		local r = FishingRaritySystem.EvaluateWithPity(luck, level, mockPity)
+		counts[r] = (counts[r] or 0) + 1
+		mockPity = FishingRaritySystem.UpdatePityOnCatch(mockPity, r)
+
+		local fish = FishingRaritySystem.GenerateFish(r, level, 85)
+		totalCoins += fish.coins
+		totalExp += fish.exp
+	end
+
+	local report = {}
+	for _, r in ipairs(FishingRaritySystem.RARITY_ORDER) do
+		report[r] = string.format("%.4f%% (%d)", (counts[r] / numCatches) * 100, counts[r])
+	end
+	report.AvgCoinsPerCatch = math.floor(totalCoins / numCatches)
+	report.AvgExpPerCatch = math.floor(totalExp / numCatches)
+	report.EstimatedCoinsPerMinute = math.floor((totalCoins / numCatches) * 3.5) -- 3.5 catches/min
+
+	return report
 end
 
 return FishingRaritySystem

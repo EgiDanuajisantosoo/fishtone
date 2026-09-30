@@ -1,10 +1,12 @@
 --[[
 	FishingServer (Universal Water Fishing System with Server-Authoritative Sessions, Fish Economy & Progression)
+	FISH!TUNE — Game Balance Specification v1.0
+	
 	Fitur:
 	1. Validasi Sesi Memancing Server-Authoritative (Anti-Exploit).
 	2. Server-Side RNG, Soft Level Gating, dan Hierarchical Pity System.
 	3. Sistem Ekonomi: Ikan harus dijual (Sell / Sell All) agar Koin bertambah.
-	4. Sistem Level, EXP, Koin, dan Leaderstats Lengkap.
+	4. Sistem Level, EXP Non-linear, Koin, dan Leaderstats Lengkap.
 	5. Generator Item Ikan 3D Tool dengan Metadata Lengkap & Visual Aura.
 ]]
 
@@ -57,7 +59,7 @@ local function addExp(player, amount)
 	local leveledUp = false
 
 	while true do
-		local reqExp = pData.level * 100
+		local reqExp = FishingRaritySystem.GetExpRequiredForLevel(pData.level)
 		if pData.exp >= reqExp then
 			pData.exp -= reqExp
 			pData.level += 1
@@ -306,7 +308,7 @@ if remote then
 			return
 		end
 
-		-- 2. Pengiriman Hasil Tangkapan Rhythm (SubmitCatch)
+		-- 2. Pengiriman Hasil Tangkapan Rhythm (SubmitCatch) - SERVER AUTHORITATIVE
 		if action == "SubmitCatch" then
 			local sessionId = tostring(arg1 or "")
 			local metrics = arg2 or {}
@@ -326,9 +328,9 @@ if remote then
 				return
 			end
 
-			-- Hitung Effective Luck di Server
+			-- Hitung Effective Luck di Server (Specification v1.0)
 			local rodLuck = getRodLuck(player)
-			local levelLuck = math.floor(pData.level / 2)
+			local baseLuck = math.clamp(math.floor(pData.level / 5), 0, 10)
 			local castLuck = 0
 			if session.castQuality == "PERFECT" then
 				castLuck = 35
@@ -336,15 +338,15 @@ if remote then
 				castLuck = 15
 			end
 
-			local maxCombo = tonumber(metrics.maxCombo) or 0
-			local accuracy = tonumber(metrics.accuracy) or 100
-			local rhythmBonus = math.clamp(math.floor(maxCombo * 0.8 + (accuracy / 20)), 0, 20)
+			local accuracy = tonumber(metrics.accuracy) or 80
+			local performanceScore = accuracy
+			local performanceLuck = performanceScore * FishingRaritySystem.CONFIG.LUCK.PERFORMANCE_COEFF -- Max +25 Luck
 
-			local effectiveLuck = math.clamp(rodLuck + levelLuck + castLuck + rhythmBonus, FishingRaritySystem.MIN_LUCK, FishingRaritySystem.MAX_LUCK)
+			local effectiveLuck = FishingRaritySystem.CalculateEffectiveLuck(baseLuck + rodLuck, castLuck, performanceLuck, 0)
 
 			-- Roll RNG & Pity di Server
 			local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(effectiveLuck, pData.level, pData.pity)
-			local fishData = FishingRaritySystem.GenerateFish(rolledRarity, pData.level)
+			local fishData = FishingRaritySystem.GenerateFish(rolledRarity, pData.level, performanceScore)
 
 			-- Update Pity State
 			pData.pity = FishingRaritySystem.UpdatePityOnCatch(pData.pity, rolledRarity)
