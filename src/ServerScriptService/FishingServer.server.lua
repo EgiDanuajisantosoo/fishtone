@@ -1,9 +1,10 @@
 --[[
-	FishingServer (Universal Water Fishing System with 6 Rarity Tiers & Pity System)
-	- Memvalidasi kepemilikan alat pancing di inventory
-	- Mengelola Hierarchical Pity State (SSR 100, UR 500, EX 1000) per Player di Server
-	- Membuat Item Ikan 3D Tool dengan Visual Particle / Lighting sesuai 6 Tier Rarity
-	- Memperbarui leaderstats dan memberikan reward ke Backpack
+	FishingServer (Universal Water Fishing System with Server-Authoritative Sessions & RPG Progression)
+	Fitur:
+	1. Validasi Sesi Memancing Server-Authoritative (Anti-Exploit).
+	2. Server-Side RNG, Soft Level Gating, dan Hierarchical Pity System.
+	3. Sistem Level, EXP, Koin, dan Leaderstats Lengkap.
+	4. Generator Item Ikan 3D Tool dengan Visual Aura (Sparkles, Light, Fire) & Efek Suara.
 ]]
 
 local Players = game:GetService("Players")
@@ -13,18 +14,66 @@ local Debris = game:GetService("Debris")
 local FishingRaritySystem = require(ReplicatedStorage:WaitForChild("FishingRaritySystem"))
 local remote = ReplicatedStorage:FindFirstChild("FishingRemote")
 
-local playerPity = {} -- [player.UserId] = { SSR = 0, UR = 0, EX = 0 }
-local lastCatch = {}
+-- Penyimpanan Data Pemain dalam Memori Server
+local playerData = {} -- [player.UserId] = { level = 1, exp = 0, coins = 0, totalFish = 0, pity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 } }
+local activeSessions = {} -- [sessionId] = { player, userId, waterPos, castQuality, castPower, startTime, waitDuration, status }
+local playerSessions = {} -- [player.UserId] = sessionId
 
--- Inisialisasi Pity Counter Player
-local function getPlayerPity(player)
-	if not playerPity[player.UserId] then
-		playerPity[player.UserId] = { SSR = 0, UR = 0, EX = 0 }
+local function getPlayerData(player)
+	if not playerData[player.UserId] then
+		playerData[player.UserId] = {
+			level = 1,
+			exp = 0,
+			coins = 0,
+			totalFish = 0,
+			pity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
+		}
 	end
-	return playerPity[player.UserId]
+	return playerData[player.UserId]
 end
 
--- Cek apakah player memiliki pancingan (di Backpack atau sedang dipegang di Character)
+local function syncLeaderstats(player)
+	local pData = getPlayerData(player)
+	local stats = player:FindFirstChild("leaderstats")
+	if not stats then return end
+
+	local lvlVal = stats:FindFirstChild("Level")
+	if lvlVal then lvlVal.Value = pData.level end
+
+	local coinVal = stats:FindFirstChild("Koin")
+	if coinVal then coinVal.Value = pData.coins end
+
+	local fishVal = stats:FindFirstChild("Ikan")
+	if fishVal then fishVal.Value = pData.totalFish end
+
+	local expVal = stats:FindFirstChild("Exp")
+	if expVal then expVal.Value = pData.exp end
+end
+
+local function addExp(player, amount)
+	local pData = getPlayerData(player)
+	pData.exp += amount
+	local leveledUp = false
+
+	while true do
+		local reqExp = pData.level * 100
+		if pData.exp >= reqExp then
+			pData.exp -= reqExp
+			pData.level += 1
+			leveledUp = true
+		else
+			break
+		end
+	end
+
+	syncLeaderstats(player)
+	if leveledUp and remote then
+		remote:FireClient(player, "LevelUp", pData.level)
+	end
+	return leveledUp
+end
+
+-- Cek apakah player memiliki joran pancing
 local function hasFishingRod(player)
 	local backpack = player:FindFirstChild("Backpack")
 	local character = player.Character
@@ -33,17 +82,33 @@ local function hasFishingRod(player)
 	return (inBackpack or inChar) ~= nil
 end
 
--- Fungsi Membuat Item Ikan 3D sebagai Tool di Inventory
-local function createFishTool(fishName, rarity)
-	local tierData = FishingRaritySystem.GetTierData(rarity)
-	local color = tierData.color
-	local r = tierData.name
+local function getRodLuck(player)
+	local backpack = player:FindFirstChild("Backpack")
+	local character = player.Character
+	local rod = (character and (character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan")))
+		or (backpack and (backpack:FindFirstChild("FishingRod") or backpack:FindFirstChild("Pancingan")))
+	if rod and rod:IsA("Tool") then
+		return rod:GetAttribute("Luck") or 5
+	end
+	return 5
+end
+
+-- Fungsi Membuat Item Ikan 3D Tool di Inventory
+local function createFishTool(fishData)
+	local r = fishData.rarity
+	local color = fishData.color or Color3.fromRGB(150, 155, 165)
 
 	local tool = Instance.new("Tool")
-	tool.Name = fishName .. " [" .. tierData.displayName .. "]"
-	tool.ToolTip = "Tangkapan: " .. fishName .. " (" .. tierData.displayName .. " " .. tierData.stars .. " | " .. (tierData.targetNotes or 30) .. " Nada)"
+	tool.Name = fishData.name .. " [" .. fishData.displayName .. "]"
+	tool.ToolTip = string.format("Tangkapan: %s (%s %s | %.1f Kg | %d Koin)", fishData.name, fishData.displayName, fishData.stars, fishData.weight, fishData.coins)
 	tool.RequiresHandle = true
 	tool.CanBeDropped = true
+
+	-- Metadata Ikan
+	tool:SetAttribute("Rarity", r)
+	tool:SetAttribute("Weight", fishData.weight)
+	tool:SetAttribute("Coins", fishData.coins)
+	tool:SetAttribute("Exp", fishData.exp)
 
 	-- Handle Utama (Badan Ikan)
 	local handle = Instance.new("Part")
@@ -115,7 +180,7 @@ local function createFishTool(fishName, rarity)
 		fire.Parent = handle
 	end
 
-	-- Suara Interaksi saat Ikan dipegang & diklik
+	-- Suara Interaksi
 	local equipSound = Instance.new("Sound")
 	equipSound.Name = "EquipSound"
 	equipSound.SoundId = "rbxasset://sounds/splat.wav"
@@ -141,19 +206,38 @@ local function createFishTool(fishName, rarity)
 	return tool
 end
 
+-- Inisialisasi Player
 local function onPlayerAdded(player)
-	getPlayerPity(player)
+	getPlayerData(player)
 
-	if player:FindFirstChild("leaderstats") then return end
-	local stats = Instance.new("Folder")
-	stats.Name = "leaderstats"
-	
-	local fish = Instance.new("IntValue")
-	fish.Name = "Ikan"
-	fish.Value = 0
-	fish.Parent = stats
-	
-	stats.Parent = player
+	if not player:FindFirstChild("leaderstats") then
+		local stats = Instance.new("Folder")
+		stats.Name = "leaderstats"
+
+		local lvl = Instance.new("IntValue")
+		lvl.Name = "Level"
+		lvl.Value = 1
+		lvl.Parent = stats
+
+		local koin = Instance.new("IntValue")
+		koin.Name = "Koin"
+		koin.Value = 0
+		koin.Parent = stats
+
+		local fish = Instance.new("IntValue")
+		fish.Name = "Ikan"
+		fish.Value = 0
+		fish.Parent = stats
+
+		local exp = Instance.new("IntValue")
+		exp.Name = "Exp"
+		exp.Value = 0
+		exp.Parent = stats
+
+		stats.Parent = player
+	end
+
+	syncLeaderstats(player)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
@@ -162,67 +246,149 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 Players.PlayerRemoving:Connect(function(player)
-	playerPity[player.UserId] = nil
-	lastCatch[player.UserId] = nil
+	local activeSess = playerSessions[player.UserId]
+	if activeSess then
+		activeSessions[activeSess] = nil
+	end
+	playerSessions[player.UserId] = nil
+	playerData[player.UserId] = nil
 end)
 
+-- Handler Komunikasi Client-Server
 if remote then
-	remote.OnServerEvent:Connect(function(player, action, data1, data2, data3)
-		if action == "CheckRod" then
-			local hasRod = hasFishingRod(player)
-			remote:FireClient(player, "CheckRodResult", hasRod)
+	remote.OnServerEvent:Connect(function(player, action, arg1, arg2, arg3)
+		local pData = getPlayerData(player)
+
+		-- 1. Permintaan Memulai Sesi Memancing (StartFishing)
+		if action == "StartFishing" then
+			if not hasFishingRod(player) then
+				remote:FireClient(player, "Notification", "⚠️ Kamu membutuhkan Joran Pancing di inventory!")
+				return
+			end
+
+			-- Bersihkan sesi lama jika ada
+			local oldSess = playerSessions[player.UserId]
+			if oldSess then
+				activeSessions[oldSess] = nil
+			end
+
+			local waterPos = arg1
+			local castQuality = tostring(arg2 or "GOOD"):upper()
+			local castPower = tonumber(arg3) or 0.5
+
+			local waitDuration = math.random(28, 42) / 10
+			if castQuality == "PERFECT" then
+				waitDuration = math.random(12, 20) / 10
+			elseif castQuality == "GREAT" then
+				waitDuration = math.random(18, 28) / 10
+			end
+
+			local sessionId = tostring(player.UserId) .. "_" .. tostring(os.time()) .. "_" .. tostring(math.random(1000, 9999))
+			local sessionData = {
+				player = player,
+				userId = player.UserId,
+				waterPos = waterPos,
+				castQuality = castQuality,
+				castPower = castPower,
+				startTime = os.clock(),
+				waitDuration = waitDuration,
+				status = "Active",
+			}
+
+			activeSessions[sessionId] = sessionData
+			playerSessions[player.UserId] = sessionId
+
+			remote:FireClient(player, "SessionStarted", sessionId, waitDuration, castQuality)
 			return
 		end
 
-		if action == "GetPityState" then
-			local currentPity = getPlayerPity(player)
-			remote:FireClient(player, "PityStateUpdate", currentPity)
+		-- 2. Pengiriman Hasil Tangkapan Rhythm (SubmitCatch) - SERVER AUTHORITATIVE
+		if action == "SubmitCatch" then
+			local sessionId = tostring(arg1 or "")
+			local metrics = arg2 or {}
+			local session = activeSessions[sessionId]
+
+			if not session or session.userId ~= player.UserId or session.status ~= "Active" then
+				remote:FireClient(player, "Notification", "❌ Sesi memancing tidak valid atau sudah kadaluarsa.")
+				return
+			end
+
+			-- Tandai sesi selesai
+			session.status = "Completed"
+			activeSessions[sessionId] = nil
+			playerSessions[player.UserId] = nil
+
+			-- Validasi kepemilikan joran
+			if not hasFishingRod(player) then
+				remote:FireClient(player, "Notification", "⚠️ Kamu tidak memiliki Joran Pancing di inventory!")
+				return
+			end
+
+			-- Hitung Effective Luck di Server
+			local rodLuck = getRodLuck(player)
+			local levelLuck = math.floor(pData.level / 2)
+			local castLuck = 0
+			if session.castQuality == "PERFECT" then
+				castLuck = 35
+			elseif session.castQuality == "GREAT" then
+				castLuck = 15
+			end
+
+			local maxCombo = tonumber(metrics.maxCombo) or 0
+			local accuracy = tonumber(metrics.accuracy) or 100
+			local rhythmBonus = math.clamp(math.floor(maxCombo * 0.8 + (accuracy / 20)), 0, 20)
+
+			local effectiveLuck = math.clamp(rodLuck + levelLuck + castLuck + rhythmBonus, FishingRaritySystem.MIN_LUCK, FishingRaritySystem.MAX_LUCK)
+
+			-- SERVER ROLL RNG & PITY EVALUATION
+			local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(effectiveLuck, pData.level, pData.pity)
+			local fishData = FishingRaritySystem.GenerateFish(rolledRarity, pData.level)
+
+			-- Update Pity State
+			pData.pity = FishingRaritySystem.UpdatePityOnCatch(pData.pity, rolledRarity)
+
+			-- Tambah EXP, Koin, dan Total Ikan
+			pData.coins += fishData.coins
+			pData.totalFish += 1
+			addExp(player, fishData.exp)
+			syncLeaderstats(player)
+
+			-- Buat Tool Ikan 3D di Backpack Player
+			local backpack = player:FindFirstChild("Backpack")
+			if backpack then
+				local fishTool = createFishTool(fishData)
+				fishTool.Parent = backpack
+			end
+
+			local rewardInfo = {
+				coins = fishData.coins,
+				exp = fishData.exp,
+				wasPity = wasPity,
+				effectiveLuck = effectiveLuck,
+			}
+
+			-- Kirim Reveal Lengkap ke Client
+			remote:FireClient(player, "CatchSuccess", fishData, rewardInfo, pData, pData.pity)
 			return
 		end
 
-		if action ~= "Catch" then return end
-
-		-- 1. Validasi kepemilikan alat pancing di inventory
-		if not hasFishingRod(player) then
-			remote:FireClient(player, "Notification", "⚠️ Kamu tidak memiliki Joran Pancing di inventory!")
+		-- 3. Pembatalan Sesi (CancelFishing / Fish Escaped)
+		if action == "CancelFishing" then
+			local sessionId = tostring(arg1 or "")
+			if activeSessions[sessionId] and activeSessions[sessionId].userId == player.UserId then
+				activeSessions[sessionId] = nil
+			end
+			if playerSessions[player.UserId] == sessionId then
+				playerSessions[player.UserId] = nil
+			end
 			return
 		end
 
-		-- 2. Anti-spam validasi
-		local last = lastCatch[player.UserId] or 0
-		if os.clock() - last < 1.5 then return end
-		lastCatch[player.UserId] = os.clock()
-
-		local rarity = tostring(data1 or "Common")
-		if not FishingRaritySystem.TIERS[rarity] then
-			rarity = "Common"
+		-- 4. Get Player Data
+		if action == "GetPlayerData" then
+			remote:FireClient(player, "PlayerDataUpdate", pData, pData.pity)
+			return
 		end
-
-		local castQuality = tostring(data2 or "GOOD")
-		local fishName = tostring(data3 or "")
-		if fishName == "" then
-			fishName = FishingRaritySystem.GetRandomFishName(rarity)
-		end
-
-		-- 3. Update Pity Counter Player Secara Hierarkis setelah Ikan Berhasil Ditangkap
-		local currentPity = getPlayerPity(player)
-		FishingRaritySystem.UpdatePityOnCatch(currentPity, rarity)
-
-		-- 4. Masukkan Ikan ke dalam Inventory (Backpack) Player
-		local backpack = player:FindFirstChild("Backpack")
-		if backpack then
-			local fishItem = createFishTool(fishName, rarity)
-			fishItem.Parent = backpack
-		end
-
-		-- 5. Update skor ikan di leaderstats
-		local stats = player:FindFirstChild("leaderstats")
-		local fishStat = stats and stats:FindFirstChild("Ikan")
-		if fishStat then
-			fishStat.Value += 1
-		end
-
-		remote:FireClient(player, "CatchSuccess", fishName, rarity, currentPity)
 	end)
 else
 	warn("FishingServer: FishingRemote tidak ditemukan di ReplicatedStorage")

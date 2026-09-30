@@ -6,13 +6,12 @@
 	
 	Mekanisme:
 	1. Progress Bar Awal Dinamis:
-	   - Ditentukan dari Kualitas Lemparan (PERFECT: +25%, GREAT: +12%, GOOD: +0%).
-	   - Dan Tier Ikan (BIASA: 40%, SEDANG: 35%, LANGKA: 30%, LEGENDARIS: 25%).
+	   - Murni ditentukan dari Kualitas Lemparan (PERFECT: 35%, GREAT: 20%, GOOD: 10%).
 	2. Pengurangan Bar (Miss Penalty) & Penambahan Bar (Hit Gain) Berskala:
-	   - Ikan LEGENDARIS lebih kuat & agresif (Penalti kesalahan lebih berat, penambahan bar lebih menantang).
-	   - Lemparan PERFECT mengurangi beban penalti kesalahan (ikan tertegun).
+	   - Ikan lebih ganas memiliki penalti kesalahan lebih berat.
+	   - Lemparan PERFECT mengurangi beban penalti kesalahan 30%.
 	3. Kondisi Menang & Kalah:
-	   - Bar Penuh 100%: BERHASIL DITANGKAP!
+	   - Bar Penuh 100%: BERHASIL DITANGKAP! (Mengirim data performa)
 	   - Bar Habis 0%: IKAN TERLEPAS!
 	4. Continuous Melody Spawn: Nada melodi terus mengalir secara dinamis.
 	5. Anti-Spam & Anti-Gerak Karakter (ContextActionService Sink).
@@ -39,22 +38,6 @@ local TILE_HEIGHT = 0.16
 local HIT_LINE = 0.78
 local MISS_LINE = 0.94
 
--- ============ KONFIGURASI 6 TIER IKAN ============
-local TIER_CONFIGS = {
-	EX = FishingRaritySystem.TIERS.EX,
-	UR = FishingRaritySystem.TIERS.UR,
-	SSR = FishingRaritySystem.TIERS.SSR,
-	SUPERRARE = FishingRaritySystem.TIERS.SuperRare,
-	SR = FishingRaritySystem.TIERS.SuperRare,
-	RARE = FishingRaritySystem.TIERS.Rare,
-	COMMON = FishingRaritySystem.TIERS.Common,
-	-- Backward compatibility alias
-	LEGENDARIS = FishingRaritySystem.TIERS.SSR,
-	LANGKA = FishingRaritySystem.TIERS.SuperRare,
-	SEDANG = FishingRaritySystem.TIERS.Rare,
-	BIASA = FishingRaritySystem.TIERS.Common,
-}
-
 -- ============ KONFIGURASI BONUS LEMPARAN AWAL ============
 local CAST_BONUSES = {
 	PERFECT = {
@@ -80,27 +63,23 @@ local CAST_BONUSES = {
 	},
 }
 
--- Bank Melodi Harmonis (Tangga nada semitone: 0 = C, 2 = D, 4 = E, 5 = F, 7 = G, 9 = A, 11 = B, 12 = C tinggi)
+-- Bank Melodi Harmonis
 local MELODIES = {
-	-- Canon in D (D Major)
 	{
 		name = "Canon in D",
 		notes = { 2, 9, 7, 6, 4, 11, 9, 7, 6, 2, 4, 6, 7, 9, 11, 14, 12, 11, 9, 7, 6, 4, 6, 7, 9, 11, 14 },
 		baseSpeed = 0.38
 	},
-	-- Ode to Joy (Beethoven)
 	{
 		name = "Ode to Joy",
 		notes = { 4, 4, 5, 7, 7, 5, 4, 2, 0, 0, 2, 4, 4, 2, 2, 4, 4, 5, 7, 7, 5, 4, 2, 0, 0, 2, 4, 2, 0 },
 		baseSpeed = 0.36
 	},
-	-- Pentatonic River (Nuansa santai & melodius)
 	{
 		name = "River Flow",
 		notes = { 0, 2, 4, 7, 9, 12, 14, 12, 9, 7, 4, 2, 4, 7, 9, 12, 16, 14, 12, 9, 7, 4, 2, 0 },
 		baseSpeed = 0.35
 	},
-	-- Fur Elise Theme
 	{
 		name = "Für Elise",
 		notes = { 7, 6, 7, 6, 7, 2, 5, 3, 0, -5, -1, 0, 2, -1, 0, 2, 3, 7, 6, 7, 6, 7, 2, 5, 3, 0 },
@@ -118,7 +97,7 @@ end
 
 -- ============ STATE ============
 local state = "Idle" -- Idle | Playing | Result
-local score, combo = 0, 0
+local score, combo, maxCombo, mistakes = 0, 0, 0, 0
 local progress = 0.40
 local currentNotes = 12
 local targetNotes = 30
@@ -132,6 +111,7 @@ local lastColumn = -1
 local roundToken = 0
 local winCb, loseCb
 local lastColPressTime = { 0, 0, 0, 0 }
+local gameStartTime = 0
 
 -- Nilai kalkulasi dinamis untuk ronde aktif
 local activeTier = FishingRaritySystem.TIERS.COMMON
@@ -187,17 +167,15 @@ local function updateHud()
 		end
 	end
 
-	-- Update Bar Indikator Tangkapan di Bawah dengan Jumlah Nada
+	-- Update Bar Indikator Tangkapan di Bawah
 	if progressFill and progressLabel then
 		local percent = math.clamp(progress, 0, 1)
 		local percentInt = math.floor(percent * 100)
 
-		-- Animasi perubahan panjang bar
 		TweenService:Create(progressFill, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Size = UDim2.fromScale(percent, 1)
 		}):Play()
 
-		-- Warna dinamis berdasarkan status tarikan
 		local barColor = Color3.fromRGB(0, 210, 255)
 		if percent >= 0.70 then
 			barColor = Color3.fromRGB(50, 250, 130) -- Hijau Kemenangan
@@ -286,6 +264,21 @@ local function endRound(win, message)
 	unbindControls()
 	clearTiles()
 
+	local duration = os.clock() - gameStartTime
+	local totalAttempts = score + mistakes
+	local accuracy = math.floor((score / math.max(1, totalAttempts)) * 100)
+
+	local metrics = {
+		won = win,
+		score = score,
+		hits = score,
+		mistakes = mistakes,
+		maxCombo = maxCombo,
+		duration = duration,
+		targetNotes = targetNotes,
+		accuracy = accuracy,
+	}
+
 	local defaultMsg = win and "BERHASIL DITANGKAP!" or "IKAN TERLEPAS!"
 	resultLabel.Text = message or defaultMsg
 	resultLabel.TextColor3 = win and Color3.fromRGB(60, 240, 140) or Color3.fromRGB(255, 70, 70)
@@ -299,7 +292,9 @@ local function endRound(win, message)
 	local cb = win and winCb or loseCb
 	winCb, loseCb = nil, nil
 	if cb then
-		task.spawn(cb)
+		task.spawn(function()
+			cb(metrics)
+		end)
 	end
 
 	task.delay(1.4, function()
@@ -316,6 +311,7 @@ local function registerMistake(reason, col)
 	if state ~= "Playing" then return end
 
 	combo = 0
+	mistakes += 1
 	currentNotes = math.max(0, currentNotes - activePenaltyNotes)
 	progress = math.clamp(currentNotes / targetNotes, 0, 1.0)
 	updateHud()
@@ -355,6 +351,9 @@ local function hitTile(entry)
 
 	score += 1
 	combo += 1
+	if combo > maxCombo then
+		maxCombo = combo
+	end
 
 	-- Tambah progress nada (Combo >= 3 memberi +2 nada sekaligus!)
 	local gainNotes = (combo >= 3 and 2 or 1)
@@ -389,7 +388,6 @@ end
 local function handleColumn(col)
 	if state ~= "Playing" then return end
 
-	-- Debounce per kolom (mencegah double-input dalam frame mikro)
 	local now = os.clock()
 	if now - (lastColPressTime[col] or 0) < 0.08 then
 		return
@@ -397,8 +395,8 @@ local function handleColumn(col)
 	lastColPressTime[col] = now
 
 	local target = nil
-	local minValidY = HIT_LINE - (TILE_HEIGHT * 1.2) -- Jangkauan atas tile
-	local maxValidY = MISS_LINE                     -- Jangkauan bawah tile
+	local minValidY = HIT_LINE - (TILE_HEIGHT * 1.2)
+	local maxValidY = MISS_LINE
 
 	for _, t in ipairs(tiles) do
 		if t.column == col and t.y <= maxValidY and t.y >= minValidY then
@@ -411,7 +409,6 @@ local function handleColumn(col)
 	if target then
 		hitTile(target)
 	else
-		-- Pemain salah tekan / spam kolom kosong!
 		registerMistake("Salah Ketuk", col)
 	end
 end
@@ -420,7 +417,6 @@ local function onUpdate(dt)
 	if state ~= "Playing" then return end
 	dt = math.min(dt, 0.05)
 
-	-- Terus spawn tile melodi selama bar belum penuh (100%) dan belum habis (0%)
 	spawnAccum += dt
 	local interval = TILE_HEIGHT / speed
 	while spawnAccum >= interval and progress < 1.0 and progress > 0 and state == "Playing" do
@@ -433,7 +429,6 @@ local function onUpdate(dt)
 		t.y += speed * dt
 		t.frame.Position = UDim2.new(0.06, 0, t.y, 0)
 		
-		-- Jika tile terlewat melewati garis batas bawah (Miss Line)
 		if t.y > MISS_LINE then
 			if t.frame and t.frame.Parent then
 				t.frame:Destroy()
@@ -445,7 +440,6 @@ local function onUpdate(dt)
 	end
 end
 
--- Input Action Handler yang Mengkonsumsi (Sink) Tombol agar Tidak Menggerakkan Player
 local function onContextAction(actionName, inputState, inputObject)
 	if state ~= "Playing" then
 		return Enum.ContextActionResult.Pass
@@ -475,7 +469,7 @@ local function onTouchOrClick(input, _)
 	end
 end
 
--- ============ MEMBANGUN GUI GLASSMORPHISM DENGAN TIER & CAST BADGE ============
+-- ============ MEMBANGUN GUI GLASSMORPHISM ============
 local function buildGui()
 	local pGui = getPlayerGui()
 	if not pGui then return end
@@ -508,7 +502,7 @@ local function buildGui()
 		Transparency = 0.4,
 	}, arenaContainer)
 
-	-- Header Atas (Nama Lagu, Tier Ikan & Bonus Lemparan)
+	-- Header Atas (Blind Mystery)
 	local header = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 64),
 		BackgroundTransparency = 1,
@@ -519,8 +513,8 @@ local function buildGui()
 		Size = UDim2.new(0.55, 0, 0, 22),
 		Position = UDim2.new(0.04, 0, 0, 6),
 		BackgroundTransparency = 1,
-		Text = "🌟 IKAN: LEGENDARIS",
-		TextColor3 = Color3.fromRGB(255, 215, 0),
+		Text = "🎣 TARIKAN KAIL",
+		TextColor3 = Color3.fromRGB(240, 245, 255),
 		Font = Enum.Font.GothamBlack,
 		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -531,7 +525,7 @@ local function buildGui()
 		Size = UDim2.new(0.92, 0, 0, 18),
 		Position = UDim2.new(0.04, 0, 0, 28),
 		BackgroundTransparency = 1,
-		Text = "⭐ PERFECT CAST (+25% Bar Start)",
+		Text = "⭐ PERFECT CAST (+35% Tarikan Awal)",
 		TextColor3 = Color3.fromRGB(255, 225, 120),
 		Font = Enum.Font.GothamBold,
 		TextSize = 12,
@@ -639,7 +633,7 @@ local function buildGui()
 		Transparency = 0.2,
 	}, hitLine)
 
-	-- ============ INDIKATOR BAR TANGKAPAN DI BAGIAN BAWAH ============
+	-- ============ INDIKATOR BAR TANGKAPAN ============
 	progressContainer = mk("Frame", {
 		Name = "ProgressContainer",
 		Size = UDim2.new(0.92, 0, 0, 32),
@@ -717,11 +711,10 @@ function PianoTilesGame.Start(config, onWin, onLose)
 	config = config or {}
 	local castKey = tostring(config.castQuality or "GOOD"):upper()
 
-	activeTier = FishingRaritySystem.GetTierData(config.tier)
+	activeTier = FishingRaritySystem.GetTierData(config.tier or "COMMON")
 	activeCast = CAST_BONUSES[castKey] or CAST_BONUSES.GOOD
 
 	targetNotes = activeTier.targetNotes or 30
-	-- Bar awal 100% murni ditentukan dari kualitas lemparan pertama (Perfect: 35%, Great: 20%, Good: 10%)
 	local startRatio = activeCast.startRatio or 0.10
 	currentNotes = math.max(1, math.floor(startRatio * targetNotes))
 	progress = startRatio
@@ -731,7 +724,7 @@ function PianoTilesGame.Start(config, onWin, onLose)
 	currentMelody = MELODIES[math.random(1, #MELODIES)]
 	speed = math.clamp(config.speed or activeTier.speed or currentMelody.baseSpeed, 0.2, 1.2)
 	
-	-- Update Tampilan Info Header (Misterius tanpa membocorkan tier atau target nada!)
+	-- Update Tampilan Info Header
 	if tierLabel then
 		tierLabel.Text = "🎣 TARIKAN KAIL"
 		tierLabel.TextColor3 = Color3.fromRGB(240, 245, 255)
@@ -746,12 +739,13 @@ function PianoTilesGame.Start(config, onWin, onLose)
 
 	roundToken += 1
 	winCb, loseCb = onWin, onLose
-	score, combo = 0, 0
+	score, combo, maxCombo, mistakes = 0, 0, 0, 0
 	spawnAccum = 0
 	melodyIndex = 1
 	spawnedCount = 0
 	lastColumn = -1
 	lastColPressTime = { 0, 0, 0, 0 }
+	gameStartTime = os.clock()
 	clearTiles()
 
 	ContextActionService:BindActionAtPriority(

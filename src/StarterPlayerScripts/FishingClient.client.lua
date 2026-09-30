@@ -1,22 +1,15 @@
 --[[
-	FishingClient (Universal Water Fishing System with Dynamic Randomized Cast Timing Bar)
+	FishingClient (Universal Water Fishing System with Server-Authoritative Sessions & RPG Progression)
 	Fitur:
 	1. BAR MELEMPAR KAIL DINAMIS (RANDOMIZED CASTING TIMING BAR):
-	   - Posisi zona PERFECT (Hijau Neon ⭐⭐⭐) dan GREAT (Cyan ⭐⭐) DIAÇAK SECARA OTOMATIS SETIAP KALI MELEMPAR!
-	   - Kursor putih bergerak naik-turun halus; pemain mengklik atau menekan [E] untuk mengunci timing.
-	   - Mencegah double-click / frame-skip sehingga bar PASTI selalu muncul stabil setiap lemparan.
-	   - Lemparan PERFECT mempercepat waktu sambaran ikan & meningkatkan peluang ikan LANGKA / LEGENDARIS!
-	2. Animasi Karakter Lengkap:
-	   - Pose Siaga & Tarik Joran (Windup / Aiming).
-	   - Swing Melempar Joran (Casting).
-	   - Sikap Memegang Joran (Fishing Stance / Idle Breathing).
-	   - Reaksi Sentakan Ikan Menyambar (Strike / Bite Tension).
-	   - Gerakan Menggulung Senar (Reeling) saat Piano Tiles.
-	   - Gerakan Menarik Ikan Naik (Catch Victory Lift).
-	3. Tali Pancing Dinamis (Beam) dari ujung Joran ke Pelampung di air.
-	4. Mini-game Piano Tiles Glassmorphism Anti-Spam & Maksimal 3 Nyawa.
-	5. Ikan otomatis masuk ke Inventory (Backpack) sebagai item Tool 3D setelah berhasil!
-	6. Mendukung Seluruh Map Lautan Luas (Ocean Map).
+	   - Posisi zona PERFECT (Hijau Neon ⭐⭐⭐) dan GREAT (Cyan ⭐⭐) DIACAK SETIAP LEMPARAN.
+	   - Lemparan PERFECT mempercepat waktu sambaran ikan & memberi bonus Luck ke server.
+	2. Animasi Karakter Prosedural Lengkap (R15 & R6):
+	   - Windup, Casting Swing, Idle Breathing Sway, Biting Tension, Reeling, Victory Lift.
+	3. Tali Pancing Dinamis (Beam berkurva) dari ujung Joran ke Pelampung.
+	4. Mini-game Piano Tiles Glassmorphism Anti-Spam & Blind Mystery.
+	5. Server-Authoritative Session & Catch Submission (Anti-Cheat).
+	6. Full Reveal Pop-up saat Berhasil Menangkap (Nama, Rarity, Bintang, Bobot Kg, Koin, EXP, Level Up).
 ]]
 
 local Players = game:GetService("Players")
@@ -37,7 +30,8 @@ local FishingRaritySystem = require(ReplicatedStorage:WaitForChild("FishingRarit
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 
-local clientPity = { SSR = 0, UR = 0, EX = 0 }
+local clientPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
+local activeSessionId = nil
 
 -- ============ GUI ROOT ============
 local pGui = getPlayerGui()
@@ -52,13 +46,13 @@ gui.ResetOnSpawn = false
 gui.Enabled = true
 gui.Parent = pGui or workspace
 
--- ============ TOAST NOTIFICATION ============
+-- ============ TOAST NOTIFICATION & REVEAL POPUP ============
 local statusFrame = Instance.new("Frame")
 statusFrame.Name = "StatusFrame"
-statusFrame.Size = UDim2.new(0, 440, 0, 50)
-statusFrame.Position = UDim2.new(0.5, -220, 0.04, 0)
+statusFrame.Size = UDim2.new(0, 480, 0, 58)
+statusFrame.Position = UDim2.new(0.5, -240, 0.04, 0)
 statusFrame.BackgroundColor3 = Color3.fromRGB(15, 18, 28)
-statusFrame.BackgroundTransparency = 0.25
+statusFrame.BackgroundTransparency = 0.2
 statusFrame.BorderSizePixel = 0
 statusFrame.Visible = false
 statusFrame.Parent = gui
@@ -69,8 +63,8 @@ statusCorner.Parent = statusFrame
 
 local statusStroke = Instance.new("UIStroke")
 statusStroke.Color = Color3.fromRGB(0, 200, 255)
-statusStroke.Thickness = 1.5
-statusStroke.Transparency = 0.3
+statusStroke.Thickness = 2
+statusStroke.Transparency = 0.25
 statusStroke.Parent = statusFrame
 
 local statusText = Instance.new("TextLabel")
@@ -80,7 +74,8 @@ statusText.Position = UDim2.fromScale(0.025, 0)
 statusText.BackgroundTransparency = 1
 statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
 statusText.Font = Enum.Font.GothamBold
-statusText.TextSize = 15
+statusText.TextSize = 14
+statusText.TextWrapped = true
 statusText.Text = ""
 statusText.Parent = statusFrame
 
@@ -102,7 +97,7 @@ local function showMessage(msg, color, duration)
 	end)
 end
 
--- ============ CASTING POWER & TIMING BAR GUI (DENGAN ZONA ACAK) ============
+-- ============ CASTING POWER & TIMING BAR GUI (ZONA ACAK) ============
 local castMeterContainer = Instance.new("Frame")
 castMeterContainer.Name = "CastMeterContainer"
 castMeterContainer.Size = UDim2.new(0, 36, 0, 250)
@@ -161,7 +156,7 @@ pStroke.Color = Color3.fromRGB(180, 255, 200)
 pStroke.Thickness = 1.5
 pStroke.Parent = zonePerfect
 
--- Label Perfect & Stars yang Mengikuti Posisi Zona Perfect
+-- Label Perfect & Stars
 local perfectBadge = Instance.new("TextLabel")
 perfectBadge.Name = "PerfectBadge"
 perfectBadge.Size = UDim2.new(0, 95, 0, 22)
@@ -174,7 +169,7 @@ perfectBadge.TextSize = 13
 perfectBadge.TextXAlignment = Enum.TextXAlignment.Left
 perfectBadge.Parent = castMeterContainer
 
--- Kursor / Indikator Putih yang Bergerak
+-- Kursor Indikator Putih
 local indicator = Instance.new("Frame")
 indicator.Name = "Indicator"
 indicator.Size = UDim2.new(1.18, 0, 0, 8)
@@ -483,7 +478,6 @@ function AnimSystem.ResetJoints()
 	AnimSystem.savedC0 = {}
 end
 
--- Visual Tali Pancing (Beam) dari Ujung Joran ke Bobber
 function AnimSystem.CreateFishingLine(char, bobber)
 	AnimSystem.RemoveFishingLine()
 	if not char or not bobber then return end
@@ -531,7 +525,6 @@ function AnimSystem.RemoveFishingLine()
 	end
 end
 
--- Pose Menyiapkan Lemparan (Windup Stance saat Bar Berjalan)
 function AnimSystem.PlayWindup(char, targetPos)
 	AnimSystem.SaveJoints(char)
 	AnimSystem.currentPhase = "Windup"
@@ -562,7 +555,6 @@ function AnimSystem.PlayWindup(char, targetPos)
 	end
 end
 
--- 1. Animasi Melempar (Casting Swing)
 function AnimSystem.PlayCast(char, targetPos)
 	AnimSystem.currentPhase = "Casting"
 
@@ -570,7 +562,6 @@ function AnimSystem.PlayCast(char, targetPos)
 	local lS = AnimSystem.savedC0.LeftShoulder
 	local w = AnimSystem.savedC0.Waist
 
-	-- Ayunkan Joran Maju dengan Bertenaga (Cast Forward)
 	playSound("rbxasset://sounds/action_whoosh.mp3", 0.75, 1.1)
 	if rS then
 		TweenService:Create(rS.joint, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -591,7 +582,6 @@ function AnimSystem.PlayCast(char, targetPos)
 	task.wait(0.25)
 end
 
--- 2. Sikap Memegang Joran (Fishing Stance Loop)
 function AnimSystem.StartFishingStance(char)
 	AnimSystem.currentPhase = "Waiting"
 	if AnimSystem.activeConn then AnimSystem.activeConn:Disconnect() end
@@ -632,12 +622,10 @@ function AnimSystem.StartFishingStance(char)
 	end)
 end
 
--- 3. Set Status Fase Animasi
 function AnimSystem.SetPhase(phase)
 	AnimSystem.currentPhase = phase
 end
 
--- 4. Animasi Mengangkat Tangkapan (Victory Lift)
 function AnimSystem.PlayVictoryLift(char)
 	AnimSystem.currentPhase = "Victory"
 	if AnimSystem.activeConn then AnimSystem.activeConn:Disconnect() end
@@ -650,14 +638,14 @@ function AnimSystem.PlayVictoryLift(char)
 			C0 = rS.orig * CFrame.Angles(math.rad(110), 0, math.rad(20))
 		}):Play()
 	end
-	if lS and lS.joint.Parent then
+	if lS then
 		TweenService:Create(lS.joint, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			C0 = lS.orig * CFrame.Angles(math.rad(80), 0, math.rad(-20))
 		}):Play()
 	end
 end
 
--- ============ DETEKSI SEMUA AIR DI MAP ============
+-- ============ DETEKSI AIR DI MAP ============
 local function isWaterInstance(inst, mat)
 	if mat == Enum.Material.Water then
 		return true
@@ -691,7 +679,6 @@ local function findWaterTarget()
 	rayParams.FilterDescendantsInstances = { char }
 	rayParams.IgnoreWater = false
 
-	-- 1. Cek Raycast dari posisi kursor mouse pemain ke air (Jangkauan Realistis: 8 - 45 stud)
 	local mouse = player:GetMouse()
 	if mouse and mouse.UnitRay then
 		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 150, rayParams)
@@ -703,7 +690,6 @@ local function findWaterTarget()
 		end
 	end
 
-	-- 2. Sweep ke arah pandang depan karakter (LookVector) dalam sudut wajar (-45 sampai +45 derajat)
 	local lookCFrame = hrp.CFrame
 	local angles = { 0, -15, 15, -30, 30, -45, 45 }
 	local distances = { 12, 20, 30, 42 }
@@ -722,7 +708,7 @@ local function findWaterTarget()
 	return nil
 end
 
--- ============ MEKANISME BAR MELEMPAR KAIL (RANDOMIZED ZONES) ============
+-- ============ MEKANISME BAR MELEMPAR KAIL ============
 local isCastingMeterActive = false
 local meterStartTime = 0
 local meterConn = nil
@@ -730,7 +716,6 @@ local currentWaterTarget = nil
 local currentCastPower = 0.5
 local meterSpeed = 3.2
 
--- State Zona Dinamis yang Diacak Setiap Lemparan
 local currentZones = {
 	perfectMin = 0.78,
 	perfectMax = 0.94,
@@ -739,10 +724,9 @@ local currentZones = {
 }
 
 local function randomizeZones()
-	-- Acak posisi tengah zona Perfect antara 20% sampai 82% tinggi bar
 	local perfectCenter = math.random(22, 80) / 100
-	local perfectHalfWidth = 0.075 -- Lebar zona Perfect = 15%
-	local greatHalfWidth = 0.16    -- Lebar zona Great = 32%
+	local perfectHalfWidth = 0.075
+	local greatHalfWidth = 0.16
 
 	local pMin = math.clamp(perfectCenter - perfectHalfWidth, 0.04, 0.88)
 	local pMax = math.clamp(perfectCenter + perfectHalfWidth, 0.16, 0.96)
@@ -755,28 +739,23 @@ local function randomizeZones()
 	currentZones.greatMin = gMin
 	currentZones.greatMax = gMax
 
-	-- Update Posisi Visual Zona Great
 	local gTop = (1 - gMax) * 0.92 + 0.04
 	local gHeight = (gMax - gMin) * 0.92
 	zoneGreat.Position = UDim2.fromScale(0.125, gTop)
 	zoneGreat.Size = UDim2.fromScale(0.75, gHeight)
 
-	-- Update Posisi Visual Zona Perfect
 	local pTop = (1 - pMax) * 0.92 + 0.04
 	local pHeight = (pMax - pMin) * 0.92
 	zonePerfect.Position = UDim2.fromScale(0.125, pTop)
 	zonePerfect.Size = UDim2.fromScale(0.75, pHeight)
 
-	-- Update Posisi Badge PERFECT di sebelah zona hijau
 	perfectBadge.Position = UDim2.new(1.15, 0, pTop, -2)
 end
 
 local function updateMeterVisual(power)
-	-- Posisi indicator Y: 0.04 (Atas = power 1.0) sampai 0.92 (Bawah = power 0.0)
 	local yPercent = (1 - power) * 0.88 + 0.04
 	indicator.Position = UDim2.new(-0.09, 0, yPercent, -4)
 
-	-- Indikator berubah warna dinamis sesuai zona acak saat ini
 	if power >= currentZones.perfectMin and power <= currentZones.perfectMax then
 		indicator.BackgroundColor3 = Color3.fromRGB(50, 255, 140)
 		indStroke.Color = Color3.fromRGB(180, 255, 200)
@@ -792,18 +771,17 @@ end
 -- ============ ALUR MEMANCING LENGKAP ============
 local busy = false
 local executeCastAfterMeter = nil
+local activeBobber = nil
 
 local function startCastingMeter(waterPos)
 	if busy or isCastingMeterActive or PianoTilesGame.IsPlaying() then return end
 
-	-- 1. Periksa Kepemilikan Joran Pancing
 	if not hasFishingRod() then
 		showMessage("⚠️ Kamu membutuhkan Joran Pancing di inventory untuk memancing!", Color3.fromRGB(255, 80, 80), 3.5)
 		playSound("rbxasset://sounds/splat.wav", 0.5, 0.7)
 		return
 	end
 
-	-- Acak posisi zona Perfect & Great untuk lemparan ini!
 	randomizeZones()
 
 	isCastingMeterActive = true
@@ -823,12 +801,10 @@ local function startCastingMeter(waterPos)
 	meterConn = RunService.RenderStepped:Connect(function()
 		if not isCastingMeterActive then return end
 		local elapsed = os.clock() - meterStartTime
-		-- Osilasi sinusoidal naik-turun halus (0 sampai 1)
 		local pingPong = (math.sin(elapsed * meterSpeed - math.pi / 2) + 1) / 2
 		currentCastPower = pingPong
 		updateMeterVisual(currentCastPower)
 
-		-- Auto-cast jika pemain tidak mengklik selama 4.5 detik
 		if elapsed > 4.5 then
 			executeCastAfterMeter()
 		end
@@ -855,45 +831,27 @@ executeCastAfterMeter = function()
 
 	busy = true
 
-	-- Evaluasi Kualitas Lemparan Berdasarkan Zona Acak Saat Ini
 	local castQuality = "GOOD"
-	local castLuck = 0
-	local waitDuration = math.random(28, 42) / 10
-
 	if finalPower >= currentZones.perfectMin and finalPower <= currentZones.perfectMax then
 		castQuality = "PERFECT"
-		castLuck = 35 -- +35 Bonus Luck!
 		showRatingPopup("⭐ PERFECT CAST! ⭐", Color3.fromRGB(255, 215, 0))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
-		waitDuration = math.random(12, 20) / 10 -- Sambaran kilat (1.2s - 2.0s)
 	elseif finalPower >= currentZones.greatMin and finalPower <= currentZones.greatMax then
 		castQuality = "GREAT"
-		castLuck = 15 -- +15 Bonus Luck!
 		showRatingPopup("✨ GREAT CAST! ✨", Color3.fromRGB(0, 220, 255))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.5)
-		waitDuration = math.random(18, 28) / 10 -- Sambaran lebih cepat (1.8s - 2.8s)
 	else
 		castQuality = "GOOD"
-		castLuck = 0
 		showRatingPopup("GOOD CAST 👍", Color3.fromRGB(230, 235, 255))
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.5, 1.2)
 	end
 
-	-- Hitung Total Luck Berdasarkan Rod + Bonus Lemparan
-	local rodTool = getFishingRod()
-	local rodLuck = (rodTool and rodTool:GetAttribute("Luck")) or 5
-	local totalLuck = math.clamp(rodLuck + castLuck, FishingRaritySystem.MIN_LUCK, FishingRaritySystem.MAX_LUCK)
-
-	-- Roll Rarity Berdasarkan Distribusi Total Luck & Cek Hierarchical Pity System
-	local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(totalLuck, clientPity)
-	local tierData = FishingRaritySystem.TIERS[rolledRarity] or FishingRaritySystem.TIERS.Common
-	local fishName = FishingRaritySystem.GetRandomFishName(rolledRarity)
-
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-	-- Buat Pelampung Dinamis di Air
-	local activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
+	-- Buat Pelampung di Air
+	if activeBobber then activeBobber:Destroy() end
+	activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
 	if activeBobber:IsA("Model") then
 		activeBobber:PivotTo(CFrame.new(waterPos + Vector3.new(0, 0.4, 0)))
 	else
@@ -907,7 +865,6 @@ executeCastAfterMeter = function()
 	end
 	activeBobber.Parent = workspace
 
-	-- Jalankan Animasi Ayunan Melempar
 	if char then
 		AnimSystem.PlayCast(char, waterPos)
 		AnimSystem.CreateFishingLine(char, activeBobber)
@@ -915,25 +872,35 @@ executeCastAfterMeter = function()
 	end
 
 	createWaterSplash(waterPos)
-	if wasPity then
-		showMessage("✨ PITY SYSTEM AKTIF! Menjamin Ikan " .. tierData.displayName .. "!", Color3.fromRGB(255, 215, 0), 3.5)
-	elseif castQuality == "PERFECT" then
-		showMessage("⭐ PERFECT CAST! (+35 Luck | Total Luck: " .. totalLuck .. ") Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 3)
+
+	-- 1. Request Sesi Memancing Server-Authoritative
+	if remote then
+		remote:FireServer("StartFishing", waterPos, castQuality, finalPower)
+	end
+end
+
+local function onSessionStarted(sessionId, waitDuration, castQuality)
+	activeSessionId = sessionId
+	local waterPos = currentWaterTarget or findWaterTarget()
+	if not waterPos then return end
+
+	if castQuality == "PERFECT" then
+		showMessage("⭐ PERFECT CAST! (+35 Luck) Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 3)
 	elseif castQuality == "GREAT" then
-		showMessage("✨ GREAT CAST! (+15 Luck | Total Luck: " .. totalLuck .. ") Peluang Rarity Meningkat!", Color3.fromRGB(0, 220, 255), 3)
+		showMessage("✨ GREAT CAST! (+15 Luck) Peluang Rarity Meningkat!", Color3.fromRGB(0, 220, 255), 3)
 	else
-		showMessage("🎣 Kail di air... (Total Luck: " .. totalLuck .. ") Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 3.5)
+		showMessage("🎣 Kail di air... Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 3.5)
 	end
 
 	task.wait(waitDuration)
-	if not busy then
-		activeBobber:Destroy()
+	if not busy or activeSessionId ~= sessionId then
+		if activeBobber then activeBobber:Destroy() end
 		AnimSystem.ResetJoints()
 		freezePlayer(false)
 		return
 	end
 
-	-- 2. Ikan Menyambar di Lokasi Air Ini!
+	-- 2. Ikan Menyambar!
 	AnimSystem.SetPhase("Biting")
 	showStrikeAlert(waterPos)
 	createWaterSplash(waterPos)
@@ -957,36 +924,40 @@ executeCastAfterMeter = function()
 	showMessage("🎣 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)
 	AnimSystem.SetPhase("Reeling")
 
-	-- 3. Jalankan Mini-game Piano Tiles dengan Tier Rarity 6 Tingkat
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+	-- 3. Jalankan Piano Tiles (Blind Mystery)
 	PianoTilesGame.Start({
-		tier = rolledRarity,
 		castQuality = castQuality,
-		speed = tierData.speed,
-	}, function()
-		-- Player Menang
+	}, function(metrics)
+		-- Player Menang (Kirim Performa ke Server)
 		AnimSystem.PlayVictoryLift(char)
 		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1.5, 0)) or (waterPos + Vector3.new(0, 5, 0))
 		animateFishLeap(waterPos, catchTarget, 0.9, 7)
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
-		if remote then
-			remote:FireServer("Catch", rolledRarity, castQuality, fishName)
+		if remote and activeSessionId then
+			remote:FireServer("SubmitCatch", activeSessionId, metrics)
 		end
-		clientPity = FishingRaritySystem.UpdatePityOnCatch(clientPity, rolledRarity)
 
 		task.delay(2.8, function()
-			activeBobber:Destroy()
+			if activeBobber then activeBobber:Destroy() end
 			AnimSystem.ResetJoints()
 			busy = false
 			freezePlayer(false)
 		end)
-	end, function()
-		-- Player Gagal
+	end, function(metrics)
+		-- Player Gagal (Ikan Lepas)
 		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
+		if remote and activeSessionId then
+			remote:FireServer("CancelFishing", activeSessionId)
+		end
+
 		task.delay(1.5, function()
-			activeBobber:Destroy()
+			if activeBobber then activeBobber:Destroy() end
 			AnimSystem.ResetJoints()
 			busy = false
 			freezePlayer(false)
@@ -1002,7 +973,6 @@ local function handleInteractionTrigger()
 	lastTriggerTime = now
 
 	if isCastingMeterActive then
-		-- Debounce 0.2s dari pembukaan bar agar klik pertama tidak langsung mengunci bar secara instan!
 		if now - meterStartTime < 0.20 then return end
 		executeCastAfterMeter()
 		return
@@ -1018,22 +988,17 @@ local function handleInteractionTrigger()
 	end
 end
 
--- ============ LISTENER INPUT AKTIVASI (KLIK MOUSE, SENTUH, ATAU TEKAN E) ============
-
--- 1. Klik Mouse / Touch / Tombol E saat memegang Joran Pancing
+-- ============ LISTENER INPUT AKTIVASI ============
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	-- Jangan trigger jika pemain sedang mengklik UI (Inventory Backpack, Chat, Menu, dsb)
 	if gameProcessed then return end
 
 	if isCastingMeterActive then
-		-- Saat bar lemparan sedang berjalan, klik atau [E] akan mengunci lemparan
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
 			handleInteractionTrigger()
 		end
 		return
 	end
 
-	-- Hanya bisa memancing jika JORAN PANCING SEDANG DIPEGANG di tangan karakter!
 	if isRodEquipped() and not PianoTilesGame.IsPlaying() then
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
 			handleInteractionTrigger()
@@ -1041,7 +1006,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- 2. Hook Tool Activated Event khusus untuk Joran Pancing
 local function hookTool(tool)
 	if tool.Name == "FishingRod" or tool.Name == "Pancingan" then
 		tool.Activated:Connect(function()
@@ -1079,24 +1043,40 @@ end
 
 watchInventory()
 
--- 3. Respon dari Server
+-- ============ RESPON REMOTE SERVER ============
 if remote then
-	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3)
-		if action == "CatchSuccess" then
-			local fishName = arg1 or "Ikan"
-			local rarity = arg2 or "COMMON"
-			local pityState = arg3
-			if pityState then
-				clientPity = pityState
-			end
+	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3, arg4)
+		if action == "SessionStarted" then
+			local sessionId = arg1
+			local waitDuration = arg2 or 3.0
+			local castQuality = arg3 or "GOOD"
+			task.spawn(function()
+				onSessionStarted(sessionId, waitDuration, castQuality)
+			end)
+		elseif action == "CatchSuccess" then
+			local fishData = arg1 or {}
+			local rewardInfo = arg2 or {}
+			local pData = arg3 or {}
+			local pityState = arg4 or {}
 
-			local tierData = FishingRaritySystem.GetTierData(rarity)
-			local toastMsg = "🎉 BERHASIL! Menangkap: " .. fishName .. " [" .. tierData.displayName .. " " .. tierData.stars .. " | " .. (tierData.targetNotes or 30) .. " NADA]"
-			showMessage(toastMsg, tierData.color, 4.5)
-		elseif action == "PityStateUpdate" then
-			if arg1 then
-				clientPity = arg1
-			end
+			clientPity = pityState
+
+			local name = fishData.name or "Ikan"
+			local disp = fishData.displayName or "COMMON"
+			local stars = fishData.stars or "⭐"
+			local weight = fishData.weight or 1.0
+			local coins = rewardInfo.coins or 0
+			local exp = rewardInfo.exp or 0
+			local color = fishData.color or Color3.fromRGB(0, 200, 255)
+
+			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!\n[%s] %s %s\n⚖️ %.1f Kg | 💰 +%d Koin | ⭐ +%d EXP", disp, name, stars, weight, coins, exp)
+			showMessage(revealMsg, color, 5.0)
+
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+		elseif action == "LevelUp" then
+			local newLevel = arg1 or 2
+			showMessage("⭐ LEVEL UP! Selamat, kamu sekarang Level " .. newLevel .. "! ⭐", Color3.fromRGB(255, 215, 0), 4.5)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
 		elseif action == "Notification" then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
 		end
