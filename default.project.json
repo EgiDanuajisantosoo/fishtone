@@ -15,6 +15,9 @@
       "$className": "ServerScriptService",
       "FishingServer": {
         "$path": "src/ServerScriptService/FishingServer.server.lua"
+      },
+      "SkullIslandBuilder": {
+        "$path": "src/ServerScriptService/SkullIslandBuilder.server.lua"
       }
     },
     "StarterPlayer": {
