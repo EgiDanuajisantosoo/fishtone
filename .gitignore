@@ -1,9 +1,14 @@
 # Roblox / Rojo
 *.rbxlx.lock
 *.rbxl.lock
+*.rbxl
+*.rbxlx
+*.rbxlx.rbxl
 .rojo/
+extract_place.py
 
 # OS Files
 Thumbs.db
 .DS_Store
 *.tmp
+

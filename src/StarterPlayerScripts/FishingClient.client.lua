@@ -873,7 +873,7 @@ executeCastAfterMeter = function()
 	end
 end
 
-local function onSessionStarted(sessionId, waitDuration, castQuality)
+local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 	activeSessionId = sessionId
 	local waterPos = currentWaterTarget or findWaterTarget()
 	if not waterPos then return end
@@ -922,6 +922,7 @@ local function onSessionStarted(sessionId, waitDuration, castQuality)
 
 	PianoTilesGame.Start({
 		castQuality = castQuality,
+		tier = rarity,
 	}, function(metrics)
 		AnimSystem.PlayVictoryLift(char)
 		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1.5, 0)) or (waterPos + Vector3.new(0, 5, 0))
@@ -1404,8 +1405,17 @@ if remote then
 			local sessionId = arg1
 			local waitDuration = arg2 or 3.0
 			local castQuality = arg3 or "GOOD"
+			local rarity = arg4 or "COMMON"
+
+			print("[FishingClient] Rarity:", rarity)
+
 			task.spawn(function()
-				onSessionStarted(sessionId, waitDuration, castQuality)
+				onSessionStarted(
+					sessionId,
+					waitDuration,
+					castQuality,
+					rarity
+				)
 			end)
 		elseif action == "CatchSuccess" then
 			local fishData = arg1 or {}
