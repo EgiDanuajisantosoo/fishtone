@@ -41,7 +41,8 @@ FishTune-Roblox/
     ├── ReplicatedStorage/
     │   └── Shared/
     │       ├── Config/
-    │       │   └── PianoTilesConfig.lua         -- Konfigurasi terpusat & visual balance
+    │       │   ├── PianoTilesConfig.lua         -- Konfigurasi terpusat & visual balance
+    │       │   └── PlayerDataSchema.lua         -- Schema, reconciler, validator & migrations (FISH-005)
     │       ├── Minigames/
     │       │   ├── PianoTilesGame.lua           -- Controller gameplay Piano Tiles mini-game
     │       │   └── PianoTilesUI.lua             -- View / Glassmorphism UI manager

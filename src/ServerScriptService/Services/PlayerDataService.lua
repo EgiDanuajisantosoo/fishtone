@@ -1,11 +1,11 @@
 --[[
 	PlayerDataService (ModuleScript)
-	FISH!TUNE — Player Data & DataStore Service (FISH-004)
+	FISH!TUNE — Player Data & DataStore Service (FISH-004 / FISH-005)
 
 	Layanan Sentral Manajemen Data & Persistensi Pemain:
 	1. DataStore persistence dengan key berbasis UserId.
 	2. Fallback in-memory yang aman jika DataStore dinonaktifkan di Studio.
-	3. Schema default & versioning (level, exp, coins, totalFish, pity state, equippedRod).
+	3. Integrasi penuh dengan PlayerDataSchema (Reconciliation, Migration & Invariant Validation).
 	4. Auto-save berkala dan graceful shutdown (game:BindToClose).
 	5. Integrasi mulus dengan Leaderstats dan RemoteContract.
 ]]
@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
+local PlayerDataSchema = require(Shared:WaitForChild("Config"):WaitForChild("PlayerDataSchema"))
 
 local PlayerDataService = {}
 
@@ -44,39 +45,12 @@ end
 local profiles = {} -- [player.UserId] = profileTable
 local isSaving = {} -- [player.UserId] = boolean
 
-local DEFAULT_PROFILE = {
-	version = 1,
-	level = 1,
-	exp = 0,
-	coins = 0,
-	totalFish = 0,
-	pity = {
-		LEGENDARY = 0,
-		MYTHIC = 0,
-		SPECIAL = 0,
-	},
-	equippedRod = "DefaultRod",
-	lastSaved = 0,
-}
-
-local function deepCopy(tbl)
-	local copy = {}
-	for k, v in pairs(tbl) do
-		if typeof(v) == "table" then
-			copy[k] = deepCopy(v)
-		else
-			copy[k] = v
-		end
-	end
-	return copy
-end
-
 -- ============ PROFILE GETTERS ============
 function PlayerDataService.Get(player)
 	if not player or not player:IsA("Player") then return nil end
 	local userId = player.UserId
 	if not profiles[userId] then
-		profiles[userId] = deepCopy(DEFAULT_PROFILE)
+		profiles[userId] = PlayerDataSchema.CreateDefault()
 	end
 	return profiles[userId]
 end
@@ -136,6 +110,9 @@ function PlayerDataService.AddCoins(player, amount)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return end
 	pData.coins = math.max(0, (pData.coins or 0) + amount)
+	if pData.stats then
+		pData.stats.totalCoinsEarned = (pData.stats.totalCoinsEarned or 0) + math.max(0, amount)
+	end
 	PlayerDataService.SyncLeaderstats(player)
 	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
 end
@@ -176,9 +153,9 @@ end
 
 function PlayerDataService.GetPity(player)
 	local pData = PlayerDataService.Get(player)
-	if not pData then return deepCopy(DEFAULT_PROFILE.pity) end
+	if not pData then return PlayerDataSchema.DeepCopy(PlayerDataSchema.DEFAULT_DATA.pity) end
 	if not pData.pity then
-		pData.pity = deepCopy(DEFAULT_PROFILE.pity)
+		pData.pity = PlayerDataSchema.DeepCopy(PlayerDataSchema.DEFAULT_DATA.pity)
 	end
 	return pData.pity
 end
@@ -186,8 +163,30 @@ end
 function PlayerDataService.UpdatePity(player, rolledRarity)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return end
-	pData.pity = FishingRaritySystem.UpdatePityOnCatch(pData.pity or DEFAULT_PROFILE.pity, rolledRarity)
+	pData.pity = FishingRaritySystem.UpdatePityOnCatch(pData.pity or PlayerDataSchema.DEFAULT_DATA.pity, rolledRarity)
 	return pData.pity
+end
+
+function PlayerDataService.RecordJournal(player, fishName, weight)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return end
+	if not pData.journal then
+		pData.journal = {}
+	end
+
+	local entry = pData.journal[fishName]
+	if not entry then
+		pData.journal[fishName] = {
+			count = 1,
+			maxWeight = weight or 1.0,
+			firstCaught = os.time(),
+		}
+	else
+		entry.count = (entry.count or 0) + 1
+		if (weight or 0) > (entry.maxWeight or 0) then
+			entry.maxWeight = weight
+		end
+	end
 end
 
 -- ============ DATA PERSISTENCE ============
@@ -195,7 +194,7 @@ function PlayerDataService.LoadData(player)
 	local userId = player.UserId
 	local key = "Player_" .. tostring(userId)
 
-	local profile = deepCopy(DEFAULT_PROFILE)
+	local profile = PlayerDataSchema.CreateDefault()
 
 	if dataStoreAvailable then
 		local loadedData = nil
@@ -216,19 +215,13 @@ function PlayerDataService.LoadData(player)
 		end
 
 		if fetchSuccess and loadedData and typeof(loadedData) == "table" then
-			profile.level = loadedData.level or loadedData.Level or profile.level
-			profile.exp = loadedData.exp or loadedData.Exp or profile.exp
-			profile.coins = loadedData.coins or loadedData.Coins or profile.coins
-			profile.totalFish = loadedData.totalFish or loadedData.TotalFish or profile.totalFish
-			profile.equippedRod = loadedData.equippedRod or profile.equippedRod
-
-			local loadedPity = loadedData.pity or loadedData.Pity
-			if loadedPity and typeof(loadedPity) == "table" then
-				profile.pity.LEGENDARY = loadedPity.LEGENDARY or 0
-				profile.pity.MYTHIC = loadedPity.MYTHIC or 0
-				profile.pity.SPECIAL = loadedPity.SPECIAL or 0
+			profile = PlayerDataSchema.Migrate(loadedData)
+			local valid, err = PlayerDataSchema.Validate(profile)
+			if not valid then
+				warn(string.format("[PlayerDataService] Data %s tidak valid (%s), merekonsiliasi ulang...", player.Name, tostring(err)))
+				profile = PlayerDataSchema.Reconcile(profile)
 			end
-			print(string.format("[PlayerDataService] Data termuat untuk %s (Level %d, Koin: %d)", player.Name, profile.level, profile.coins))
+			print(string.format("[PlayerDataService] Data termuat untuk %s (v%d, Level %d, Koin: %d)", player.Name, profile.version or 1, profile.level, profile.coins))
 		else
 			print(string.format("[PlayerDataService] Data baru dibuat untuk %s", player.Name))
 		end
@@ -248,6 +241,12 @@ function PlayerDataService.SaveData(player)
 
 	if isSaving[userId] then return end
 	isSaving[userId] = true
+
+	local valid, valErr = PlayerDataSchema.Validate(profile)
+	if not valid then
+		warn(string.format("[PlayerDataService] Data %s tidak valid sebelum disimpan (%s). Menyelaraskan...", player.Name, tostring(valErr)))
+		profile = PlayerDataSchema.Reconcile(profile)
+	end
 
 	profile.lastSaved = os.time()
 

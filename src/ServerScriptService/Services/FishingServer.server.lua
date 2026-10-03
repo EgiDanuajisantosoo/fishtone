@@ -321,6 +321,7 @@ if remote then
 			-- Tambah EXP dan Total Ikan (Koin didapat saat ikan dijual!)
 			PlayerDataService.AddFish(player, 1)
 			PlayerDataService.AddExp(player, fishData.exp)
+			PlayerDataService.RecordJournal(player, fishData.name, fishData.weight)
 
 			-- Buat Tool Ikan 3D di Backpack Player
 			local backpack = player:FindFirstChild("Backpack")
