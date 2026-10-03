@@ -27,7 +27,8 @@ local function getPlayerGui()
 	return player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 5)
 end
 
-local remote = ReplicatedStorage:WaitForChild("FishingRemote", 10)
+local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
+local remote = RemoteContract.GetRemote()
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
@@ -870,7 +871,7 @@ executeCastAfterMeter = function()
 	createWaterSplash(waterPos)
 
 	if remote then
-		remote:FireServer("StartFishing", waterPos, castQuality, finalPower)
+		RemoteContract.Client.StartFishing(waterPos, castQuality, finalPower)
 	end
 end
 
@@ -931,7 +932,7 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
 		if remote and activeSessionId then
-			remote:FireServer("SubmitCatch", activeSessionId, metrics)
+			RemoteContract.Client.SubmitCatch(activeSessionId, metrics)
 		end
 
 		task.delay(2.8, function()
@@ -945,7 +946,7 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
 		if remote and activeSessionId then
-			remote:FireServer("CancelFishing", activeSessionId)
+			RemoteContract.Client.CancelFishing(activeSessionId)
 		end
 
 		task.delay(1.5, function()
@@ -1092,7 +1093,7 @@ local function updateInventoryUI()
 		sellBtn.MouseButton1Click:Connect(function()
 			playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.4)
 			if remote and tool and tool.Parent then
-				remote:FireServer("SellFish", tool)
+				RemoteContract.Client.SellFish(tool)
 			end
 		end)
 	end
@@ -1294,7 +1295,7 @@ local function buildInventoryUI()
 	invSellAllBtn.MouseButton1Click:Connect(function()
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 1.4)
 		if remote then
-			remote:FireServer("SellAllFish")
+			RemoteContract.Client.SellAllFish()
 		end
 	end)
 
@@ -1402,7 +1403,7 @@ watchInventory()
 -- ============ RESPON REMOTE SERVER ============
 if remote then
 	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3, arg4)
-		if action == "SessionStarted" then
+		if action == RemoteContract.S2C.SESSION_STARTED then
 			local sessionId = arg1
 			local waitDuration = arg2 or 3.0
 			local castQuality = arg3 or "GOOD"
@@ -1418,7 +1419,7 @@ if remote then
 					rarity
 				)
 			end)
-		elseif action == "CatchSuccess" then
+		elseif action == RemoteContract.S2C.CATCH_SUCCESS then
 			local fishData = arg1 or {}
 			local rewardInfo = arg2 or {}
 			local pData = arg3 or {}
@@ -1439,7 +1440,7 @@ if remote then
 
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
 			updateInventoryUI()
-		elseif action == "FishSold" then
+		elseif action == RemoteContract.S2C.FISH_SOLD then
 			local fishName = arg1 or "Ikan"
 			local coinsGained = arg2 or 0
 			local currentCoins = arg3 or 0
@@ -1447,7 +1448,7 @@ if remote then
 			showMessage(string.format("💰 Berhasil menjual %s seharga +%d Koin!", fishName, coinsGained), Color3.fromRGB(50, 255, 130), 3.5)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.6)
 			updateInventoryUI()
-		elseif action == "AllFishSold" then
+		elseif action == RemoteContract.S2C.ALL_FISH_SOLD then
 			local count = arg1 or 0
 			local totalCoins = arg2 or 0
 			local currentCoins = arg3 or 0
@@ -1455,11 +1456,11 @@ if remote then
 			showMessage(string.format("💰 Berhasil menjual %d Ikan seharga total +%d Koin!", count, totalCoins), Color3.fromRGB(50, 255, 130), 4.0)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.6)
 			updateInventoryUI()
-		elseif action == "LevelUp" then
+		elseif action == RemoteContract.S2C.LEVEL_UP then
 			local newLevel = arg1 or 2
 			showMessage("⭐ LEVEL UP! Selamat, kamu sekarang Level " .. newLevel .. "! ⭐", Color3.fromRGB(255, 215, 0), 4.5)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
-		elseif action == "Notification" then
+		elseif action == RemoteContract.S2C.NOTIFICATION then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
 		end
 	end)

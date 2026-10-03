@@ -16,7 +16,8 @@ local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
-local remote = ReplicatedStorage:FindFirstChild("FishingRemote")
+local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
+local remote = RemoteContract.GetRemote()
 
 -- Penyimpanan Data Pemain dalam Memori Server
 local playerData = {} -- [player.UserId] = { level = 1, exp = 0, coins = 0, totalFish = 0, pity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 } }
@@ -71,8 +72,8 @@ local function addExp(player, amount)
 	end
 
 	syncLeaderstats(player)
-	if leveledUp and remote then
-		remote:FireClient(player, "LevelUp", pData.level)
+	if leveledUp then
+		RemoteContract.Server.LevelUp(player, pData.level)
 	end
 	return leveledUp
 end
@@ -268,13 +269,9 @@ if remote then
 		local pData = getPlayerData(player)
 
 		-- 1. Permintaan Memulai Sesi Memancing (StartFishing)
-		if action == "StartFishing" then
+		if action == RemoteContract.C2S.START_FISHING then
 			if not hasFishingRod(player) then
-				remote:FireClient(
-					player,
-					"Notification",
-					"⚠️ Kamu membutuhkan Joran Pancing di inventory!"
-				)
+				RemoteContract.Server.Notify(player, "⚠️ Kamu membutuhkan Joran Pancing di inventory!")
 				return
 			end
 
@@ -365,26 +362,19 @@ if remote then
 			playerSessions[player.UserId] = sessionId
 
 			-- Kirim rarity ke client
-			remote:FireClient(
-				player,
-				"SessionStarted",
-				sessionId,
-				waitDuration,
-				castQuality,
-				rolledRarity
-			)
+			RemoteContract.Server.SessionStarted(player, sessionId, waitDuration, castQuality, rolledRarity)
 
 			return
 		end
 
 		-- 2. Pengiriman Hasil Tangkapan Rhythm (SubmitCatch) - SERVER AUTHORITATIVE
-		if action == "SubmitCatch" then
+		if action == RemoteContract.C2S.SUBMIT_CATCH then
 			local sessionId = tostring(arg1 or "")
 			local metrics = arg2 or {}
 			local session = activeSessions[sessionId]
 
 			if not session or session.userId ~= player.UserId or session.status ~= "Active" then
-				remote:FireClient(player, "Notification", "❌ Sesi memancing tidak valid atau sudah kadaluarsa.")
+				RemoteContract.Server.Notify(player, "❌ Sesi memancing tidak valid atau sudah kadaluarsa.")
 				return
 			end
 
@@ -393,7 +383,7 @@ if remote then
 			playerSessions[player.UserId] = nil
 
 			if not hasFishingRod(player) then
-				remote:FireClient(player, "Notification", "⚠️ Kamu tidak memiliki Joran Pancing di inventory!")
+				RemoteContract.Server.Notify(player, "⚠️ Kamu tidak memiliki Joran Pancing di inventory!")
 				return
 			end
 
@@ -440,12 +430,12 @@ if remote then
 				wasPity = wasPity,
 			}
 
-			remote:FireClient(player, "CatchSuccess", fishData, rewardInfo, pData, pData.pity)
+			RemoteContract.Server.CatchSuccess(player, fishData, rewardInfo, pData, pData.pity)
 			return
 		end
 
 		-- 3. Menjual Satu Ikan Tertentu (SellFish)
-		if action == "SellFish" then
+		if action == RemoteContract.C2S.SELL_FISH then
 			local targetArg = arg1
 			local foundTool = nil
 
@@ -472,15 +462,15 @@ if remote then
 				pData.coins += coins
 				syncLeaderstats(player)
 
-				remote:FireClient(player, "FishSold", fishName, coins, pData.coins)
+				RemoteContract.Server.FishSold(player, fishName, coins, pData.coins)
 			else
-				remote:FireClient(player, "Notification", "⚠️ Ikan tidak ditemukan atau sudah terjual!")
+				RemoteContract.Server.Notify(player, "⚠️ Ikan tidak ditemukan atau sudah terjual!")
 			end
 			return
 		end
 
 		-- 4. Menjual Semua Ikan di Inventory (SellAllFish)
-		if action == "SellAllFish" then
+		if action == RemoteContract.C2S.SELL_ALL_FISH then
 			local backpack = player:FindFirstChild("Backpack")
 			local char = player.Character
 
@@ -513,15 +503,15 @@ if remote then
 			if count > 0 then
 				pData.coins += totalGained
 				syncLeaderstats(player)
-				remote:FireClient(player, "AllFishSold", count, totalGained, pData.coins)
+				RemoteContract.Server.AllFishSold(player, count, totalGained, pData.coins)
 			else
-				remote:FireClient(player, "Notification", "⚠️ Tidak ada ikan di inventory untuk dijual!")
+				RemoteContract.Server.Notify(player, "⚠️ Tidak ada ikan di inventory untuk dijual!")
 			end
 			return
 		end
 
 		-- 5. Pembatalan Sesi (CancelFishing)
-		if action == "CancelFishing" then
+		if action == RemoteContract.C2S.CANCEL_FISHING then
 			local sessionId = tostring(arg1 or "")
 			if activeSessions[sessionId] and activeSessions[sessionId].userId == player.UserId then
 				activeSessions[sessionId] = nil
@@ -533,8 +523,8 @@ if remote then
 		end
 
 		-- 6. Get Player Data
-		if action == "GetPlayerData" then
-			remote:FireClient(player, "PlayerDataUpdate", pData, pData.pity)
+		if action == RemoteContract.C2S.GET_PLAYER_DATA then
+			RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
 			return
 		end
 	end)
