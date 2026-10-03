@@ -17,66 +17,12 @@ local Debris = game:GetService("Debris")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
+local PlayerDataService = require(script.Parent.PlayerDataService)
 local remote = RemoteContract.GetRemote()
-
--- Penyimpanan Data Pemain dalam Memori Server
-local playerData = {} -- [player.UserId] = { level = 1, exp = 0, coins = 0, totalFish = 0, pity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 } }
 local activeSessions = {} -- [sessionId] = { player, userId, waterPos, castQuality, castPower, startTime, waitDuration, status }
 local playerSessions = {} -- [player.UserId] = sessionId
 
-local function getPlayerData(player)
-	if not playerData[player.UserId] then
-		playerData[player.UserId] = {
-			level = 1,
-			exp = 0,
-			coins = 0,
-			totalFish = 0,
-			pity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
-		}
-	end
-	return playerData[player.UserId]
-end
 
-local function syncLeaderstats(player)
-	local pData = getPlayerData(player)
-	local stats = player:FindFirstChild("leaderstats")
-	if not stats then return end
-
-	local lvlVal = stats:FindFirstChild("Level")
-	if lvlVal then lvlVal.Value = pData.level end
-
-	local coinVal = stats:FindFirstChild("Koin")
-	if coinVal then coinVal.Value = pData.coins end
-
-	local fishVal = stats:FindFirstChild("Ikan")
-	if fishVal then fishVal.Value = pData.totalFish end
-
-	local expVal = stats:FindFirstChild("Exp")
-	if expVal then expVal.Value = pData.exp end
-end
-
-local function addExp(player, amount)
-	local pData = getPlayerData(player)
-	pData.exp += amount
-	local leveledUp = false
-
-	while true do
-		local reqExp = FishingRaritySystem.GetExpRequiredForLevel(pData.level)
-		if pData.exp >= reqExp then
-			pData.exp -= reqExp
-			pData.level += 1
-			leveledUp = true
-		else
-			break
-		end
-	end
-
-	syncLeaderstats(player)
-	if leveledUp then
-		RemoteContract.Server.LevelUp(player, pData.level)
-	end
-	return leveledUp
-end
 
 -- Cek apakah player memiliki joran pancing
 local function hasFishingRod(player)
@@ -215,58 +161,18 @@ local function createFishTool(fishData)
 	return tool
 end
 
--- Inisialisasi Player
-local function onPlayerAdded(player)
-	getPlayerData(player)
-
-	if not player:FindFirstChild("leaderstats") then
-		local stats = Instance.new("Folder")
-		stats.Name = "leaderstats"
-
-		local lvl = Instance.new("IntValue")
-		lvl.Name = "Level"
-		lvl.Value = 1
-		lvl.Parent = stats
-
-		local koin = Instance.new("IntValue")
-		koin.Name = "Koin"
-		koin.Value = 0
-		koin.Parent = stats
-
-		local fish = Instance.new("IntValue")
-		fish.Name = "Ikan"
-		fish.Value = 0
-		fish.Parent = stats
-
-		local exp = Instance.new("IntValue")
-		exp.Name = "Exp"
-		exp.Value = 0
-		exp.Parent = stats
-
-		stats.Parent = player
-	end
-
-	syncLeaderstats(player)
-end
-
-Players.PlayerAdded:Connect(onPlayerAdded)
-for _, p in ipairs(Players:GetPlayers()) do
-	onPlayerAdded(p)
-end
-
 Players.PlayerRemoving:Connect(function(player)
 	local activeSess = playerSessions[player.UserId]
 	if activeSess then
 		activeSessions[activeSess] = nil
 	end
 	playerSessions[player.UserId] = nil
-	playerData[player.UserId] = nil
 end)
 
 -- Handler Komunikasi Client-Server
 if remote then
 	remote.OnServerEvent:Connect(function(player, action, arg1, arg2, arg3)
-		local pData = getPlayerData(player)
+		local pData = PlayerDataService.Get(player)
 
 		-- 1. Permintaan Memulai Sesi Memancing (StartFishing)
 		if action == RemoteContract.C2S.START_FISHING then
@@ -410,12 +316,11 @@ if remote then
 				performanceScore
 			)
 			-- Update Pity State
-			pData.pity = FishingRaritySystem.UpdatePityOnCatch(pData.pity, rolledRarity)
+			pData.pity = PlayerDataService.UpdatePity(player, rolledRarity)
 
 			-- Tambah EXP dan Total Ikan (Koin didapat saat ikan dijual!)
-			pData.totalFish += 1
-			addExp(player, fishData.exp)
-			syncLeaderstats(player)
+			PlayerDataService.AddFish(player, 1)
+			PlayerDataService.AddExp(player, fishData.exp)
 
 			-- Buat Tool Ikan 3D di Backpack Player
 			local backpack = player:FindFirstChild("Backpack")
@@ -459,9 +364,7 @@ if remote then
 				local fishName = foundTool:GetAttribute("FishName") or foundTool.Name
 				foundTool:Destroy()
 
-				pData.coins += coins
-				syncLeaderstats(player)
-
+				PlayerDataService.AddCoins(player, coins)
 				RemoteContract.Server.FishSold(player, fishName, coins, pData.coins)
 			else
 				RemoteContract.Server.Notify(player, "⚠️ Ikan tidak ditemukan atau sudah terjual!")
@@ -501,8 +404,7 @@ if remote then
 			end
 
 			if count > 0 then
-				pData.coins += totalGained
-				syncLeaderstats(player)
+				PlayerDataService.AddCoins(player, totalGained)
 				RemoteContract.Server.AllFishSold(player, count, totalGained, pData.coins)
 			else
 				RemoteContract.Server.Notify(player, "⚠️ Tidak ada ikan di inventory untuk dijual!")

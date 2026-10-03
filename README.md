@@ -45,11 +45,14 @@ FishTune-Roblox/
     │       ├── Minigames/
     │       │   ├── PianoTilesGame.lua           -- Controller gameplay Piano Tiles mini-game
     │       │   └── PianoTilesUI.lua             -- View / Glassmorphism UI manager
+    │       ├── Network/
+    │       │   └── RemoteContract.lua           -- Single Source of Truth protokol jaringan (FISH-003)
     │       └── Systems/
     │           └── FishingRaritySystem.lua      -- Balancing, XP, Pity & Rarity formula
     ├── ServerScriptService/
     │   └── Services/
-    │       └── FishingServer.server.lua         -- Server-authoritative session & economy service
+    │       ├── FishingServer.server.lua         -- Server-authoritative session & economy service
+    │       └── PlayerDataService.lua            -- DataStore persistence & profile service (FISH-004)
     └── StarterPlayerScripts/
         └── Controllers/
             └── FishingClient.client.lua         -- Client controller, casting, strike & rhythm input
