@@ -42,7 +42,8 @@ FishTune-Roblox/
     │   └── Shared/
     │       ├── Config/
     │       │   ├── PianoTilesConfig.lua         -- Konfigurasi terpusat & visual balance
-    │       │   └── PlayerDataSchema.lua         -- Schema, reconciler, validator & migrations (FISH-005)
+    │       │   ├── PlayerDataSchema.lua         -- Schema, reconciler, validator & migrations (FISH-005)
+    │       │   └── ZoneConfig.lua               -- Zona dunia, bioma & persyaratan level (FISH-006)
     │       ├── Minigames/
     │       │   ├── PianoTilesGame.lua           -- Controller gameplay Piano Tiles mini-game
     │       │   └── PianoTilesUI.lua             -- View / Glassmorphism UI manager
@@ -53,10 +54,12 @@ FishTune-Roblox/
     ├── ServerScriptService/
     │   └── Services/
     │       ├── FishingServer.server.lua         -- Server-authoritative session & economy service
+    │       ├── MelodyBayService.server.lua      -- Builder 3D dunia & dermaga Melody Bay (FISH-006)
     │       └── PlayerDataService.lua            -- DataStore persistence & profile service (FISH-004)
     └── StarterPlayerScripts/
         └── Controllers/
-            └── FishingClient.client.lua         -- Client controller, casting, strike & rhythm input
+            ├── FishingClient.client.lua         -- Client controller, casting, strike & rhythm input
+            └── ZoneController.client.lua        -- Deteksi zona & banner imersif (FISH-006)
 ```
 
 ---

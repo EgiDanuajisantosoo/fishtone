@@ -27,9 +27,9 @@ local function getPlayerGui()
 	return player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 5)
 end
 
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local remote = RemoteContract.GetRemote()
-local Shared = ReplicatedStorage:WaitForChild("Shared")
 local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
