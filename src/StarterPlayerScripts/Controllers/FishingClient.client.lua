@@ -28,8 +28,9 @@ local function getPlayerGui()
 end
 
 local remote = ReplicatedStorage:WaitForChild("FishingRemote", 10)
-local PianoTilesGame = require(ReplicatedStorage:WaitForChild("PianoTilesGame"))
-local FishingRaritySystem = require(ReplicatedStorage:WaitForChild("FishingRaritySystem"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
+local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 

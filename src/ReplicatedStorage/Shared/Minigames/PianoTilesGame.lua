@@ -23,16 +23,18 @@ local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+
 local FishingRaritySystem = require(
-	ReplicatedStorage:WaitForChild("FishingRaritySystem")
+	Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem")
 )
 
 local Config = require(
-	ReplicatedStorage:WaitForChild("PianoTilesConfig")
+	Shared:WaitForChild("Config"):WaitForChild("PianoTilesConfig")
 )
 
 local PianoTilesUI = require(
-	ReplicatedStorage:WaitForChild("PianoTilesUI")
+	script.Parent:WaitForChild("PianoTilesUI")
 )
 
 local PianoTilesGame = {}

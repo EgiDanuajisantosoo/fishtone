@@ -39,9 +39,10 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Config = require(
-	ReplicatedStorage:WaitForChild("PianoTilesConfig")
+	Shared:WaitForChild("Config"):WaitForChild("PianoTilesConfig")
 )
 
 local PianoTilesUI = {}

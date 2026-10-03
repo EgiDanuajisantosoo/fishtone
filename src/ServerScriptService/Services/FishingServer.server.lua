@@ -14,7 +14,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 
-local FishingRaritySystem = require(ReplicatedStorage:WaitForChild("FishingRaritySystem"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local remote = ReplicatedStorage:FindFirstChild("FishingRemote")
 
 -- Penyimpanan Data Pemain dalam Memori Server

@@ -30,7 +30,7 @@ Mekanik memancing inovatif untuk Roblox dengan integrasi mini-game **Piano Tiles
 
 ---
 
-## 📁 Struktur Direktori (Rojo Layout)
+## 📁 Struktur Direktori (Knit-Style MVC / Rojo Layout)
 
 ```
 FishTune-Roblox/
@@ -39,11 +39,20 @@ FishTune-Roblox/
 ├── README.md
 └── src/
     ├── ReplicatedStorage/
-    │   └── PianoTilesGame.lua           -- ModuleScript Mini-game Piano Tiles
+    │   └── Shared/
+    │       ├── Config/
+    │       │   └── PianoTilesConfig.lua         -- Konfigurasi terpusat & visual balance
+    │       ├── Minigames/
+    │       │   ├── PianoTilesGame.lua           -- Controller gameplay Piano Tiles mini-game
+    │       │   └── PianoTilesUI.lua             -- View / Glassmorphism UI manager
+    │       └── Systems/
+    │           └── FishingRaritySystem.lua      -- Balancing, XP, Pity & Rarity formula
     ├── ServerScriptService/
-    │   └── FishingServer.server.lua     -- Server validation & leaderstats reward
+    │   └── Services/
+    │       └── FishingServer.server.lua         -- Server-authoritative session & economy service
     └── StarterPlayerScripts/
-        └── FishingClient.client.lua     -- Client fishing flow, casting & strike animations
+        └── Controllers/
+            └── FishingClient.client.lua         -- Client controller, casting, strike & rhythm input
 ```
 
 ---

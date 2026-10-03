@@ -5,24 +5,15 @@
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "$ignoreUnknownInstances": true,
-      "PianoTilesGame": {
-        "$path": "src/ReplicatedStorage/PianoTilesGame.lua"
-      },
-      "FishingRaritySystem": {
-        "$path": "src/ReplicatedStorage/FishingRaritySystem.lua"
-      },
-      "PianoTilesUI": {
-        "$path": "src/ReplicatedStorage/PianoTilesUI.lua"
-      },
-      "PianoTilesConfig": {
-        "$path": "src/ReplicatedStorage/PianoTilesConfig.lua"
+      "Shared": {
+        "$path": "src/ReplicatedStorage/Shared"
       }
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "$ignoreUnknownInstances": true,
-      "FishingServer": {
-        "$path": "src/ServerScriptService/FishingServer.server.lua"
+      "Services": {
+        "$path": "src/ServerScriptService/Services"
       }
     },
     "StarterPlayer": {
@@ -30,8 +21,8 @@
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
         "$ignoreUnknownInstances": true,
-        "FishingClient": {
-          "$path": "src/StarterPlayerScripts/FishingClient.client.lua"
+        "Controllers": {
+          "$path": "src/StarterPlayerScripts/Controllers"
         }
       }
     }
