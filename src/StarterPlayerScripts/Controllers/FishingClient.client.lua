@@ -2103,7 +2103,11 @@ if remote then
 			end
 			updatePityUI()
 		elseif action == RemoteContract.S2C.SHOP_CATALOG_DATA then
-			ShopUI.UpdateCatalogData(arg1)
+			local catalog = arg1
+			ShopUI.UpdateCatalogData(catalog)
+			if catalog and catalog.openModal and not ShopUI.IsOpen() then
+				ShopUI.Show(gui, catalog)
+			end
 		elseif action == RemoteContract.S2C.SHOP_TRANSACTION_SUCCESS then
 			local itemType = arg1
 			local itemId = arg2

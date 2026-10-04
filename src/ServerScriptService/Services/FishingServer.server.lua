@@ -234,6 +234,7 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 		InventoryService.SellAll(player)
 	elseif pName:find("shop") or pName:find("toko") or pAction:find("beli") or pAction:find("shop") then
 		local catalog = EconomyService.GetShopCatalog(player)
+		catalog.openModal = true
 		RemoteContract.Server.ShopCatalogData(player, catalog)
 	end
 end)
