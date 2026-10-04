@@ -32,6 +32,8 @@ local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("Remo
 local remote = RemoteContract.GetRemote()
 local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
+local fsm = FishingStateMachine.new()
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 
@@ -766,20 +768,29 @@ local function updateMeterVisual(power)
 	end
 end
 
--- ============ ALUR MEMANCING LENGKAP ============
-local busy = false
+-- ============ ALUR MEMANCING DENGAN STATE MACHINE ============
 local executeCastAfterMeter = nil
 local activeBobber = nil
 
-local function startCastingMeter(waterPos)
-	if busy or isCastingMeterActive or PianoTilesGame.IsPlaying() then return end
-
-	if not hasFishingRod() then
-		showMessage("⚠️ Kamu membutuhkan Joran Pancing di inventory untuk memancing!", Color3.fromRGB(255, 80, 80), 3.5)
-		playSound("rbxasset://sounds/splat.wav", 0.5, 0.7)
-		return
+-- FSM Lifecycle: Hook saat kembali ke status IDLE (Pembersihan Total)
+fsm:OnEnter(FishingStateMachine.States.IDLE, function()
+	isCastingMeterActive = false
+	castMeterContainer.Visible = false
+	if meterConn then
+		meterConn:Disconnect()
+		meterConn = nil
 	end
+	if activeBobber then
+		activeBobber:Destroy()
+		activeBobber = nil
+	end
+	AnimSystem.ResetJoints()
+	freezePlayer(false)
+end)
 
+-- FSM Lifecycle: Hook saat mengisi bar meter lemparan (CHARGING_CAST)
+fsm:OnEnter(FishingStateMachine.States.CHARGING_CAST, function(payload)
+	local waterPos = payload and payload.waterPos or currentWaterTarget
 	randomizeZones()
 
 	isCastingMeterActive = true
@@ -797,7 +808,7 @@ local function startCastingMeter(waterPos)
 
 	if meterConn then meterConn:Disconnect() end
 	meterConn = RunService.RenderStepped:Connect(function()
-		if not isCastingMeterActive then return end
+		if not fsm:Is(FishingStateMachine.States.CHARGING_CAST) then return end
 		local elapsed = os.clock() - meterStartTime
 		local pingPong = (math.sin(elapsed * meterSpeed - math.pi / 2) + 1) / 2
 		currentCastPower = pingPong
@@ -807,45 +818,20 @@ local function startCastingMeter(waterPos)
 			executeCastAfterMeter()
 		end
 	end)
-end
+end)
 
-executeCastAfterMeter = function()
-	if not isCastingMeterActive then return end
+-- FSM Lifecycle: Hook saat melempar kail ke air (CASTING)
+fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
+	local waterPos = payload.waterPos
+	local castQuality = payload.castQuality
+	local finalPower = payload.finalPower
+
 	isCastingMeterActive = false
+	castMeterContainer.Visible = false
 	if meterConn then
 		meterConn:Disconnect()
 		meterConn = nil
 	end
-	castMeterContainer.Visible = false
-
-	local finalPower = currentCastPower
-	local waterPos = currentWaterTarget or findWaterTarget()
-	if not waterPos then
-		busy = false
-		freezePlayer(false)
-		AnimSystem.ResetJoints()
-		return
-	end
-
-	busy = true
-
-	local castQuality = "GOOD"
-	if finalPower >= currentZones.perfectMin and finalPower <= currentZones.perfectMax then
-		castQuality = "PERFECT"
-		showRatingPopup("⭐ PERFECT CAST! ⭐", Color3.fromRGB(255, 215, 0))
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
-	elseif finalPower >= currentZones.greatMin and finalPower <= currentZones.greatMax then
-		castQuality = "GREAT"
-		showRatingPopup("✨ GREAT CAST! ✨", Color3.fromRGB(0, 220, 255))
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.5)
-	else
-		castQuality = "GOOD"
-		showRatingPopup("GOOD CAST 👍", Color3.fromRGB(230, 235, 255))
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.5, 1.2)
-	end
-
-	local char = player.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
 	if activeBobber then activeBobber:Destroy() end
 	activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
@@ -862,6 +848,7 @@ executeCastAfterMeter = function()
 	end
 	activeBobber.Parent = workspace
 
+	local char = player.Character
 	if char then
 		AnimSystem.PlayCast(char, waterPos)
 		AnimSystem.CreateFishingLine(char, activeBobber)
@@ -873,12 +860,70 @@ executeCastAfterMeter = function()
 	if remote then
 		RemoteContract.Client.StartFishing(waterPos, castQuality, finalPower)
 	end
+end)
+
+local function startCastingMeter(waterPos)
+	if not fsm:Is(FishingStateMachine.States.IDLE) or PianoTilesGame.IsPlaying() then return end
+
+	if not hasFishingRod() then
+		showMessage("⚠️ Kamu membutuhkan Joran Pancing di inventory untuk memancing!", Color3.fromRGB(255, 80, 80), 3.5)
+		playSound("rbxasset://sounds/splat.wav", 0.5, 0.7)
+		return
+	end
+
+	fsm:Transition(FishingStateMachine.States.CHARGING_CAST, { waterPos = waterPos })
+end
+
+executeCastAfterMeter = function()
+	if not fsm:Is(FishingStateMachine.States.CHARGING_CAST) then return end
+
+	local finalPower = currentCastPower
+	local waterPos = currentWaterTarget or findWaterTarget()
+	if not waterPos then
+		fsm:Transition(FishingStateMachine.States.IDLE, { reason = "NoWaterTarget" })
+		return
+	end
+
+	local castQuality = "GOOD"
+	if finalPower >= currentZones.perfectMin and finalPower <= currentZones.perfectMax then
+		castQuality = "PERFECT"
+		showRatingPopup("⭐ PERFECT CAST! ⭐", Color3.fromRGB(255, 215, 0))
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
+	elseif finalPower >= currentZones.greatMin and finalPower <= currentZones.greatMax then
+		castQuality = "GREAT"
+		showRatingPopup("✨ GREAT CAST! ✨", Color3.fromRGB(0, 220, 255))
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.5)
+	else
+		castQuality = "GOOD"
+		showRatingPopup("GOOD CAST 👍", Color3.fromRGB(230, 235, 255))
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.5, 1.2)
+	end
+
+	fsm:Transition(FishingStateMachine.States.CASTING, {
+		waterPos = waterPos,
+		castQuality = castQuality,
+		finalPower = finalPower,
+	})
 end
 
 local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 	activeSessionId = sessionId
 	local waterPos = currentWaterTarget or findWaterTarget()
-	if not waterPos then return end
+	if not waterPos then
+		fsm:ForceReset("NoWaterTargetOnSession")
+		return
+	end
+
+	if not fsm:CanTransitionTo(FishingStateMachine.States.WAITING_FOR_BITE) and not fsm:Is(FishingStateMachine.States.CASTING) then
+		return
+	end
+
+	fsm:Transition(FishingStateMachine.States.WAITING_FOR_BITE, {
+		sessionId = sessionId,
+		waitDuration = waitDuration,
+		castQuality = castQuality,
+		rarity = rarity
+	})
 
 	if castQuality == "PERFECT" then
 		showMessage("⭐ PERFECT CAST! (+35 Luck) Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 3)
@@ -889,13 +934,11 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 	end
 
 	task.wait(waitDuration)
-	if not busy or activeSessionId ~= sessionId then
-		if activeBobber then activeBobber:Destroy() end
-		AnimSystem.ResetJoints()
-		freezePlayer(false)
+	if not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) or activeSessionId ~= sessionId then
 		return
 	end
 
+	fsm:Transition(FishingStateMachine.States.BITING, { waterPos = waterPos })
 	AnimSystem.SetPhase("Biting")
 	showStrikeAlert(waterPos)
 	createWaterSplash(waterPos)
@@ -904,20 +947,24 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 	local fishEnd = waterPos + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
 	animateFishLeap(fishStart, fishEnd, 0.75, 4.5)
 
-	local bobberPart = activeBobber:IsA("Model") and activeBobber.PrimaryPart or activeBobber
+	local bobberPart = activeBobber and (activeBobber:IsA("Model") and activeBobber.PrimaryPart or activeBobber)
 	if bobberPart then
 		local down = TweenService:Create(bobberPart, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Position = waterPos - Vector3.new(0, 1.2, 0)
 		})
 		down:Play()
 		down.Completed:Wait()
-		TweenService:Create(bobberPart, TweenInfo.new(0.25, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
-			Position = waterPos + Vector3.new(0, 0.4, 0)
-		}):Play()
+		if activeBobber and activeBobber.Parent then
+			TweenService:Create(bobberPart, TweenInfo.new(0.25, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+				Position = waterPos + Vector3.new(0, 0.4, 0)
+			}):Play()
+		end
 	end
 
 	showMessage("🎣 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)
 	AnimSystem.SetPhase("Reeling")
+
+	fsm:Transition(FishingStateMachine.States.MINIGAME, { sessionId = sessionId })
 
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -926,6 +973,7 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 		castQuality = castQuality,
 		tier = rarity,
 	}, function(metrics)
+		fsm:Transition(FishingStateMachine.States.REELING_SUCCESS, { metrics = metrics })
 		AnimSystem.PlayVictoryLift(char)
 		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1.5, 0)) or (waterPos + Vector3.new(0, 5, 0))
 		animateFishLeap(waterPos, catchTarget, 0.9, 7)
@@ -936,12 +984,10 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 		end
 
 		task.delay(2.8, function()
-			if activeBobber then activeBobber:Destroy() end
-			AnimSystem.ResetJoints()
-			busy = false
-			freezePlayer(false)
+			fsm:Transition(FishingStateMachine.States.IDLE, { reason = "CatchSuccessComplete" })
 		end)
 	end, function(metrics)
+		fsm:Transition(FishingStateMachine.States.REELING_FAIL, { metrics = metrics })
 		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
@@ -950,10 +996,7 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 		end
 
 		task.delay(1.5, function()
-			if activeBobber then activeBobber:Destroy() end
-			AnimSystem.ResetJoints()
-			busy = false
-			freezePlayer(false)
+			fsm:Transition(FishingStateMachine.States.IDLE, { reason = "CatchFailComplete" })
 		end)
 	end)
 end
@@ -1317,7 +1360,7 @@ local function handleInteractionTrigger()
 		return
 	end
 
-	if busy or PianoTilesGame.IsPlaying() then return end
+	if fsm:IsBusy() or PianoTilesGame.IsPlaying() then return end
 
 	local waterPos = findWaterTarget()
 	if waterPos then
@@ -1353,8 +1396,13 @@ end)
 local function hookTool(tool)
 	if tool.Name == "FishingRod" or tool.Name == "Pancingan" then
 		tool.Activated:Connect(function()
-			if isCastingMeterActive or (isRodEquipped() and not PianoTilesGame.IsPlaying()) then
+			if fsm:Is(FishingStateMachine.States.CHARGING_CAST) or (isRodEquipped() and not PianoTilesGame.IsPlaying()) then
 				handleInteractionTrigger()
+			end
+		end)
+		tool.Unequipped:Connect(function()
+			if not fsm:Is(FishingStateMachine.States.IDLE) then
+				fsm:ForceReset("ToolUnequipped")
 			end
 		end)
 	end
@@ -1375,6 +1423,7 @@ local function watchInventory()
 	end
 
 	player.CharacterAdded:Connect(function(char)
+		fsm:ForceReset("CharacterSpawn")
 		AnimSystem.ResetJoints()
 		char.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") then hookTool(child) end

@@ -50,7 +50,8 @@ FishTune-Roblox/
     │       ├── Network/
     │       │   └── RemoteContract.lua           -- Single Source of Truth protokol jaringan (FISH-003)
     │       └── Systems/
-    │           └── FishingRaritySystem.lua      -- Balancing, XP, Pity & Rarity formula
+    │           ├── FishingRaritySystem.lua      -- Balancing, XP, Pity & Rarity formula
+    │           └── FishingStateMachine.lua      -- State Machine siklus hidup pancing (FISH-008)
     ├── ServerScriptService/
     │   └── Services/
     │       ├── FishingServer.server.lua         -- Server-authoritative session & economy service
