@@ -28,17 +28,31 @@ RemoteContract.C2S = {
 	SELL_CATEGORY    = "SellCategory",
 	TOGGLE_LOCK_ITEM = "ToggleLockItem",
 	GET_PLAYER_DATA  = "GetPlayerData",
+	-- Economy & Shop Actions (FISH-024)
+	BUY_ROD          = "BuyRod",
+	EQUIP_ROD        = "EquipRod",
+	BUY_BAIT         = "BuyBait",
+	EQUIP_BAIT       = "EquipBait",
+	UPGRADE_BAG      = "UpgradeBag",
+	GET_SHOP_CATALOG = "GetShopCatalog",
 }
 
 -- Server -> Client Actions
 RemoteContract.S2C = {
-	SESSION_STARTED    = "SessionStarted",
-	CATCH_SUCCESS      = "CatchSuccess",
-	FISH_SOLD          = "FishSold",
-	ALL_FISH_SOLD      = "AllFishSold",
-	LEVEL_UP           = "LevelUp",
-	PLAYER_DATA_UPDATE = "PlayerDataUpdate",
-	NOTIFICATION       = "Notification",
+	SESSION_STARTED          = "SessionStarted",
+	CATCH_SUCCESS            = "CatchSuccess",
+	FISH_SOLD                = "FishSold",
+	ALL_FISH_SOLD            = "AllFishSold",
+	LEVEL_UP                 = "LevelUp",
+	PLAYER_DATA_UPDATE       = "PlayerDataUpdate",
+	NOTIFICATION             = "Notification",
+	-- Economy & Shop Actions (FISH-024)
+	SHOP_TRANSACTION_SUCCESS = "ShopTransactionSuccess",
+	SHOP_TRANSACTION_FAILED  = "ShopTransactionFailed",
+	ROD_EQUIPPED             = "RodEquipped",
+	BAIT_UPDATED             = "BaitUpdated",
+	BAG_UPGRADED             = "BagUpgraded",
+	SHOP_CATALOG_DATA        = "ShopCatalogData",
 }
 
 -- ============ REMOTE PROVIDER ============
@@ -155,6 +169,79 @@ function RemoteContract.Server.PlayerDataUpdate(player, pData, pityState)
 	end
 end
 
+function RemoteContract.Server.ShopTransactionSuccess(player, itemType, itemId, details, newCoins)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.SHOP_TRANSACTION_SUCCESS,
+			itemType,
+			itemId,
+			details,
+			newCoins
+		)
+	end
+end
+
+function RemoteContract.Server.ShopTransactionFailed(player, reason)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.SHOP_TRANSACTION_FAILED,
+			reason
+		)
+	end
+end
+
+function RemoteContract.Server.RodEquipped(player, rodId, rodData)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.ROD_EQUIPPED,
+			rodId,
+			rodData
+		)
+	end
+end
+
+function RemoteContract.Server.BaitUpdated(player, equippedBait, baits)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.BAIT_UPDATED,
+			equippedBait,
+			baits
+		)
+	end
+end
+
+function RemoteContract.Server.BagUpgraded(player, newTier, totalSlots, newCoins)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.BAG_UPGRADED,
+			newTier,
+			totalSlots,
+			newCoins
+		)
+	end
+end
+
+function RemoteContract.Server.ShopCatalogData(player, catalogData)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.SHOP_CATALOG_DATA,
+			catalogData
+		)
+	end
+end
+
 -- ============ CLIENT DISPATCHERS (Client -> Server) ============
 RemoteContract.Client = {}
 
@@ -211,6 +298,48 @@ function RemoteContract.Client.GetPlayerData()
 	local remote = RemoteContract.GetRemote()
 	if remote then
 		remote:FireServer(RemoteContract.C2S.GET_PLAYER_DATA)
+	end
+end
+
+function RemoteContract.Client.BuyRod(rodId)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.BUY_ROD, rodId)
+	end
+end
+
+function RemoteContract.Client.EquipRod(rodId)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.EQUIP_ROD, rodId)
+	end
+end
+
+function RemoteContract.Client.BuyBait(baitId, isPack)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.BUY_BAIT, baitId, isPack)
+	end
+end
+
+function RemoteContract.Client.EquipBait(baitId)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.EQUIP_BAIT, baitId)
+	end
+end
+
+function RemoteContract.Client.UpgradeBag()
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.UPGRADE_BAG)
+	end
+end
+
+function RemoteContract.Client.GetShopCatalog()
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.GET_SHOP_CATALOG)
 	end
 end
 

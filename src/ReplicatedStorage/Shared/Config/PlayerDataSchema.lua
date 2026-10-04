@@ -22,6 +22,7 @@ PlayerDataSchema.DEFAULT_DATA = {
 	level = 1,
 	exp = 0,
 	coins = 0,
+	pearls = 0,
 	totalFish = 0,
 
 	-- Sistem Gacha / Pity
@@ -31,19 +32,26 @@ PlayerDataSchema.DEFAULT_DATA = {
 		SPECIAL = 0,
 	},
 
-	-- Alat & Inventaris Khusus
+	-- Alat, Umpan & Kapasitas Inventaris
 	equippedRod = "StarterRod",
 	unlockedRods = { "StarterRod" },
+	equippedBait = nil,
+	baits = {}, -- [baitId] = count (e.g. { StandardWorm = 0 })
+	maxInventorySlots = 35,
+	bagUpgradeTier = 0,
 
 	-- Jurnal / Ensiklopedia Ikan
 	journal = {}, -- [fishName] = { count = 0, maxWeight = 0, firstCaught = 0 }
 
-	-- Statistik Gameplay
+	-- Statistik Gameplay & Ekonomi
 	stats = {
 		totalCasts = 0,
 		perfectCasts = 0,
 		greatCasts = 0,
 		totalCoinsEarned = 0,
+		totalCoinsSpent = 0,
+		totalItemsSold = 0,
+		totalPurchases = 0,
 		highestCombo = 0,
 		highestScore = 0,
 	},

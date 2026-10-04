@@ -22,7 +22,9 @@ local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChil
 local LootTableSystem = require(Shared:WaitForChild("Systems"):WaitForChild("LootTableSystem"))
 local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
+local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
+local EconomyService = require(script.Parent.EconomyService)
 
 local FishingSessionService = {}
 
@@ -131,9 +133,11 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		activeSessions[oldSessionId] = nil
 	end
 
-	-- 4. Hitung Multi-Source Luck & Effective Luck di Server (FISH-019)
+	-- 4. Konsumsi Umpan Pancing (Jika Terpasang) & Hitung Multi-Source Luck
 	local pData = PlayerDataService.Get(player)
 	local zone = ZoneConfig.GetZoneAtPosition(waterPos)
+	local consumedBait = EconomyService.ConsumeEquippedBait(player)
+	local baitLuck = consumedBait and (consumedBait.luckBonus or 0) or 0
 
 	local luckAudit = LuckFormula.CalculateBreakdown({
 		level = pData.level or 1,
@@ -141,7 +145,7 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		castQuality = castQuality,
 		performance = pData.prevPerformanceLuckBonus or 0,
 		zone = zone and zone.luckBonus or 0,
-		buffs = 0,
+		buffs = baitLuck,
 	})
 
 	local effectiveLuck = luckAudit.effectiveLuck
@@ -179,6 +183,7 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		luckMultiplier = luckAudit.multiplier,
 		luckTitle = luckAudit.title,
 		luckAudit = luckAudit,
+		consumedBait = consumedBait,
 		status = "Active",
 	}
 
