@@ -1384,17 +1384,17 @@ local function buildInventoryUI()
 	-- 1. Tombol Toggle Inventory di Layar (HUD)
 	invToggleBtn = Instance.new("TextButton")
 	invToggleBtn.Name = "InvToggleBtn"
-	invToggleBtn.Size = UDim2.new(0, 140, 0, 44)
-	invToggleBtn.Position = UDim2.new(0, 20, 0.24, 0)
+	invToggleBtn.Size = UDim2.new(0, 145, 0, 38)
+	invToggleBtn.Position = UDim2.new(0, 20, 0.22, 0)
 	invToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	invToggleBtn.BackgroundTransparency = 0.25
 	invToggleBtn.BorderSizePixel = 0
-	invToggleBtn.Text = "🎒 INVENTORY"
+	invToggleBtn.Text = "🎒 INVENTORY [B]"
 	invToggleBtn.TextColor3 = Color3.fromRGB(0, 220, 255)
 	invToggleBtn.Font = Enum.Font.GothamBlack
-	invToggleBtn.TextSize = 13
+	invToggleBtn.TextSize = 12
 	invToggleBtn.Parent = gui
-	Instance.new("UICorner", invToggleBtn).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", invToggleBtn).CornerRadius = UDim.new(0, 10)
 
 	local btnStroke = Instance.new("UIStroke")
 	btnStroke.Color = Color3.fromRGB(0, 200, 255)
@@ -1663,8 +1663,8 @@ local function buildPityTrackerUI()
 	-- 1. Tombol Toggle Pity di HUD
 	pityTrackerBtn = Instance.new("TextButton")
 	pityTrackerBtn.Name = "PityTrackerBtn"
-	pityTrackerBtn.Size = UDim2.new(0, 140, 0, 36)
-	pityTrackerBtn.Position = UDim2.new(0, 20, 0.31, 0)
+	pityTrackerBtn.Size = UDim2.new(0, 145, 0, 38)
+	pityTrackerBtn.Position = UDim2.new(0, 20, 0.28, 0)
 	pityTrackerBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	pityTrackerBtn.BackgroundTransparency = 0.25
 	pityTrackerBtn.BorderSizePixel = 0
@@ -1690,7 +1690,7 @@ local function buildPityTrackerUI()
 	pityFrame = Instance.new("Frame")
 	pityFrame.Name = "PityFrame"
 	pityFrame.Size = UDim2.new(0, 260, 0, 200)
-	pityFrame.Position = UDim2.new(0, 20, 0.37, 0)
+	pityFrame.Position = UDim2.new(0, 20, 0.41, 0)
 	pityFrame.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
 	pityFrame.BackgroundTransparency = 0.15
 	pityFrame.BorderSizePixel = 0
@@ -1812,8 +1812,8 @@ local fishDexBtn
 local function buildFishDexHUD()
 	fishDexBtn = Instance.new("TextButton")
 	fishDexBtn.Name = "FishDexBtn"
-	fishDexBtn.Size = UDim2.new(0, 140, 0, 36)
-	fishDexBtn.Position = UDim2.new(0, 20, 0.38, 0)
+	fishDexBtn.Size = UDim2.new(0, 145, 0, 38)
+	fishDexBtn.Position = UDim2.new(0, 20, 0.34, 0)
 	fishDexBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	fishDexBtn.BackgroundTransparency = 0.25
 	fishDexBtn.BorderSizePixel = 0
