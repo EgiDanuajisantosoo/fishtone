@@ -45,8 +45,9 @@ FishTune-Roblox/
     │       │   ├── PlayerDataSchema.lua         -- Schema, reconciler, validator & migrations (FISH-005)
     │       │   └── ZoneConfig.lua               -- Zona dunia, bioma & persyaratan level (FISH-006)
     │       ├── Minigames/
-    │       │   ├── PianoTilesGame.lua           -- Controller gameplay Piano Tiles mini-game
-    │       │   └── PianoTilesUI.lua             -- View / Glassmorphism UI manager
+    │       │   ├── PianoTilesGame.lua           -- Facade & controller gameplay Piano Tiles
+    │       │   ├── PianoTilesUI.lua             -- View / Glassmorphism UI manager
+    │       │   └── RhythmSession.lua            -- Isolated OOP Rhythm session engine (FISH-012)
     │       ├── Network/
     │       │   └── RemoteContract.lua           -- Single Source of Truth protokol jaringan (FISH-003)
     │       └── Systems/
