@@ -1097,8 +1097,19 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 end
 
 -- ============ SISTEM INVENTORY & PENJUALAN IKAN ============
+-- ============ SISTEM INVENTORY & PENJUALAN IKAN (FISH-021) ============
 local inventoryFrame, inventoryList, invTotalFishLabel, invTotalCoinsLabel, invSellAllBtn
 local invToggleBtn, invBadge
+local currentCategoryFilter = "ALL"
+local categoryTabButtons = {}
+
+local CATEGORY_CONFIG = {
+	{ id = "ALL", label = "✨ SEMUA" },
+	{ id = "FISH", label = "🐟 IKAN" },
+	{ id = "TREASURE", label = "📦 PETI" },
+	{ id = "ARTIFACT", label = "🔮 RELIK" },
+	{ id = "JUNK", label = "🗑️ SAMPAH" },
+}
 
 local function getFishInBackpack()
 	local fishList = {}
@@ -1107,14 +1118,14 @@ local function getFishInBackpack()
 
 	if backpack then
 		for _, item in ipairs(backpack:GetChildren()) do
-			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or item:GetAttribute("IsLoot") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
 				table.insert(fishList, item)
 			end
 		end
 	end
 	if char then
 		for _, item in ipairs(char:GetChildren()) do
-			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or item:GetAttribute("IsLoot") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
 				table.insert(fishList, item)
 			end
 		end
@@ -1123,8 +1134,27 @@ local function getFishInBackpack()
 	return fishList
 end
 
+local function updateCategoryTabStyles()
+	for catId, btnData in pairs(categoryTabButtons) do
+		local isSelected = (catId == currentCategoryFilter)
+		if isSelected then
+			btnData.button.BackgroundColor3 = Color3.fromRGB(0, 150, 220)
+			btnData.button.TextColor3 = Color3.fromRGB(255, 255, 255)
+			btnData.stroke.Color = Color3.fromRGB(0, 230, 255)
+			btnData.stroke.Transparency = 0.1
+		else
+			btnData.button.BackgroundColor3 = Color3.fromRGB(20, 28, 42)
+			btnData.button.TextColor3 = Color3.fromRGB(150, 175, 205)
+			btnData.stroke.Color = Color3.fromRGB(50, 70, 100)
+			btnData.stroke.Transparency = 0.6
+		end
+	end
+end
+
 local function updateInventoryUI()
 	if not inventoryFrame or not inventoryList then return end
+
+	updateCategoryTabStyles()
 
 	-- Bersihkan list sebelumnya
 	for _, child in ipairs(inventoryList:GetChildren()) do
@@ -1133,40 +1163,69 @@ local function updateInventoryUI()
 		end
 	end
 
-	local allFish = getFishInBackpack()
-	local totalCoins = 0
+	local allItems = getFishInBackpack()
+	local totalLockedOverall = 0
+	local filteredItems = {}
+	local unlockedFilteredCoins = 0
+	local totalFilteredCoins = 0
+
+	for _, tool in ipairs(allItems) do
+		local isLocked = tool:GetAttribute("IsLocked") == true
+		if isLocked then
+			totalLockedOverall += 1
+		end
+
+		local itemType = tool:GetAttribute("ItemType") or "FISH"
+		if currentCategoryFilter == "ALL" or itemType == currentCategoryFilter then
+			table.insert(filteredItems, tool)
+			local c = tonumber(tool:GetAttribute("Coins")) or 15
+			totalFilteredCoins += c
+			if not isLocked then
+				unlockedFilteredCoins += c
+			end
+		end
+	end
 
 	if invBadge then
-		invBadge.Text = tostring(#allFish)
-		invBadge.Visible = #allFish > 0
+		invBadge.Text = tostring(#allItems)
+		invBadge.Visible = #allItems > 0
 	end
 
 	if invTotalFishLabel then
-		invTotalFishLabel.Text = "🎣 Total Tangkapan: " .. #allFish
+		if totalLockedOverall > 0 then
+			invTotalFishLabel.Text = string.format("🎣 Total: %d  (🔒 %d Terkunci)", #allItems, totalLockedOverall)
+		else
+			invTotalFishLabel.Text = string.format("🎣 Total Tangkapan: %d", #allItems)
+		end
 	end
 
-	if #allFish == 0 then
+	if invTotalCoinsLabel then
+		invTotalCoinsLabel.Text = string.format("💰 Siap Jual: %d Koin", unlockedFilteredCoins)
+	end
+
+	if #filteredItems == 0 then
 		local emptyLabel = Instance.new("TextLabel")
 		emptyLabel.Size = UDim2.new(1, -20, 0, 120)
 		emptyLabel.Position = UDim2.new(0, 10, 0, 40)
 		emptyLabel.BackgroundTransparency = 1
-		emptyLabel.Text = "🎣 Belum ada tangkapan di inventory.\nAyo lemparkan kailmu ke samudra luas!"
+		if #allItems == 0 then
+			emptyLabel.Text = "🎣 Belum ada tangkapan di inventory.\nAyo lemparkan kailmu ke samudra luas!"
+		else
+			emptyLabel.Text = "🔍 Tidak ada item pada kategori ini.\nPilih tab lain atau mulai memancing!"
+		end
 		emptyLabel.TextColor3 = Color3.fromRGB(160, 180, 200)
 		emptyLabel.Font = Enum.Font.GothamMedium
 		emptyLabel.TextSize = 15
 		emptyLabel.Parent = inventoryList
 
-		if invTotalCoinsLabel then
-			invTotalCoinsLabel.Text = "💰 Estimasi Nilai: 0 Koin"
-		end
 		if invSellAllBtn then
-			invSellAllBtn.Text = "💰 JUAL SEMUA TANGKAPAN (0 Koin)"
+			invSellAllBtn.Text = "💰 TIDAK ADA ITEM UNTUK DIJUAL (0 Koin)"
 			invSellAllBtn.BackgroundColor3 = Color3.fromRGB(50, 60, 75)
 		end
 		return
 	end
 
-	for _, tool in ipairs(allFish) do
+	for _, tool in ipairs(filteredItems) do
 		local rName = tool:GetAttribute("Rarity") or "COMMON"
 		local tierData = FishingRaritySystem.GetTierData(rName)
 		local catBadge = tool:GetAttribute("CategoryBadge") or "🐟 IKAN"
@@ -1175,13 +1234,12 @@ local function updateInventoryUI()
 		local stars = tool:GetAttribute("Stars") or tierData.stars
 		local weight = tonumber(tool:GetAttribute("Weight")) or 1.0
 		local coins = tonumber(tool:GetAttribute("Coins")) or 15
+		local isLocked = tool:GetAttribute("IsLocked") == true
 		local color = tierData.color or Color3.fromRGB(0, 200, 255)
 
-		totalCoins += coins
-
 		local card = Instance.new("Frame")
-		card.Name = "FishCard_" .. tool.Name
-		card.Size = UDim2.new(1, -12, 0, 64)
+		card.Name = "LootCard_" .. tool.Name
+		card.Size = UDim2.new(1, -12, 0, 66)
 		card.BackgroundColor3 = Color3.fromRGB(20, 26, 38)
 		card.BackgroundTransparency = 0.25
 		card.BorderSizePixel = 0
@@ -1189,9 +1247,9 @@ local function updateInventoryUI()
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
 
 		local cardStroke = Instance.new("UIStroke")
-		cardStroke.Color = color
-		cardStroke.Thickness = 1.5
-		cardStroke.Transparency = 0.35
+		cardStroke.Color = isLocked and Color3.fromRGB(255, 195, 60) or color
+		cardStroke.Thickness = isLocked and 2 or 1.5
+		cardStroke.Transparency = isLocked and 0.15 or 0.35
 		cardStroke.Parent = card
 
 		local isMutated = tool:GetAttribute("IsMutated") == true
@@ -1199,7 +1257,7 @@ local function updateInventoryUI()
 		local mutTag = isMutated and string.format(" %s", mutPrefix) or ""
 
 		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size = UDim2.new(0.62, 0, 0, 22)
+		nameLabel.Size = UDim2.new(0.56, 0, 0, 22)
 		nameLabel.Position = UDim2.new(0, 14, 0, 8)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.Text = string.format("%s [%s]%s %s %s", catBadge, dispName, mutTag, fishName, stars)
@@ -1211,45 +1269,93 @@ local function updateInventoryUI()
 
 		local grade = tool:GetAttribute("Grade")
 		local gradeTag = grade and string.format(" • [Grade %s]", grade) or ""
+		local lockTag = isLocked and " • 🔒 [TERKUNCI]" or ""
 
 		local statsLabel = Instance.new("TextLabel")
-		statsLabel.Size = UDim2.new(0.62, 0, 0, 18)
-		statsLabel.Position = UDim2.new(0, 14, 0, 32)
+		statsLabel.Size = UDim2.new(0.56, 0, 0, 18)
+		statsLabel.Position = UDim2.new(0, 14, 0, 33)
 		statsLabel.BackgroundTransparency = 1
-		statsLabel.Text = string.format("⚖️ %.1f Kg  |  💰 %d Koin%s", weight, coins, gradeTag)
-		statsLabel.TextColor3 = Color3.fromRGB(220, 235, 255)
+		statsLabel.Text = string.format("⚖️ %.1f Kg  |  💰 %d Koin%s%s", weight, coins, gradeTag, lockTag)
+		statsLabel.TextColor3 = isLocked and Color3.fromRGB(255, 215, 120) or Color3.fromRGB(220, 235, 255)
 		statsLabel.Font = Enum.Font.GothamMedium
 		statsLabel.TextSize = 12
 		statsLabel.TextXAlignment = Enum.TextXAlignment.Left
 		statsLabel.Parent = card
 
+		-- Lock / Favorite Button
+		local lockBtn = Instance.new("TextButton")
+		lockBtn.Name = "LockBtn"
+		lockBtn.Size = UDim2.new(0, 36, 0, 36)
+		lockBtn.Position = UDim2.new(1, -156, 0.5, -18)
+		lockBtn.BackgroundColor3 = isLocked and Color3.fromRGB(50, 40, 20) or Color3.fromRGB(26, 34, 48)
+		lockBtn.BorderSizePixel = 0
+		lockBtn.Text = isLocked and "🔒" or "🔓"
+		lockBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		lockBtn.Font = Enum.Font.GothamBold
+		lockBtn.TextSize = 16
+		lockBtn.Parent = card
+		Instance.new("UICorner", lockBtn).CornerRadius = UDim.new(0, 8)
+
+		local lockStroke = Instance.new("UIStroke")
+		lockStroke.Color = isLocked and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(75, 95, 125)
+		lockStroke.Thickness = 1.2
+		lockStroke.Parent = lockBtn
+
+		lockBtn.MouseButton1Click:Connect(function()
+			playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.6)
+			if remote and tool and tool.Parent then
+				RemoteContract.Client.ToggleLockItem(tool)
+			end
+		end)
+
+		-- Sell Single Button
 		local sellBtn = Instance.new("TextButton")
 		sellBtn.Name = "SellBtn"
-		sellBtn.Size = UDim2.new(0, 110, 0, 36)
-		sellBtn.Position = UDim2.new(1, -124, 0.5, -18)
-		sellBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 90)
+		sellBtn.Size = UDim2.new(0, 106, 0, 36)
+		sellBtn.Position = UDim2.new(1, -114, 0.5, -18)
 		sellBtn.BorderSizePixel = 0
-		sellBtn.Text = string.format("Jual (💰 %d)", coins)
-		sellBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 		sellBtn.Font = Enum.Font.GothamBold
 		sellBtn.TextSize = 12
 		sellBtn.Parent = card
 		Instance.new("UICorner", sellBtn).CornerRadius = UDim.new(0, 8)
 
-		sellBtn.MouseButton1Click:Connect(function()
-			playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.4)
-			if remote and tool and tool.Parent then
-				RemoteContract.Client.SellFish(tool)
-			end
-		end)
+		if isLocked then
+			sellBtn.BackgroundColor3 = Color3.fromRGB(48, 54, 66)
+			sellBtn.Text = "🔒 Terkunci"
+			sellBtn.TextColor3 = Color3.fromRGB(160, 175, 195)
+			sellBtn.MouseButton1Click:Connect(function()
+				showMessage("🔒 Item ini terkunci! Buka kunci (🔓) terlebih dahulu untuk menjual.", Color3.fromRGB(255, 200, 80), 2.5)
+			end)
+		else
+			sellBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 90)
+			sellBtn.Text = string.format("Jual (💰 %d)", coins)
+			sellBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			sellBtn.MouseButton1Click:Connect(function()
+				playSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.4)
+				if remote and tool and tool.Parent then
+					RemoteContract.Client.SellFish(tool)
+				end
+			end)
+		end
 	end
 
-	if invTotalCoinsLabel then
-		invTotalCoinsLabel.Text = string.format("💰 Total Nilai: %d Koin", totalCoins)
-	end
 	if invSellAllBtn then
-		invSellAllBtn.Text = string.format("💰 JUAL SEMUA TANGKAPAN (💰 %d Koin)", totalCoins)
-		invSellAllBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 95)
+		if unlockedFilteredCoins > 0 then
+			local activeTabName = "ITEM"
+			for _, tab in ipairs(CATEGORY_CONFIG) do
+				if tab.id == currentCategoryFilter then
+					activeTabName = tab.id == "ALL" and "SEMUA" or tab.label
+					break
+				end
+			end
+			invSellAllBtn.Text = string.format("💰 JUAL %s TERBUKA (💰 %d Koin)", activeTabName, unlockedFilteredCoins)
+			invSellAllBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 95)
+			invSellAllBtn.AutoButtonColor = true
+		else
+			invSellAllBtn.Text = (#filteredItems > 0 and totalLockedOverall > 0) and "🔒 SEMUA ITEM TERKUNCI (0 Koin)" or "💰 TIDAK ADA ITEM UNTUK DIJUAL (0 Koin)"
+			invSellAllBtn.BackgroundColor3 = Color3.fromRGB(50, 60, 75)
+			invSellAllBtn.AutoButtonColor = false
+		end
 	end
 end
 
@@ -1259,11 +1365,11 @@ local function toggleInventory(forcedState)
 	if newState then
 		updateInventoryUI()
 		inventoryFrame.Visible = true
-		inventoryFrame.Size = UDim2.new(0, 480, 0, 420)
-		inventoryFrame.Position = UDim2.new(0.5, -240, 0.5, -210)
+		inventoryFrame.Size = UDim2.new(0, 500, 0, 440)
+		inventoryFrame.Position = UDim2.new(0.5, -250, 0.5, -220)
 		TweenService:Create(inventoryFrame, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, 520, 0, 460),
-			Position = UDim2.new(0.5, -260, 0.5, -230)
+			Size = UDim2.new(0, 540, 0, 480),
+			Position = UDim2.new(0.5, -270, 0.5, -240)
 		}):Play()
 	else
 		inventoryFrame.Visible = false
@@ -1315,8 +1421,8 @@ local function buildInventoryUI()
 	-- 2. Modal Frame Inventory
 	inventoryFrame = Instance.new("Frame")
 	inventoryFrame.Name = "InventoryFrame"
-	inventoryFrame.Size = UDim2.new(0, 520, 0, 460)
-	inventoryFrame.Position = UDim2.new(0.5, -260, 0.5, -230)
+	inventoryFrame.Size = UDim2.new(0, 540, 0, 480)
+	inventoryFrame.Position = UDim2.new(0.5, -270, 0.5, -240)
 	inventoryFrame.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
 	inventoryFrame.BackgroundTransparency = 0.15
 	inventoryFrame.BorderSizePixel = 0
@@ -1332,35 +1438,35 @@ local function buildInventoryUI()
 
 	-- Header
 	local header = Instance.new("Frame")
-	header.Size = UDim2.new(1, 0, 0, 56)
+	header.Size = UDim2.new(1, 0, 0, 52)
 	header.BackgroundTransparency = 1
 	header.Parent = inventoryFrame
 
 	local title = Instance.new("TextLabel")
-	title.Size = UDim2.new(0.7, 0, 0, 26)
+	title.Size = UDim2.new(0.7, 0, 0, 24)
 	title.Position = UDim2.new(0, 18, 0, 8)
 	title.BackgroundTransparency = 1
-	title.Text = "🎒 INVENTORY IKAN"
+	title.Text = "🎒 INVENTORY & TANGKAPAN"
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.Font = Enum.Font.GothamBlack
-	title.TextSize = 18
+	title.TextSize = 17
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Parent = header
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.Size = UDim2.new(0.7, 0, 0, 16)
-	subtitle.Position = UDim2.new(0, 18, 0, 32)
+	subtitle.Position = UDim2.new(0, 18, 0, 30)
 	subtitle.BackgroundTransparency = 1
-	subtitle.Text = "Jual hasil tangkapan untuk menambah Koin!"
+	subtitle.Text = "Kunci item berharga (🔒) agar aman dari penjualan massal!"
 	subtitle.TextColor3 = Color3.fromRGB(160, 200, 230)
 	subtitle.Font = Enum.Font.GothamMedium
-	subtitle.TextSize = 12
+	subtitle.TextSize = 11
 	subtitle.TextXAlignment = Enum.TextXAlignment.Left
 	subtitle.Parent = header
 
 	local closeBtn = Instance.new("TextButton")
 	closeBtn.Size = UDim2.new(0, 34, 0, 34)
-	closeBtn.Position = UDim2.new(1, -44, 0, 11)
+	closeBtn.Position = UDim2.new(1, -44, 0, 9)
 	closeBtn.BackgroundColor3 = Color3.fromRGB(35, 45, 65)
 	closeBtn.BorderSizePixel = 0
 	closeBtn.Text = "✕"
@@ -1374,21 +1480,66 @@ local function buildInventoryUI()
 		toggleInventory(false)
 	end)
 
-	-- Subheader Stats
+	-- Category Tabs Bar
+	local tabsContainer = Instance.new("Frame")
+	tabsContainer.Name = "CategoryTabs"
+	tabsContainer.Size = UDim2.new(1, -36, 0, 30)
+	tabsContainer.Position = UDim2.new(0, 18, 0, 54)
+	tabsContainer.BackgroundTransparency = 1
+	tabsContainer.Parent = inventoryFrame
+
+	local tabLayout = Instance.new("UIListLayout")
+	tabLayout.FillDirection = Enum.FillDirection.Horizontal
+	tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	tabLayout.Padding = UDim.new(0, 6)
+	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabLayout.Parent = tabsContainer
+
+	categoryTabButtons = {}
+	for idx, tabData in ipairs(CATEGORY_CONFIG) do
+		local tabBtn = Instance.new("TextButton")
+		tabBtn.Name = "Tab_" .. tabData.id
+		tabBtn.Size = UDim2.new(0, 94, 1, 0)
+		tabBtn.LayoutOrder = idx
+		tabBtn.BackgroundColor3 = Color3.fromRGB(20, 28, 42)
+		tabBtn.BorderSizePixel = 0
+		tabBtn.Text = tabData.label
+		tabBtn.TextColor3 = Color3.fromRGB(150, 175, 205)
+		tabBtn.Font = Enum.Font.GothamBold
+		tabBtn.TextSize = 11
+		tabBtn.Parent = tabsContainer
+		Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
+
+		local tStroke = Instance.new("UIStroke")
+		tStroke.Color = Color3.fromRGB(50, 70, 100)
+		tStroke.Thickness = 1
+		tStroke.Transparency = 0.5
+		tStroke.Parent = tabBtn
+
+		categoryTabButtons[tabData.id] = { button = tabBtn, stroke = tStroke }
+
+		tabBtn.MouseButton1Click:Connect(function()
+			playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+			currentCategoryFilter = tabData.id
+			updateInventoryUI()
+		end)
+	end
+
+	-- Subheader Stats Bar
 	local statsBar = Instance.new("Frame")
-	statsBar.Size = UDim2.new(1, -36, 0, 30)
-	statsBar.Position = UDim2.new(0, 18, 0, 60)
+	statsBar.Size = UDim2.new(1, -36, 0, 28)
+	statsBar.Position = UDim2.new(0, 18, 0, 90)
 	statsBar.BackgroundColor3 = Color3.fromRGB(20, 28, 44)
 	statsBar.BackgroundTransparency = 0.5
 	statsBar.BorderSizePixel = 0
 	statsBar.Parent = inventoryFrame
-	Instance.new("UICorner", statsBar).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", statsBar).CornerRadius = UDim.new(0, 6)
 
 	invTotalFishLabel = Instance.new("TextLabel")
-	invTotalFishLabel.Size = UDim2.new(0.48, 0, 1, 0)
-	invTotalFishLabel.Position = UDim2.new(0.03, 0, 0, 0)
+	invTotalFishLabel.Size = UDim2.new(0.55, 0, 1, 0)
+	invTotalFishLabel.Position = UDim2.new(0.02, 0, 0, 0)
 	invTotalFishLabel.BackgroundTransparency = 1
-	invTotalFishLabel.Text = "🎣 Total Ikan: 0"
+	invTotalFishLabel.Text = "🎣 Total: 0"
 	invTotalFishLabel.TextColor3 = Color3.fromRGB(0, 210, 255)
 	invTotalFishLabel.Font = Enum.Font.GothamBold
 	invTotalFishLabel.TextSize = 12
@@ -1396,21 +1547,21 @@ local function buildInventoryUI()
 	invTotalFishLabel.Parent = statsBar
 
 	invTotalCoinsLabel = Instance.new("TextLabel")
-	invTotalCoinsLabel.Size = UDim2.new(0.48, 0, 1, 0)
-	invTotalCoinsLabel.Position = UDim2.new(0.49, 0, 0, 0)
+	invTotalCoinsLabel.Size = UDim2.new(0.41, 0, 1, 0)
+	invTotalCoinsLabel.Position = UDim2.new(0.57, 0, 0, 0)
 	invTotalCoinsLabel.BackgroundTransparency = 1
-	invTotalCoinsLabel.Text = "💰 Total Nilai: 0 Koin"
+	invTotalCoinsLabel.Text = "💰 Siap Jual: 0 Koin"
 	invTotalCoinsLabel.TextColor3 = Color3.fromRGB(255, 220, 60)
 	invTotalCoinsLabel.Font = Enum.Font.GothamBold
 	invTotalCoinsLabel.TextSize = 12
 	invTotalCoinsLabel.TextXAlignment = Enum.TextXAlignment.Right
 	invTotalCoinsLabel.Parent = statsBar
 
-	-- Scrollable List Ikan
+	-- Scrollable List
 	inventoryList = Instance.new("ScrollingFrame")
 	inventoryList.Name = "InventoryList"
-	inventoryList.Size = UDim2.new(1, -36, 1, -165)
-	inventoryList.Position = UDim2.new(0, 18, 0, 98)
+	inventoryList.Size = UDim2.new(1, -36, 1, -188)
+	inventoryList.Position = UDim2.new(0, 18, 0, 124)
 	inventoryList.BackgroundTransparency = 1
 	inventoryList.BorderSizePixel = 0
 	inventoryList.ScrollBarThickness = 5
@@ -1424,24 +1575,28 @@ local function buildInventoryUI()
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = inventoryList
 
-	-- Bottom Bar (Sell All)
+	-- Bottom Bar (Sell All / Sell Category)
 	invSellAllBtn = Instance.new("TextButton")
 	invSellAllBtn.Name = "SellAllBtn"
 	invSellAllBtn.Size = UDim2.new(1, -36, 0, 44)
-	invSellAllBtn.Position = UDim2.new(0, 18, 1, -54)
+	invSellAllBtn.Position = UDim2.new(0, 18, 1, -52)
 	invSellAllBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 95)
 	invSellAllBtn.BorderSizePixel = 0
-	invSellAllBtn.Text = "💰 JUAL SEMUA IKAN (0 Koin)"
+	invSellAllBtn.Text = "💰 JUAL SEMUA ITEM TERBUKA (0 Koin)"
 	invSellAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	invSellAllBtn.Font = Enum.Font.GothamBlack
-	invSellAllBtn.TextSize = 14
+	invSellAllBtn.TextSize = 13
 	invSellAllBtn.Parent = inventoryFrame
 	Instance.new("UICorner", invSellAllBtn).CornerRadius = UDim.new(0, 10)
 
 	invSellAllBtn.MouseButton1Click:Connect(function()
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 1.4)
 		if remote then
-			RemoteContract.Client.SellAllFish()
+			if currentCategoryFilter == "ALL" then
+				RemoteContract.Client.SellAllFish()
+			else
+				RemoteContract.Client.SellCategory(currentCategoryFilter)
+			end
 		end
 	end)
 
@@ -1695,6 +1850,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 local function hookTool(tool)
+	if not tool or not tool:IsA("Tool") then return end
 	if tool.Name == "FishingRod" or tool.Name == "Pancingan" then
 		tool.Activated:Connect(function()
 			if fsm:Is(FishingStateMachine.States.CHARGING_CAST) or (isRodEquipped() and not PianoTilesGame.IsPlaying()) then
@@ -1705,6 +1861,10 @@ local function hookTool(tool)
 			if not fsm:Is(FishingStateMachine.States.IDLE) then
 				fsm:ForceReset("ToolUnequipped")
 			end
+		end)
+	else
+		tool:GetAttributeChangedSignal("IsLocked"):Connect(function()
+			updateInventoryUI()
 		end)
 	end
 end

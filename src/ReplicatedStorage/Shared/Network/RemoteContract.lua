@@ -20,12 +20,14 @@ RemoteContract.REMOTE_NAME = "FishingRemote"
 -- ============ ACTION NAMES ============
 -- Client -> Server Actions
 RemoteContract.C2S = {
-	START_FISHING   = "StartFishing",
-	SUBMIT_CATCH    = "SubmitCatch",
-	CANCEL_FISHING  = "CancelFishing",
-	SELL_FISH       = "SellFish",
-	SELL_ALL_FISH   = "SellAllFish",
-	GET_PLAYER_DATA = "GetPlayerData",
+	START_FISHING    = "StartFishing",
+	SUBMIT_CATCH     = "SubmitCatch",
+	CANCEL_FISHING   = "CancelFishing",
+	SELL_FISH        = "SellFish",
+	SELL_ALL_FISH    = "SellAllFish",
+	SELL_CATEGORY    = "SellCategory",
+	TOGGLE_LOCK_ITEM = "ToggleLockItem",
+	GET_PLAYER_DATA  = "GetPlayerData",
 }
 
 -- Server -> Client Actions
@@ -188,6 +190,20 @@ function RemoteContract.Client.SellAllFish()
 	local remote = RemoteContract.GetRemote()
 	if remote then
 		remote:FireServer(RemoteContract.C2S.SELL_ALL_FISH)
+	end
+end
+
+function RemoteContract.Client.SellCategory(category)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.SELL_CATEGORY, category)
+	end
+end
+
+function RemoteContract.Client.ToggleLockItem(toolOrId)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.TOGGLE_LOCK_ITEM, toolOrId)
 	end
 end
 
