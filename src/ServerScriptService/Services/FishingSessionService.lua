@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
@@ -146,25 +147,46 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, metrics)
 	-- Ambil Profil Pemain
 	local pData = PlayerDataService.Get(player)
 	metrics = metrics or {}
-	local accuracy = tonumber(metrics.accuracy) or 80
-	local performanceScore = math.clamp(accuracy, 0, 100)
 
-	-- Generate Data Ikan Berdasarkan Rarity yang Telah Di-roll
+	-- Evaluasi Performa Sesi Rhythm secara Server-Authoritative
+	local performance = PerformanceCalculator.Calculate(metrics)
+
+	-- Generate Data Ikan Berdasarkan Rarity yang Telah Di-roll & Skor Performa
 	local fishData = FishingRaritySystem.GenerateFish(
 		session.rarity,
 		pData.level or 1,
-		performanceScore
+		performance.performanceScore
 	)
+
+	-- Terapkan Pengganda Performa (XP & Koin Multipliers)
+	local baseExp = fishData.exp or 10
+	local baseCoins = fishData.coins or 15
+	local finalExp = math.max(1, math.floor(baseExp * (performance.xpMultiplier or 1.0)))
+	local finalCoins = math.max(1, math.floor(baseCoins * (performance.coinMultiplier or 1.0)))
+
+	fishData.exp = finalExp
+	fishData.coins = finalCoins
+	fishData.performance = performance
 
 	-- Update Pity State, EXP, Tangkapan, dan Jurnal
 	pData.pity = PlayerDataService.UpdatePity(player, session.rarity)
 	PlayerDataService.AddFish(player, 1)
-	PlayerDataService.AddExp(player, fishData.exp)
+	PlayerDataService.AddExp(player, finalExp)
 	PlayerDataService.RecordJournal(player, fishData.name, fishData.weight)
 
 	local rewardInfo = {
-		coins = fishData.coins,
-		exp = fishData.exp,
+		coins = finalCoins,
+		exp = finalExp,
+		baseCoins = baseCoins,
+		baseExp = baseExp,
+		grade = performance.grade,
+		gradeTitle = performance.gradeTitle,
+		accuracy = performance.accuracy,
+		xpMultiplier = performance.xpMultiplier,
+		coinMultiplier = performance.coinMultiplier,
+		performanceLuckBonus = performance.performanceLuckBonus,
+		isFullCombo = performance.isFullCombo,
+		isAllPerfect = performance.isAllPerfect,
 		wasPity = session.wasPity,
 	}
 

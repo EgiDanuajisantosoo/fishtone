@@ -44,6 +44,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(
 	Shared:WaitForChild("Config"):WaitForChild("PianoTilesConfig")
 )
+local PerformanceCalculator = require(
+	Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator")
+)
 
 local PianoTilesUI = {}
 
@@ -61,6 +64,10 @@ local comboLabel
 
 local resultOverlay
 local resultLabel
+local gradeBadgeLabel
+local gradeTitleLabel
+local statsDetailLabel
+local multiplierDetailLabel
 
 local progressContainer
 local progressFill
@@ -745,9 +752,82 @@ end
 -- RESULT
 --==================================================
 
+local function ensureResultDetails()
+	if not resultOverlay then return end
+
+	if not gradeBadgeLabel or gradeBadgeLabel.Parent ~= resultOverlay then
+		gradeBadgeLabel = resultOverlay:FindFirstChild("GradeBadgeLabel")
+		if not gradeBadgeLabel then
+			gradeBadgeLabel = Instance.new("TextLabel")
+			gradeBadgeLabel.Name = "GradeBadgeLabel"
+			gradeBadgeLabel.Size = UDim2.new(1, 0, 0, 52)
+			gradeBadgeLabel.Position = UDim2.new(0, 0, 0.32, 0)
+			gradeBadgeLabel.BackgroundTransparency = 1
+			gradeBadgeLabel.Font = Enum.Font.GothamBlack
+			gradeBadgeLabel.TextSize = 46
+			gradeBadgeLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+			gradeBadgeLabel.Text = "S+"
+			gradeBadgeLabel.ZIndex = 30
+			gradeBadgeLabel.Parent = resultOverlay
+		end
+	end
+
+	if not gradeTitleLabel or gradeTitleLabel.Parent ~= resultOverlay then
+		gradeTitleLabel = resultOverlay:FindFirstChild("GradeTitleLabel")
+		if not gradeTitleLabel then
+			gradeTitleLabel = Instance.new("TextLabel")
+			gradeTitleLabel.Name = "GradeTitleLabel"
+			gradeTitleLabel.Size = UDim2.new(1, 0, 0, 24)
+			gradeTitleLabel.Position = UDim2.new(0, 0, 0.54, 0)
+			gradeTitleLabel.BackgroundTransparency = 1
+			gradeTitleLabel.Font = Enum.Font.GothamBold
+			gradeTitleLabel.TextSize = 16
+			gradeTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+			gradeTitleLabel.Text = "ALL PERFECT"
+			gradeTitleLabel.ZIndex = 30
+			gradeTitleLabel.Parent = resultOverlay
+		end
+	end
+
+	if not statsDetailLabel or statsDetailLabel.Parent ~= resultOverlay then
+		statsDetailLabel = resultOverlay:FindFirstChild("StatsDetailLabel")
+		if not statsDetailLabel then
+			statsDetailLabel = Instance.new("TextLabel")
+			statsDetailLabel.Name = "StatsDetailLabel"
+			statsDetailLabel.Size = UDim2.new(1, -20, 0, 20)
+			statsDetailLabel.Position = UDim2.new(0, 10, 0.68, 0)
+			statsDetailLabel.BackgroundTransparency = 1
+			statsDetailLabel.Font = Enum.Font.GothamMedium
+			statsDetailLabel.TextSize = 13
+			statsDetailLabel.TextColor3 = Color3.fromRGB(220, 235, 255)
+			statsDetailLabel.Text = ""
+			statsDetailLabel.ZIndex = 30
+			statsDetailLabel.Parent = resultOverlay
+		end
+	end
+
+	if not multiplierDetailLabel or multiplierDetailLabel.Parent ~= resultOverlay then
+		multiplierDetailLabel = resultOverlay:FindFirstChild("MultiplierDetailLabel")
+		if not multiplierDetailLabel then
+			multiplierDetailLabel = Instance.new("TextLabel")
+			multiplierDetailLabel.Name = "MultiplierDetailLabel"
+			multiplierDetailLabel.Size = UDim2.new(1, -20, 0, 20)
+			multiplierDetailLabel.Position = UDim2.new(0, 10, 0.80, 0)
+			multiplierDetailLabel.BackgroundTransparency = 1
+			multiplierDetailLabel.Font = Enum.Font.GothamBold
+			multiplierDetailLabel.TextSize = 12
+			multiplierDetailLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
+			multiplierDetailLabel.Text = ""
+			multiplierDetailLabel.ZIndex = 30
+			multiplierDetailLabel.Parent = resultOverlay
+		end
+	end
+end
+
 function PianoTilesUI.ShowResult(
 	win,
-	message
+	message,
+	performance
 )
 
 	if not resultOverlay
@@ -778,6 +858,52 @@ function PianoTilesUI.ShowResult(
 			70
 		)
 
+	ensureResultDetails()
+
+	if performance and gradeBadgeLabel and gradeTitleLabel then
+		local gradeColor = performance.gradeColor or PerformanceCalculator.GetGradeColor(performance.grade)
+		gradeBadgeLabel.Text = tostring(performance.grade or (win and "A" or "D"))
+		gradeBadgeLabel.TextColor3 = gradeColor
+		gradeBadgeLabel.Visible = true
+
+		local title = performance.gradeTitle or (performance.isAllPerfect and "ALL PERFECT" or (performance.isFullCombo and "FULL COMBO" or (win and "CLEARED" or "FAILED")))
+		gradeTitleLabel.Text = title
+		gradeTitleLabel.TextColor3 = performance.glowColor or Color3.fromRGB(255, 255, 255)
+		gradeTitleLabel.Visible = true
+
+		if statsDetailLabel then
+			local acc = performance.accuracy or 0
+			local combo = (performance.breakdown and performance.breakdown.maxCombo) or performance.maxCombo or 0
+			statsDetailLabel.Text = string.format("🎯 Akurasi: %.1f%%  •  🔥 Max Combo: %d", acc, combo)
+			statsDetailLabel.Visible = true
+		end
+
+		if multiplierDetailLabel then
+			if win then
+				local xpMult = performance.xpMultiplier or 1.0
+				local coinMult = performance.coinMultiplier or 1.0
+				local luckBonus = performance.performanceLuckBonus or 0
+				multiplierDetailLabel.Text = string.format("⭐ EXP x%.2f  •  💰 Koin x%.2f  •  🍀 +%.1f Luck", xpMult, coinMult, luckBonus)
+				multiplierDetailLabel.Visible = true
+			else
+				multiplierDetailLabel.Visible = false
+			end
+		end
+
+		-- Animasi TextSize Bounce pada gradeBadge
+		gradeBadgeLabel.TextSize = 24
+		TweenService:Create(
+			gradeBadgeLabel,
+			TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ TextSize = 48 }
+		):Play()
+	else
+		if gradeBadgeLabel then gradeBadgeLabel.Visible = false end
+		if gradeTitleLabel then gradeTitleLabel.Visible = false end
+		if statsDetailLabel then statsDetailLabel.Visible = false end
+		if multiplierDetailLabel then multiplierDetailLabel.Visible = false end
+	end
+
 	resultOverlay.Visible = true
 
 end
@@ -787,6 +913,11 @@ function PianoTilesUI.HideResult()
 	if resultOverlay then
 		resultOverlay.Visible = false
 	end
+
+	if gradeBadgeLabel then gradeBadgeLabel.Visible = false end
+	if gradeTitleLabel then gradeTitleLabel.Visible = false end
+	if statsDetailLabel then statsDetailLabel.Visible = false end
+	if multiplierDetailLabel then multiplierDetailLabel.Visible = false end
 
 end
 
@@ -810,6 +941,10 @@ function PianoTilesUI.Destroy()
 
 	resultOverlay = nil
 	resultLabel = nil
+	gradeBadgeLabel = nil
+	gradeTitleLabel = nil
+	statsDetailLabel = nil
+	multiplierDetailLabel = nil
 
 	progressContainer = nil
 	progressFill = nil

@@ -1484,7 +1484,14 @@ if remote then
 			local exp = rewardInfo.exp or (fishData.exp or 0)
 			local color = fishData.color or Color3.fromRGB(0, 200, 255)
 
-			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!\n[%s] %s %s\n⚖️ %.1f Kg | 💰 Nilai: %d Koin (Bisa Dijual) | ⭐ +%d EXP", disp, name, stars, weight, coins, exp)
+			local grade = rewardInfo.grade or "A"
+			local gradeTitle = rewardInfo.gradeTitle or ""
+			local xpMult = rewardInfo.xpMultiplier or 1.0
+			local coinMult = rewardInfo.coinMultiplier or 1.0
+			local gradeBadge = string.format(" [Grade %s ⭐ %s]", grade, gradeTitle)
+			local multBadge = (xpMult > 1.0 or coinMult > 1.0) and string.format(" (EXP x%.2f | Koin x%.2f)", xpMult, coinMult) or ""
+
+			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n[%s] %s %s\n⚖️ %.1f Kg | 💰 Nilai: %d Koin | ⭐ +%d EXP%s", gradeBadge, disp, name, stars, weight, coins, exp, multBadge)
 			showMessage(revealMsg, color, 5.0)
 
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)

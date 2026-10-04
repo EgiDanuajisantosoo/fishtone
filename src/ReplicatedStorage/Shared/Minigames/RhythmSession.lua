@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("PianoTilesConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local PianoTilesUI = require(script.Parent:WaitForChild("PianoTilesUI"))
 
 local RhythmSession = {}
@@ -104,10 +105,7 @@ end
 
 function RhythmSession:GetMetrics(won)
 	local duration = os.clock() - (self.StartTime > 0 and self.StartTime or os.clock())
-	local totalAttempts = self.Score + self.Mistakes
-	local accuracy = math.floor((self.Score / math.max(1, totalAttempts)) * 100)
-
-	return {
+	local raw = {
 		won = won,
 		score = self.Score,
 		hits = self.Score,
@@ -116,10 +114,19 @@ function RhythmSession:GetMetrics(won)
 		goodHits = self.GoodHits,
 		mistakes = self.Mistakes,
 		maxCombo = self.MaxCombo,
-		duration = duration,
 		targetNotes = self.TargetNotes,
-		accuracy = accuracy,
+		duration = duration,
 	}
+
+	local performance = PerformanceCalculator.Calculate(raw)
+	-- Passthrough backward compatibility properties
+	performance.score = self.Score
+	performance.hits = self.Score
+	performance.mistakes = self.Mistakes
+	performance.maxCombo = self.MaxCombo
+	performance.targetNotes = self.TargetNotes
+
+	return performance
 end
 
 function RhythmSession:Start(onWin, onLose)
@@ -154,7 +161,7 @@ function RhythmSession:EndSession(won, message)
 
 	local metrics = self:GetMetrics(won)
 
-	PianoTilesUI.ShowResult(won, message or (won and "BERHASIL DITANGKAP!" or "IKAN TERLEPAS!"))
+	PianoTilesUI.ShowResult(won, message or (won and "BERHASIL DITANGKAP!" or "IKAN TERLEPAS!"), metrics)
 	if not won then
 		playMissSound()
 	end
@@ -167,7 +174,7 @@ function RhythmSession:EndSession(won, message)
 		task.spawn(callback, metrics)
 	end
 
-	task.delay(1.4, function()
+	task.delay(1.8, function()
 		PianoTilesUI.HideResult()
 		PianoTilesUI.SetEnabled(false)
 		self.State = "IDLE"
