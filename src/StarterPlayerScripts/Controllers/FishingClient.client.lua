@@ -1582,11 +1582,21 @@ if remote then
 			local gradeTitle = rewardInfo.gradeTitle or ""
 			local xpMult = rewardInfo.xpMultiplier or 1.0
 			local coinMult = rewardInfo.coinMultiplier or 1.0
-			local gradeBadge = string.format(" [Grade %s ⭐ %s]", grade, gradeTitle)
-			local multBadge = (xpMult > 1.0 or coinMult > 1.0) and string.format(" (EXP x%.2f | Koin x%.2f)", xpMult, coinMult) or ""
+			local luckBonus = rewardInfo.performanceLuckBonus or 0
+			local acc = rewardInfo.accuracy or 100
 
-			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n[%s] %s %s\n⚖️ %.1f Kg | 💰 Nilai: %d Koin | ⭐ +%d EXP%s", gradeBadge, disp, name, stars, weight, coins, exp, multBadge)
-			showMessage(revealMsg, color, 5.0)
+			local extraTag = ""
+			if rewardInfo.isAllPerfect then
+				extraTag = " 🌟 ALL PERFECT!"
+			elseif rewardInfo.isFullCombo then
+				extraTag = " 🔥 FULL COMBO!"
+			end
+
+			local gradeBadge = string.format(" [Grade %s • %s%s]", grade, gradeTitle, extraTag)
+			local multBadge = string.format(" (EXP x%.2f | Koin x%.2f | +%.1f Luck)", xpMult, coinMult, luckBonus)
+
+			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n[%s] %s %s  •  ⚖️ %.1f Kg  •  🎯 %.1f%%\n💰 Nilai: %d Koin  •  ⭐ +%d EXP%s", gradeBadge, disp, name, stars, weight, acc, coins, exp, multBadge)
+			showMessage(revealMsg, color, 5.5)
 
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
 			updateInventoryUI()

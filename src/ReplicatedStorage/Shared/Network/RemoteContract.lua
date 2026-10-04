@@ -215,7 +215,11 @@ end
 
 function RemoteContract.Validator.IsValidMetrics(val)
 	if typeof(val) ~= "table" then return false end
-	return typeof(val.score) == "number"
+	local score = tonumber(val.score or val.hits or (val.perfectHits and (val.perfectHits + (val.greatHits or 0) + (val.goodHits or 0))))
+	if not score or score < 0 or score ~= score then
+		return false
+	end
+	return true
 end
 
 return RemoteContract

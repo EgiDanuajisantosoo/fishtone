@@ -64,9 +64,12 @@ local function createFishTool(fishData)
 	local r = fishData.rarity
 	local color = fishData.color or Color3.fromRGB(150, 155, 165)
 
+	local grade = (fishData.performance and fishData.performance.grade) or fishData.grade or "A"
+	local acc = (fishData.performance and fishData.performance.accuracy) or fishData.accuracy or 100
+
 	local tool = Instance.new("Tool")
 	tool.Name = fishData.name .. " [" .. fishData.displayName .. "]"
-	tool.ToolTip = string.format("Tangkapan: %s (%s %s | %.1f Kg | Nilai: %d Koin)", fishData.name, fishData.displayName, fishData.stars, fishData.weight, fishData.coins)
+	tool.ToolTip = string.format("Tangkapan: %s (%s %s | %.1f Kg | Grade: %s (%.0f%%) | Nilai: %d Koin)", fishData.name, fishData.displayName, fishData.stars, fishData.weight, grade, acc, fishData.coins)
 	tool.RequiresHandle = true
 	tool.CanBeDropped = true
 
@@ -79,6 +82,9 @@ local function createFishTool(fishData)
 	tool:SetAttribute("Weight", fishData.weight)
 	tool:SetAttribute("Coins", fishData.coins)
 	tool:SetAttribute("Exp", fishData.exp)
+	tool:SetAttribute("Grade", grade)
+	tool:SetAttribute("Accuracy", acc)
+	tool:SetAttribute("PerformanceLuck", (fishData.performance and fishData.performance.performanceLuckBonus) or fishData.performanceLuckBonus or 0)
 
 	-- Handle Utama (Badan Ikan)
 	local handle = Instance.new("Part")

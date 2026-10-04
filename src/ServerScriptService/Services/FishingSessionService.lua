@@ -1,13 +1,15 @@
 --[[
 	FishingSessionService (ModuleScript)
-	FISH!TUNE — Server-Authoritative Fishing Session Service (FISH-009)
+	FISH!TUNE — Server-Authoritative Fishing Session & Performance Validation (FISH-014)
 
-	Layanan Sentral Manajemen Sesi Pancing & Validasi Keamanan (Anti-Exploit):
+	Layanan Sentral Manajemen Sesi Pancing & Validasi Kinerja Rhythm (Anti-Exploit):
 	1. Siklus Hidup Sesi Terotentikasi (Creation, Validation, Completion, Cancellation, Timeout).
 	2. Validasi Jarak Lemparan Realistis (Anti-Teleport / Out-of-Range Casts).
 	3. Validasi Waktu Reaksi & Minimum Wait Duration (Anti-Instant Catch / Speedhack).
 	4. Deterministic Server-Side Rarity & Pity Roll dengan Zone/Rod Luck Bonuses.
-	5. Pembersihan Memori Otomatis (Periodic Session Sweeper).
+	5. Server-Authoritative Performance Sanitization & Accuracy Calculation.
+	6. Perekaman Statistik Performa Tangkapan & Integrasi Ekonomi.
+	7. Pembersihan Memori Otomatis (Periodic Session Sweeper).
 ]]
 
 local Players = game:GetService("Players")
@@ -30,6 +32,71 @@ local SESSION_TTL = 45        -- Waktu kedaluwarsa sesi (detik) setelah ikan men
 -- ============ ACTIVE SESSIONS STORE ============
 local activeSessions = {} -- [sessionId] = sessionData
 local playerSessions = {} -- [player.UserId] = sessionId
+
+-- ============ METRICS SANITIZATION & ANTI-EXPLOIT (FISH-014) ============
+local function cleanNumber(val, minVal, maxVal, defaultVal)
+	local num = tonumber(val)
+	if not num or num ~= num or math.abs(num) == math.huge then
+		return defaultVal or minVal
+	end
+	return math.clamp(math.floor(num), minVal, maxVal)
+end
+
+function FishingSessionService.SanitizeAndValidateMetrics(rawMetrics, session, now)
+	if typeof(rawMetrics) ~= "table" then
+		return nil, "Format payload metrik performa tidak valid (bukan table)"
+	end
+
+	local tierData = FishingRaritySystem.GetTierData(session.rarity)
+	local expectedTargetNotes = tierData.targetNotes or 30
+
+	-- 1. Anti-Speedhack & Duration Validation
+	local waitDuration = session.waitDuration or 1.5
+	local minigameElapsed = math.max(0.1, now - (session.startTime + waitDuration))
+
+	-- Minigame membutuhkan waktu fisik minimal untuk menyelesaikan not lagu
+	local minPhysicalDuration = 0.4
+	if minigameElapsed < minPhysicalDuration then
+		return nil, string.format("Durasi minigame terlalu cepat (%.2fs), terdeteksi instant catch exploit", minigameElapsed)
+	end
+
+	-- 2. Bersihkan dan batasi seluruh parameter numerik
+	local won = rawMetrics.won == true or (rawMetrics.won ~= false and (tonumber(rawMetrics.score) or 0) > 0)
+	local perfectHits = cleanNumber(rawMetrics.perfectHits, 0, expectedTargetNotes * 2, 0)
+	local greatHits = cleanNumber(rawMetrics.greatHits, 0, expectedTargetNotes * 2, 0)
+	local goodHits = cleanNumber(rawMetrics.goodHits, 0, expectedTargetNotes * 2, 0)
+	local mistakes = cleanNumber(rawMetrics.mistakes, 0, 999, 0)
+
+	local totalHits = perfectHits + greatHits + goodHits
+	if totalHits == 0 and rawMetrics.score then
+		totalHits = cleanNumber(rawMetrics.score, 0, expectedTargetNotes * 2, 0)
+		perfectHits = math.floor(totalHits * 0.6)
+		greatHits = math.floor(totalHits * 0.3)
+		goodHits = totalHits - perfectHits - greatHits
+	end
+
+	local maxCombo = cleanNumber(rawMetrics.maxCombo, 0, math.max(1, totalHits), 0)
+
+	-- 3. Invariant Validasi: Tidak boleh menang dengan 0 total hit
+	if won and totalHits <= 0 then
+		return nil, "Status tangkapan menang tidak valid dengan 0 hit tercatat"
+	end
+
+	local sanitized = {
+		won = won,
+		score = totalHits,
+		hits = totalHits,
+		perfectHits = perfectHits,
+		greatHits = greatHits,
+		goodHits = goodHits,
+		mistakes = mistakes,
+		maxCombo = maxCombo,
+		targetNotes = expectedTargetNotes,
+		duration = math.max(0.5, tonumber(rawMetrics.duration) or minigameElapsed),
+	}
+
+	return sanitized, nil
+end
 
 -- ============ SESSION CREATION ============
 function FishingSessionService.CreateSession(player, waterPos, castQuality, castPower, rodLuck)
@@ -108,8 +175,8 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	return sessionData
 end
 
--- ============ SESSION VALIDATION & COMPLETION ============
-function FishingSessionService.ValidateAndComplete(player, sessionId, metrics)
+-- ============ SESSION VALIDATION & COMPLETION (FISH-014) ============
+function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics)
 	sessionId = tostring(sessionId or "")
 	local session = activeSessions[sessionId]
 
@@ -125,40 +192,46 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, metrics)
 
 	local now = os.clock()
 
-	-- Validasi Waktu Kadaluarsa
+	-- 1. Validasi Waktu Kadaluarsa
 	if now > session.expireAt then
 		activeSessions[sessionId] = nil
 		playerSessions[player.UserId] = nil
 		return nil, "Sesi memancing telah kadaluarsa"
 	end
 
-	-- Anti-Speedhack: Tidak boleh submit sebelum waktu menunggu sambaran tercapai
+	-- 2. Anti-Speedhack: Waktu tunggu sambaran harus terpenuhi
 	if now - session.startTime < (session.waitDuration * 0.8) then
 		activeSessions[sessionId] = nil
 		playerSessions[player.UserId] = nil
 		return nil, "Sambaran terlalu cepat (Waktu tunggu belum terpenuhi)"
 	end
 
-	-- Tandai Selesai & Bersihkan Slot Sesi
+	-- 3. Validasi & Sanitasi Metrik Rhythm secara Server-Authoritative
+	local sanitizedMetrics, valErr = FishingSessionService.SanitizeAndValidateMetrics(rawMetrics, session, now)
+	if not sanitizedMetrics then
+		activeSessions[sessionId] = nil
+		playerSessions[player.UserId] = nil
+		warn(string.format("[FishingSessionService] Exploit terdeteksi untuk player %s: %s", player.Name, tostring(valErr)))
+		return nil, valErr or "Metrik performa tidak valid"
+	end
+
+	-- 4. Tandai Selesai & Bersihkan Slot Sesi
 	session.status = "Completed"
 	activeSessions[sessionId] = nil
 	playerSessions[player.UserId] = nil
 
-	-- Ambil Profil Pemain
+	-- 5. Evaluasi Performa Server-Authoritative
 	local pData = PlayerDataService.Get(player)
-	metrics = metrics or {}
+	local performance = PerformanceCalculator.Calculate(sanitizedMetrics)
 
-	-- Evaluasi Performa Sesi Rhythm secara Server-Authoritative
-	local performance = PerformanceCalculator.Calculate(metrics)
-
-	-- Generate Data Ikan Berdasarkan Rarity yang Telah Di-roll & Skor Performa
+	-- 6. Generate Data Ikan Berdasarkan Rarity yang Telah Di-roll & Skor Performa
 	local fishData = FishingRaritySystem.GenerateFish(
 		session.rarity,
 		pData.level or 1,
 		performance.performanceScore
 	)
 
-	-- Terapkan Pengganda Performa (XP & Koin Multipliers)
+	-- 7. Terapkan Pengganda Performa (XP & Koin Multipliers)
 	local baseExp = fishData.exp or 10
 	local baseCoins = fishData.coins or 15
 	local finalExp = math.max(1, math.floor(baseExp * (performance.xpMultiplier or 1.0)))
@@ -167,12 +240,32 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, metrics)
 	fishData.exp = finalExp
 	fishData.coins = finalCoins
 	fishData.performance = performance
+	fishData.grade = performance.grade
+	fishData.accuracy = performance.accuracy
+	fishData.performanceLuckBonus = performance.performanceLuckBonus
 
-	-- Update Pity State, EXP, Tangkapan, dan Jurnal
+	-- 8. Mutasi Profil Pemain (Pity, EXP, Jurnal, Statistik)
 	pData.pity = PlayerDataService.UpdatePity(player, session.rarity)
 	PlayerDataService.AddFish(player, 1)
 	PlayerDataService.AddExp(player, finalExp)
 	PlayerDataService.RecordJournal(player, fishData.name, fishData.weight)
+
+	if pData.stats then
+		pData.stats.totalCatches = (pData.stats.totalCatches or 0) + 1
+		if (performance.rawScore or 0) > (pData.stats.highestScore or 0) then
+			pData.stats.highestScore = performance.rawScore
+		end
+		local combo = (performance.breakdown and performance.breakdown.maxCombo) or performance.maxCombo or 0
+		if combo > (pData.stats.highestCombo or 0) then
+			pData.stats.highestCombo = combo
+		end
+		if performance.isAllPerfect then
+			pData.stats.allPerfectCount = (pData.stats.allPerfectCount or 0) + 1
+		end
+		if performance.isFullCombo then
+			pData.stats.fullComboCount = (pData.stats.fullComboCount or 0) + 1
+		end
+	end
 
 	local rewardInfo = {
 		coins = finalCoins,
@@ -188,6 +281,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, metrics)
 		isFullCombo = performance.isFullCombo,
 		isAllPerfect = performance.isAllPerfect,
 		wasPity = session.wasPity,
+		breakdown = performance.breakdown,
 	}
 
 	return fishData, rewardInfo, pData
