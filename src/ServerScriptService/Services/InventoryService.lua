@@ -382,12 +382,15 @@ function InventoryService.SellItem(player, targetArg)
 		return false, 0, "Item terkunci"
 	end
 
-	local coins = tonumber(foundTool:GetAttribute("Coins")) or 15
+	local rawCoins = tonumber(foundTool:GetAttribute("Coins"))
+	local coins = rawCoins or EconomyConfig.CalculateSellValue(foundTool:GetAttributes())
+	coins = math.max(1, coins)
 	local itemName = foundTool:GetAttribute("FishName") or foundTool.Name
 	foundTool:Destroy()
 
 	if pData.stats then
 		pData.stats.totalItemsSold = (pData.stats.totalItemsSold or 0) + 1
+		pData.stats.totalCoinsEarned = (pData.stats.totalCoinsEarned or 0) + coins
 	end
 
 	PlayerDataService.AddCoins(player, coins)
@@ -412,7 +415,9 @@ function InventoryService.SellAll(player, filterCategory)
 		if tool:GetAttribute("IsLocked") == true then
 			countLocked += 1
 		else
-			local val = tonumber(tool:GetAttribute("Coins")) or 15
+			local rawCoins = tonumber(tool:GetAttribute("Coins"))
+			local val = rawCoins or EconomyConfig.CalculateSellValue(tool:GetAttributes())
+			val = math.max(1, val)
 			totalGained += val
 			countSold += 1
 			tool:Destroy()
@@ -422,6 +427,7 @@ function InventoryService.SellAll(player, filterCategory)
 	if countSold > 0 then
 		if pData.stats then
 			pData.stats.totalItemsSold = (pData.stats.totalItemsSold or 0) + countSold
+			pData.stats.totalCoinsEarned = (pData.stats.totalCoinsEarned or 0) + totalGained
 		end
 		PlayerDataService.AddCoins(player, totalGained)
 		RemoteContract.Server.AllFishSold(player, countSold, totalGained, pData.coins)
@@ -433,10 +439,16 @@ function InventoryService.SellAll(player, filterCategory)
 		if countLocked > 0 then
 			RemoteContract.Server.Notify(player, string.format("⚠️ Semua (%d) item di inventory sedang terkunci!", countLocked))
 		else
-			RemoteContract.Server.Notify(player, "⚠️ Tidak ada item di inventory untuk dijual!")
+			local categoryText = (filterCategory and filterCategory ~= "ALL") and ("kategori " .. filterCategory) or "inventory"
+			RemoteContract.Server.Notify(player, string.format("⚠️ Tidak ada item di %s untuk dijual!", categoryText))
 		end
 		return false, 0, 0, countLocked
 	end
+end
+
+-- ============ 9. SELL CATEGORY ============
+function InventoryService.SellCategory(player, category)
+	return InventoryService.SellAll(player, category)
 end
 
 return InventoryService

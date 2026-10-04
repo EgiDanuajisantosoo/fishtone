@@ -22,6 +22,7 @@ local PlayerDataService = require(script.Parent.PlayerDataService)
 local FishingSessionService = require(script.Parent.FishingSessionService)
 local InventoryService = require(script.Parent.InventoryService)
 local EconomyService = require(script.Parent.EconomyService)
+local MerchantNpcService = require(script.Parent.MerchantNpcService)
 local remote = RemoteContract.GetRemote()
 
 local function isRodTool(tool)

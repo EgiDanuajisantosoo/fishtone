@@ -249,6 +249,72 @@ local function showRatingPopup(rating, color)
 	end)
 end
 
+-- ============ FLOATING COIN FX (FISH-025) ============
+local function spawnFloatingCoinEffect(coinsGained, optSubtitle)
+	local coinPopup = Instance.new("Frame")
+	coinPopup.Name = "FloatingCoinFX"
+	coinPopup.Size = UDim2.new(0, 220, 0, 50)
+	coinPopup.Position = UDim2.new(0.5, -110, 0.45, 0)
+	coinPopup.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
+	coinPopup.BackgroundTransparency = 0.15
+	coinPopup.BorderSizePixel = 0
+	coinPopup.ZIndex = 50
+	coinPopup.Parent = gui
+	Instance.new("UICorner", coinPopup).CornerRadius = UDim.new(0, 12)
+
+	local cStroke = Instance.new("UIStroke")
+	cStroke.Color = Color3.fromRGB(255, 215, 0)
+	cStroke.Thickness = 2
+	cStroke.Parent = coinPopup
+
+	local valLabel = Instance.new("TextLabel")
+	valLabel.Size = UDim2.new(1, 0, 0, 26)
+	valLabel.Position = UDim2.new(0, 0, 0, 4)
+	valLabel.BackgroundTransparency = 1
+	valLabel.Text = string.format("+💰 %d KOIN!", tonumber(coinsGained) or 0)
+	valLabel.TextColor3 = Color3.fromRGB(255, 225, 60)
+	valLabel.Font = Enum.Font.GothamBlack
+	valLabel.TextSize = 16
+	valLabel.ZIndex = 51
+	valLabel.Parent = coinPopup
+
+	local subLabel = Instance.new("TextLabel")
+	subLabel.Size = UDim2.new(1, 0, 0, 16)
+	subLabel.Position = UDim2.new(0, 0, 0, 28)
+	subLabel.BackgroundTransparency = 1
+	subLabel.Text = optSubtitle or "Hasil Penjualan Tangkapan"
+	subLabel.TextColor3 = Color3.fromRGB(180, 220, 255)
+	subLabel.Font = Enum.Font.GothamBold
+	subLabel.TextSize = 11
+	subLabel.ZIndex = 51
+	subLabel.Parent = coinPopup
+
+	-- Animasi melayang naik dan memudar
+	local tweenUp = TweenService:Create(coinPopup, TweenInfo.new(1.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, -110, 0.35, 0),
+		Size = UDim2.new(0, 240, 0, 54)
+	})
+	tweenUp:Play()
+
+	task.delay(0.9, function()
+		if coinPopup and coinPopup.Parent then
+			local fade = TweenService:Create(coinPopup, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 1,
+				Position = UDim2.new(0.5, -110, 0.30, 0)
+			})
+			TweenService:Create(cStroke, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 1 }):Play()
+			TweenService:Create(valLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 }):Play()
+			TweenService:Create(subLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 }):Play()
+			fade:Play()
+			fade.Completed:Connect(function()
+				if coinPopup and coinPopup.Parent then
+					coinPopup:Destroy()
+				end
+			end)
+		end
+	end)
+end
+
 -- ============ EFEK AUDIO & PARTIKEL ============
 local function playSound(soundId, volume, pitch)
 	local s = Instance.new("Sound")
@@ -2075,19 +2141,21 @@ if remote then
 			updatePityUI()
 		elseif action == RemoteContract.S2C.FISH_SOLD then
 			local fishName = arg1 or "Ikan"
-			local coinsGained = arg2 or 0
-			local currentCoins = arg3 or 0
+			local coinsGained = tonumber(arg2) or 0
+			local currentCoins = tonumber(arg3) or 0
 
 			showMessage(string.format("💰 Berhasil menjual %s seharga +%d Koin!", fishName, coinsGained), Color3.fromRGB(50, 255, 130), 3.5)
-			playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.6)
+			spawnFloatingCoinEffect(coinsGained, "Terjual: " .. fishName)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
 			updateInventoryUI()
 		elseif action == RemoteContract.S2C.ALL_FISH_SOLD then
-			local count = arg1 or 0
-			local totalCoins = arg2 or 0
-			local currentCoins = arg3 or 0
+			local count = tonumber(arg1) or 0
+			local totalCoins = tonumber(arg2) or 0
+			local currentCoins = tonumber(arg3) or 0
 
 			showMessage(string.format("💰 Berhasil menjual %d Ikan seharga total +%d Koin!", count, totalCoins), Color3.fromRGB(50, 255, 130), 4.0)
-			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.6)
+			spawnFloatingCoinEffect(totalCoins, string.format("Jual Massal %d Tangkapan", count))
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
 			updateInventoryUI()
 		elseif action == RemoteContract.S2C.LEVEL_UP then
 			local newLevel = arg1 or 2
