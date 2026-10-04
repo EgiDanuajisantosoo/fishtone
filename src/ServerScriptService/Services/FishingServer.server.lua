@@ -23,21 +23,37 @@ local remote = RemoteContract.GetRemote()
 
 
 
+local function isRodTool(tool)
+	if not tool or not tool:IsA("Tool") then return false end
+	if tool:GetAttribute("IsFish") == true then return false end
+	local name = tool.Name:lower()
+	return name:find("rod") ~= nil or name:find("pancing") ~= nil or name:find("joran") ~= nil or tool:GetAttribute("IsRod") == true or tool:GetAttribute("Luck") ~= nil
+end
+
+local function getRodTool(player)
+	local character = player.Character
+	if character then
+		for _, item in ipairs(character:GetChildren()) do
+			if isRodTool(item) then return item end
+		end
+	end
+	local backpack = player:FindFirstChild("Backpack")
+	if backpack then
+		for _, item in ipairs(backpack:GetChildren()) do
+			if isRodTool(item) then return item end
+		end
+	end
+	return nil
+end
+
 -- Cek apakah player memiliki joran pancing
 local function hasFishingRod(player)
-	local backpack = player:FindFirstChild("Backpack")
-	local character = player.Character
-	local inBackpack = backpack and (backpack:FindFirstChild("FishingRod") or backpack:FindFirstChild("Pancingan"))
-	local inChar = character and (character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan"))
-	return (inBackpack or inChar) ~= nil
+	return getRodTool(player) ~= nil
 end
 
 local function getRodLuck(player)
-	local backpack = player:FindFirstChild("Backpack")
-	local character = player.Character
-	local rod = (character and (character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan")))
-		or (backpack and (backpack:FindFirstChild("FishingRod") or backpack:FindFirstChild("Pancingan")))
-	if rod and rod:IsA("Tool") then
+	local rod = getRodTool(player)
+	if rod then
 		return rod:GetAttribute("Luck") or 5
 	end
 	return 5

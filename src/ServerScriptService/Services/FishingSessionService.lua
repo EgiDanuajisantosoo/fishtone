@@ -23,9 +23,9 @@ local PlayerDataService = require(script.Parent.PlayerDataService)
 local FishingSessionService = {}
 
 -- ============ CONFIGURATION ============
-local MAX_CAST_DISTANCE = 65 -- Jarak maksimal (studs) antara player dan target air
-local MIN_CAST_DISTANCE = 5  -- Jarak minimal (studs)
-local SESSION_TTL = 45       -- Waktu kedaluwarsa sesi (detik) setelah ikan menyambar
+local MAX_CAST_DISTANCE = 150 -- Jarak maksimal (studs) antara player dan target air
+local MIN_CAST_DISTANCE = 1   -- Jarak minimal (studs)
+local SESSION_TTL = 45        -- Waktu kedaluwarsa sesi (detik) setelah ikan menyambar
 
 -- ============ ACTIVE SESSIONS STORE ============
 local activeSessions = {} -- [sessionId] = sessionData
@@ -75,11 +75,11 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(effectiveLuck, pData.level or 1, pData.pity or {})
 
 	-- 5. Hitung Durasi Menunggu Ikan Menyambar
-	local waitDuration = math.random(28, 42) / 10
+	local waitDuration = math.random(18, 28) / 10
 	if castQuality == "PERFECT" then
-		waitDuration = math.random(12, 20) / 10
+		waitDuration = math.random(10, 15) / 10
 	elseif castQuality == "GREAT" then
-		waitDuration = math.random(18, 28) / 10
+		waitDuration = math.random(14, 20) / 10
 	end
 
 	-- 6. Bangun Session ID Unik

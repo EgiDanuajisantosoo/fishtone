@@ -373,12 +373,18 @@ local function animateFishLeap(startPos, endPos, duration, height)
 end
 
 -- ============ KEPEMILIKAN JORAN PANCING ============
+local function isRodTool(tool)
+	if not tool or not tool:IsA("Tool") then return false end
+	if tool:GetAttribute("IsFish") == true then return false end
+	local name = tool.Name:lower()
+	return name:find("rod") ~= nil or name:find("pancing") ~= nil or name:find("joran") ~= nil or tool:GetAttribute("IsRod") == true or tool:GetAttribute("Luck") ~= nil
+end
+
 local function getEquippedRod()
 	local character = player.Character
 	if not character then return nil end
-	local rod = character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan")
-	if rod and rod:IsA("Tool") then
-		return rod
+	for _, item in ipairs(character:GetChildren()) do
+		if isRodTool(item) then return item end
 	end
 	return nil
 end
@@ -393,8 +399,12 @@ local function getFishingRod()
 	if equipped then return equipped end
 
 	local backpack = player:FindFirstChild("Backpack")
-	local rod = (backpack and (backpack:FindFirstChild("FishingRod") or backpack:FindFirstChild("Pancingan")))
-	return rod
+	if backpack then
+		for _, item in ipairs(backpack:GetChildren()) do
+			if isRodTool(item) then return item end
+		end
+	end
+	return nil
 end
 
 local function hasFishingRod()
@@ -407,10 +417,10 @@ local function ensureEquipped()
 	local backpack = player:FindFirstChild("Backpack")
 	if not character or not humanoid or not backpack then return end
 	
-	local equipped = character:FindFirstChild("FishingRod") or character:FindFirstChild("Pancingan")
+	local equipped = getEquippedRod()
 	if not equipped then
-		local inBackpack = backpack:FindFirstChild("FishingRod") or backpack:FindFirstChild("Pancingan")
-		if inBackpack then
+		local inBackpack = getFishingRod()
+		if inBackpack and inBackpack.Parent == backpack then
 			humanoid:EquipTool(inBackpack)
 		end
 	end
@@ -419,16 +429,23 @@ end
 local function freezePlayer(freeze)
 	local char = player.Character
 	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not humanoid then return end
 
 	if freeze then
 		humanoid.WalkSpeed = 0
 		humanoid.JumpPower = 0
 		humanoid.AutoRotate = false
+		if hrp then
+			hrp.Anchored = true
+		end
 	else
 		humanoid.WalkSpeed = 16
 		humanoid.JumpPower = 50
 		humanoid.AutoRotate = true
+		if hrp then
+			hrp.Anchored = false
+		end
 	end
 end
 
@@ -796,6 +813,15 @@ fsm:OnEnter(FishingStateMachine.States.IDLE, function()
 	freezePlayer(false)
 end)
 
+-- Global FSM listener to lock character during ANY fishing activity
+fsm:OnStateChanged(function(newState, oldState)
+	if newState == FishingStateMachine.States.IDLE then
+		freezePlayer(false)
+	else
+		freezePlayer(true)
+	end
+end)
+
 -- FSM Lifecycle: Hook saat mengisi bar meter lemparan (CHARGING_CAST)
 fsm:OnEnter(FishingStateMachine.States.CHARGING_CAST, function(payload)
 	local waterPos = payload and payload.waterPos or currentWaterTarget
@@ -840,6 +866,7 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 		meterConn:Disconnect()
 		meterConn = nil
 	end
+	freezePlayer(true)
 
 	if activeBobber then activeBobber:Destroy() end
 	activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
@@ -868,6 +895,13 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	if remote then
 		RemoteContract.Client.StartFishing(waterPos, castQuality, finalPower)
 	end
+
+	-- Fallback Timer: Jika server lambat merespon dalam 2.2 detik, mulai sesi otomatis
+	task.delay(2.2, function()
+		if fsm:Is(FishingStateMachine.States.CASTING) then
+			onSessionStarted("LOCAL_FALLBACK", 1.8, castQuality, "COMMON")
+		end
+	end)
 end)
 
 local function startCastingMeter(waterPos)
@@ -1529,6 +1563,9 @@ if remote then
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
 		elseif action == RemoteContract.S2C.NOTIFICATION then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
+			if tostring(arg1):find("❌") or tostring(arg1):find("tidak valid") or tostring(arg1):find("Gagal") then
+				fsm:ForceReset("ServerRejectedAction")
+			end
 		end
 	end)
 end
