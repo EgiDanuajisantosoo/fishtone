@@ -75,8 +75,10 @@ local function createFishTool(fishData)
 
 	-- Metadata Ikan Lengkap
 	tool:SetAttribute("IsFish", true)
+	tool:SetAttribute("FishId", fishData.id or "")
 	tool:SetAttribute("FishName", fishData.name)
 	tool:SetAttribute("DisplayName", fishData.displayName)
+	tool:SetAttribute("Description", fishData.description or "")
 	tool:SetAttribute("Rarity", r)
 	tool:SetAttribute("Stars", fishData.stars)
 	tool:SetAttribute("Weight", fishData.weight)
@@ -85,12 +87,15 @@ local function createFishTool(fishData)
 	tool:SetAttribute("Grade", grade)
 	tool:SetAttribute("Accuracy", acc)
 	tool:SetAttribute("PerformanceLuck", (fishData.performance and fishData.performance.performanceLuckBonus) or fishData.performanceLuckBonus or 0)
+	tool:SetAttribute("FavoriteZone", fishData.favoriteZone or "")
+
+	local scale = math.clamp(fishData.scale or 1.0, 0.7, 3.0)
 
 	-- Handle Utama (Badan Ikan)
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"
 	handle.Shape = Enum.PartType.Ball
-	handle.Size = Vector3.new(0.65, 0.5, 1.5)
+	handle.Size = Vector3.new(0.65 * scale, 0.5 * scale, 1.5 * scale)
 	handle.Color = color
 	handle.Material = (r == "SPECIAL" or r == "MYTHIC" or r == "LEGENDARY") and Enum.Material.Neon or Enum.Material.SmoothPlastic
 	handle.CanCollide = false
@@ -99,11 +104,11 @@ local function createFishTool(fishData)
 	-- Ekor Ikan
 	local tail = Instance.new("WedgePart")
 	tail.Name = "Tail"
-	tail.Size = Vector3.new(0.2, 0.65, 0.65)
+	tail.Size = Vector3.new(0.2 * scale, 0.65 * scale, 0.65 * scale)
 	tail.Color = color
 	tail.Material = handle.Material
 	tail.CanCollide = false
-	tail.CFrame = handle.CFrame * CFrame.new(0, 0, 0.8) * CFrame.Angles(0, math.pi, 0)
+	tail.CFrame = handle.CFrame * CFrame.new(0, 0, 0.8 * scale) * CFrame.Angles(0, math.pi, 0)
 	tail.Parent = tool
 
 	local wcTail = Instance.new("WeldConstraint")
@@ -114,11 +119,11 @@ local function createFishTool(fishData)
 	-- Sirip Atas Ikan
 	local fin = Instance.new("WedgePart")
 	fin.Name = "Fin"
-	fin.Size = Vector3.new(0.12, 0.35, 0.5)
+	fin.Size = Vector3.new(0.12 * scale, 0.35 * scale, 0.5 * scale)
 	fin.Color = color
 	fin.Material = handle.Material
 	fin.CanCollide = false
-	fin.CFrame = handle.CFrame * CFrame.new(0, 0.35, -0.1) * CFrame.Angles(0, math.pi, 0)
+	fin.CFrame = handle.CFrame * CFrame.new(0, 0.35 * scale, -0.1 * scale) * CFrame.Angles(0, math.pi, 0)
 	fin.Parent = tool
 
 	local wcFin = Instance.new("WeldConstraint")

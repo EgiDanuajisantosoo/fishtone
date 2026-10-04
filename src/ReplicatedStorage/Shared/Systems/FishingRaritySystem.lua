@@ -12,6 +12,10 @@
 	7. Built-in Simulation Function untuk Validasi Balancing
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("FishDefinitions"))
+
 local FishingRaritySystem = {}
 
 -- ============ CONFIG BALANCING CENTRAL v1.0 ============
@@ -390,28 +394,29 @@ function FishingRaritySystem.UpdatePityOnCatch(pityState, obtainedRarity)
 end
 
 -- ============ 6. GENERATOR IKAN DENGAN STATS LENGKAP ============
-function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore)
+function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId)
 	local tierKey = tostring(rarity or "COMMON"):upper():gsub("%s+", "_")
-	local list = FishingRaritySystem.FISH_DATABASE[tierKey] or FishingRaritySystem.FISH_DATABASE.COMMON
-	local template = list[math.random(1, #list)]
+	local template = FishDefinitions.GetRandomFish(tierKey, zoneId)
 	local tierData = FishingRaritySystem.GetTierData(tierKey)
 
 	playerLevel = math.max(1, tonumber(playerLevel) or 1)
 	performanceScore = math.clamp(tonumber(performanceScore) or 80, 0, 100)
 
 	-- 1. Bobot Skewed (Pangkat 1.8)
+	local minW = template.minWeight or 0.5
+	local maxW = template.maxWeight or 2.0
 	local normWeight = (math.random()) ^ FishingRaritySystem.CONFIG.ECONOMY.WEIGHT_POW
-	local weight = template.minWeight + (normWeight * (template.maxWeight - template.minWeight))
+	local weight = minW + (normWeight * (maxW - minW))
 	weight = math.floor(weight * 10) / 10
 
 	-- 2. Nilai Koin berdasarkan Bobot & Rarity
-	local avgWeight = (template.minWeight + template.maxWeight) / 2
+	local avgWeight = (minW + maxW) / 2
 	local weightFactor = math.clamp(0.80 + 0.40 * (weight / math.max(0.1, avgWeight)), 0.80, 1.40)
-	local baseCoins = FishingRaritySystem.CONFIG.ECONOMY.BASE_COINS[tierKey] or 15
+	local baseCoins = template.baseCoins or (FishingRaritySystem.CONFIG.ECONOMY.BASE_COINS[tierKey] or 15)
 	local coins = math.floor(baseCoins * weightFactor)
 
 	-- 3. EXP berdasarkan Rarity, Bobot & Performance Rhythm
-	local baseExp = FishingRaritySystem.CONFIG.XP.BASE_XP[tierKey] or 10
+	local baseExp = template.baseExp or (FishingRaritySystem.CONFIG.XP.BASE_XP[tierKey] or 10)
 	local perfMult = 1.0
 	for _, entry in ipairs(FishingRaritySystem.CONFIG.XP.PERF_MULTIPLIERS) do
 		if performanceScore <= entry.maxScore then
@@ -424,23 +429,27 @@ function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore)
 	local exp = math.floor(baseExp * weightExpMult * perfMult)
 
 	return {
+		id = template.id or ("FISH_" .. string.gsub(template.name:upper(), "%s+", "_")),
 		name = template.name,
+		description = template.description or "Ikan air tawar/laut yang eksotis.",
 		rarity = tierKey,
 		displayName = tierData.displayName,
 		stars = tierData.stars,
-		color = tierData.color,
+		color = template.color or tierData.color,
 		badgeColor = tierData.badgeColor,
 		targetNotes = tierData.targetNotes,
 		weight = weight,
 		coins = coins,
 		exp = exp,
+		scale = template.scale or 1.0,
+		favoriteZone = template.favoriteZone,
 		normWeight = normWeight,
 		performanceMultiplier = perfMult,
 	}
 end
 
-function FishingRaritySystem.GetRandomFishName(rarity)
-	local fish = FishingRaritySystem.GenerateFish(rarity, 1, 80)
+function FishingRaritySystem.GetRandomFishName(rarity, zoneId)
+	local fish = FishingRaritySystem.GenerateFish(rarity, 1, 80, zoneId)
 	return fish.name
 end
 

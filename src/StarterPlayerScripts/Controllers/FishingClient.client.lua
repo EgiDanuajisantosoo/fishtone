@@ -1203,11 +1203,14 @@ local function updateInventoryUI()
 		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 		nameLabel.Parent = card
 
+		local grade = tool:GetAttribute("Grade")
+		local gradeTag = grade and string.format(" • [Grade %s]", grade) or ""
+
 		local statsLabel = Instance.new("TextLabel")
 		statsLabel.Size = UDim2.new(0.62, 0, 0, 18)
 		statsLabel.Position = UDim2.new(0, 14, 0, 32)
 		statsLabel.BackgroundTransparency = 1
-		statsLabel.Text = string.format("⚖️ %.1f Kg  |  💰 Nilai: %d Koin", weight, coins)
+		statsLabel.Text = string.format("⚖️ %.1f Kg  |  💰 %d Koin%s", weight, coins, gradeTag)
 		statsLabel.TextColor3 = Color3.fromRGB(220, 235, 255)
 		statsLabel.Font = Enum.Font.GothamMedium
 		statsLabel.TextSize = 12
