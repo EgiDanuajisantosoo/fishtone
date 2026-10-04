@@ -11,6 +11,7 @@
 ]]
 
 local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -210,13 +211,23 @@ local function buildArrivalPlaza()
 	createPalmTree(CFrame.new(45, 8, 65), mapFolder)
 	createPalmTree(CFrame.new(55, 8, 85), mapFolder)
 
-	-- SpawnLocation Bersih & Transparan
+	-- Nonaktifkan SpawnLocation bawaan Roblox Studio yang tenggelam di bawah air
+	for _, inst in ipairs(Workspace:GetChildren()) do
+		if inst:IsA("SpawnLocation") and inst.Name ~= "MelodyBaySpawn" then
+			inst.Enabled = false
+		end
+	end
+
+	-- SpawnLocation Bersih, Ter-anchor & Tepat di Atas Plaza
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "MelodyBaySpawn"
-	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.CFrame = CFrame.new(0, 6.6, 75)
+	spawn.Size = Vector3.new(16, 1, 16)
+	spawn.CFrame = CFrame.new(0, 7.0, 75) * CFrame.Angles(0, math.pi, 0)
+	spawn.Anchored = true
+	spawn.CanCollide = true
+	spawn.Neutral = true
+	spawn.Enabled = true
 	spawn.Transparency = 1
-	spawn.CanCollide = false
 	spawn.Duration = 0
 	spawn.Parent = mapFolder
 
@@ -378,4 +389,30 @@ buildPiersAndPromenade()
 buildArrivalPlaza()
 buildMerchantStall()
 buildMusicalAccents()
+
+-- Proteksi & Penjamin Posisi Spawn Karakter di Plaza (Anti-Underwater)
+local function ensureCharacterSpawn(char)
+	task.defer(function()
+		local hrp = char:WaitForChild("HumanoidRootPart", 5)
+		if hrp then
+			-- Jika player berada di bawah permukaan air atau di void
+			if hrp.Position.Y < 6 or (hrp.Position - Vector3.new(0, 7.5, 75)).Magnitude > 300 then
+				hrp.CFrame = CFrame.new(0, 8.5, 75) * CFrame.Angles(0, math.pi, 0)
+			end
+		end
+	end)
+end
+
+local function onPlayerAdded(p)
+	p.CharacterAdded:Connect(ensureCharacterSpawn)
+	if p.Character then
+		ensureCharacterSpawn(p.Character)
+	end
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+for _, p in ipairs(Players:GetPlayers()) do
+	onPlayerAdded(p)
+end
+
 print("✨ [MelodyBayService] Melody Bay 3D Prototype berhasil dibangun di Workspace!")
