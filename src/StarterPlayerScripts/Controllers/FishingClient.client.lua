@@ -1141,7 +1141,7 @@ local function updateInventoryUI()
 	end
 
 	if invTotalFishLabel then
-		invTotalFishLabel.Text = "🎣 Total Ikan: " .. #allFish
+		invTotalFishLabel.Text = "🎣 Total Tangkapan: " .. #allFish
 	end
 
 	if #allFish == 0 then
@@ -1149,7 +1149,7 @@ local function updateInventoryUI()
 		emptyLabel.Size = UDim2.new(1, -20, 0, 120)
 		emptyLabel.Position = UDim2.new(0, 10, 0, 40)
 		emptyLabel.BackgroundTransparency = 1
-		emptyLabel.Text = "🎣 Belum ada ikan di inventory.\nAyo memancing di lautan luas!"
+		emptyLabel.Text = "🎣 Belum ada tangkapan di inventory.\nAyo lemparkan kailmu ke samudra luas!"
 		emptyLabel.TextColor3 = Color3.fromRGB(160, 180, 200)
 		emptyLabel.Font = Enum.Font.GothamMedium
 		emptyLabel.TextSize = 15
@@ -1159,7 +1159,7 @@ local function updateInventoryUI()
 			invTotalCoinsLabel.Text = "💰 Estimasi Nilai: 0 Koin"
 		end
 		if invSellAllBtn then
-			invSellAllBtn.Text = "💰 JUAL SEMUA IKAN (0 Koin)"
+			invSellAllBtn.Text = "💰 JUAL SEMUA TANGKAPAN (0 Koin)"
 			invSellAllBtn.BackgroundColor3 = Color3.fromRGB(50, 60, 75)
 		end
 		return
@@ -1168,6 +1168,7 @@ local function updateInventoryUI()
 	for _, tool in ipairs(allFish) do
 		local rName = tool:GetAttribute("Rarity") or "COMMON"
 		local tierData = FishingRaritySystem.GetTierData(rName)
+		local catBadge = tool:GetAttribute("CategoryBadge") or "🐟 IKAN"
 		local fishName = tool:GetAttribute("FishName") or tool.Name
 		local dispName = tool:GetAttribute("DisplayName") or tierData.displayName
 		local stars = tool:GetAttribute("Stars") or tierData.stars
@@ -1196,7 +1197,7 @@ local function updateInventoryUI()
 		nameLabel.Size = UDim2.new(0.62, 0, 0, 22)
 		nameLabel.Position = UDim2.new(0, 14, 0, 8)
 		nameLabel.BackgroundTransparency = 1
-		nameLabel.Text = string.format("[%s] %s %s", dispName, fishName, stars)
+		nameLabel.Text = string.format("%s [%s] %s %s", catBadge, dispName, fishName, stars)
 		nameLabel.TextColor3 = color
 		nameLabel.Font = Enum.Font.GothamBlack
 		nameLabel.TextSize = 13
@@ -1242,7 +1243,7 @@ local function updateInventoryUI()
 		invTotalCoinsLabel.Text = string.format("💰 Total Nilai: %d Koin", totalCoins)
 	end
 	if invSellAllBtn then
-		invSellAllBtn.Text = string.format("💰 JUAL SEMUA IKAN (💰 %d Koin)", totalCoins)
+		invSellAllBtn.Text = string.format("💰 JUAL SEMUA TANGKAPAN (💰 %d Koin)", totalCoins)
 		invSellAllBtn.BackgroundColor3 = Color3.fromRGB(45, 175, 95)
 	end
 end
@@ -1576,6 +1577,7 @@ if remote then
 			local name = fishData.name or "Ikan"
 			local disp = fishData.displayName or "COMMON"
 			local stars = fishData.stars or "⭐"
+			local catBadge = fishData.categoryBadge or "🐟 IKAN"
 			local weight = fishData.weight or 1.0
 			local coins = rewardInfo.coins or (fishData.coins or 0)
 			local exp = rewardInfo.exp or (fishData.exp or 0)
@@ -1598,7 +1600,7 @@ if remote then
 			local gradeBadge = string.format(" [Grade %s • %s%s]", grade, gradeTitle, extraTag)
 			local multBadge = string.format(" (EXP x%.2f | Koin x%.2f | +%.1f Luck)", xpMult, coinMult, luckBonus)
 
-			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n[%s] %s %s  •  ⚖️ %.1f Kg  •  🎯 %.1f%%\n💰 Nilai: %d Koin  •  ⭐ +%d EXP%s", gradeBadge, disp, name, stars, weight, acc, coins, exp, multBadge)
+			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n%s [%s] %s %s  •  ⚖️ %.1f Kg  •  🎯 %.1f%%\n💰 Nilai: %d Koin  •  ⭐ +%d EXP%s", gradeBadge, catBadge, disp, name, stars, weight, acc, coins, exp, multBadge)
 			showMessage(revealMsg, color, 5.5)
 
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)

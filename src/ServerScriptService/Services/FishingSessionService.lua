@@ -19,6 +19,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
+local LootTableSystem = require(Shared:WaitForChild("Systems"):WaitForChild("LootTableSystem"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
@@ -141,6 +142,8 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	local effectiveLuck = FishingRaritySystem.CalculateEffectiveLuck(totalLuck, castLuck, 0, 0)
 	local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(effectiveLuck, pData.level or 1, pData.pity or {})
 
+	local rolledCategory = LootTableSystem.RollCategory(effectiveLuck, zone and zone.id)
+
 	-- 5. Hitung Durasi Menunggu Ikan Menyambar
 	local waitDuration = math.random(18, 28) / 10
 	if castQuality == "PERFECT" then
@@ -166,6 +169,7 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		rarity = rolledRarity,
 		wasPity = wasPity,
 		zoneId = zone and zone.id or "MELODY_BAY",
+		lootCategory = rolledCategory,
 		status = "Active",
 	}
 
@@ -175,7 +179,7 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	return sessionData
 end
 
--- ============ SESSION VALIDATION & COMPLETION (FISH-014) ============
+-- ============ SESSION VALIDATION & COMPLETION (FISH-014 / FISH-018) ============
 function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics)
 	sessionId = tostring(sessionId or "")
 	local session = activeSessions[sessionId]
@@ -224,31 +228,33 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	local pData = PlayerDataService.Get(player)
 	local performance = PerformanceCalculator.Calculate(sanitizedMetrics)
 
-	-- 6. Generate Data Ikan Berdasarkan Rarity yang Telah Di-roll & Skor Performa
-	local fishData = FishingRaritySystem.GenerateFish(
+	-- 6. Generate Data Loot Berdasarkan Kategori, Rarity & Skor Performa (FISH-018)
+	local lootData = LootTableSystem.GenerateLoot(
+		session.lootCategory or "FISH",
 		session.rarity,
 		pData.level or 1,
-		performance.performanceScore
+		performance.performanceScore,
+		session.zoneId
 	)
 
 	-- 7. Terapkan Pengganda Performa (XP & Koin Multipliers)
-	local baseExp = fishData.exp or 10
-	local baseCoins = fishData.coins or 15
+	local baseExp = lootData.exp or 10
+	local baseCoins = lootData.coins or 15
 	local finalExp = math.max(1, math.floor(baseExp * (performance.xpMultiplier or 1.0)))
 	local finalCoins = math.max(1, math.floor(baseCoins * (performance.coinMultiplier or 1.0)))
 
-	fishData.exp = finalExp
-	fishData.coins = finalCoins
-	fishData.performance = performance
-	fishData.grade = performance.grade
-	fishData.accuracy = performance.accuracy
-	fishData.performanceLuckBonus = performance.performanceLuckBonus
+	lootData.exp = finalExp
+	lootData.coins = finalCoins
+	lootData.performance = performance
+	lootData.grade = performance.grade
+	lootData.accuracy = performance.accuracy
+	lootData.performanceLuckBonus = performance.performanceLuckBonus
 
 	-- 8. Mutasi Profil Pemain (Pity, EXP, Jurnal, Statistik)
 	pData.pity = PlayerDataService.UpdatePity(player, session.rarity)
 	PlayerDataService.AddFish(player, 1)
 	PlayerDataService.AddExp(player, finalExp)
-	PlayerDataService.RecordJournal(player, fishData.name, fishData.weight)
+	PlayerDataService.RecordJournal(player, lootData.name, lootData.weight)
 
 	if pData.stats then
 		pData.stats.totalCatches = (pData.stats.totalCatches or 0) + 1
@@ -284,7 +290,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		breakdown = performance.breakdown,
 	}
 
-	return fishData, rewardInfo, pData
+	return lootData, rewardInfo, pData
 end
 
 -- ============ CANCEL SESSION ============
