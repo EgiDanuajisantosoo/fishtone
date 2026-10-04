@@ -306,6 +306,7 @@ function RhythmSession:_registerMistake(column)
 
 	PianoTilesUI.ShowHitRating("MISS", column, Config.HIT_LINE)
 	if column then
+		PianoTilesUI.TriggerReceptorPress(column, "MISS")
 		PianoTilesUI.FlashColumn(column, "MISS")
 	end
 	PianoTilesUI.ShakeArena()

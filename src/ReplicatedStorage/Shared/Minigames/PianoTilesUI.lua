@@ -1,10 +1,14 @@
 --[[
     PianoTilesUI
-    FISH!TUNE — Piano Tiles Minigame UI & Visual Hit Feedback (FISH-013)
+    FISH!TUNE — High-Contrast Modern Rhythm Minigame UI & Visual Hit Feedback (FISH-013)
 
-    Menyediakan rendering antarmuka Piano Tiles, visual timing feedback
-    (PERFECT, GREAT, GOOD, MISS), floating judgement badges, dynamic column flashes,
-    hit line ripples, serta layar hasil akhir dengan grade & multiplier.
+    Fitur Visual:
+    1. Target Hit Receptors (Kotak target posisi PERFECT pada setiap kolom dengan keybind [A][W][S][D]).
+    2. Luminous Judgement Line & Perfect Hit Zone (Garis neon laser penanda timing presisi).
+    3. High-Contrast Badges & Pill Headers (Pill melodi, cast quality, dan combo counter).
+    4. Animated Judgement Popups (★ PERFECT ★, ◆ GREAT ◆, ● GOOD ●, ✕ MISS ✕).
+    5. Tactile Receptor Press Animation (Receptor pad menyala & membal saat ditekan).
+    6. Modern Glassmorphism Result Card dengan Grade Badge, Akurasi Live & Multiplier.
 ]]
 
 local Players = game:GetService("Players")
@@ -34,6 +38,7 @@ local songLabel
 local comboLabel
 local centerJudgementLabel
 local hitLine
+local perfectZoneGuide
 
 local resultOverlay
 local resultLabel
@@ -50,6 +55,8 @@ local fish
 
 local columns = {}
 local columnFlashes = {}
+local receptorPads = {}
+local receptorLabels = {}
 
 --==================================================
 -- PLAYER GUI
@@ -77,150 +84,253 @@ local function buildDynamicGui(playerGui)
 	screenGui.Enabled = false
 	screenGui.Parent = playerGui
 
-	-- Arena Container
+	-- Arena Container (Main Window)
 	local container = Instance.new("Frame")
 	container.Name = "ArenaContainer"
-	container.Size = UDim2.new(0, 360, 0, 500)
-	container.Position = UDim2.new(0.5, -180, 0.5, -250)
-	container.BackgroundColor3 = Color3.fromRGB(15, 20, 32)
-	container.BackgroundTransparency = 0.20
+	container.Size = UDim2.new(0, 370, 0, 520)
+	container.Position = UDim2.new(0.5, -185, 0.5, -260)
+	container.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
+	container.BackgroundTransparency = 0.12
 	container.BorderSizePixel = 0
 	container.Parent = screenGui
-	Instance.new("UICorner", container).CornerRadius = UDim.new(0, 16)
+	Instance.new("UICorner", container).CornerRadius = UDim.new(0, 18)
 
 	local cStroke = Instance.new("UIStroke")
-	cStroke.Color = Color3.fromRGB(0, 200, 255)
-	cStroke.Thickness = 2
-	cStroke.Transparency = 0.3
+	cStroke.Color = Color3.fromRGB(0, 210, 255)
+	cStroke.Thickness = 2.5
+	cStroke.Transparency = 0.2
 	cStroke.Parent = container
 
-	-- Header
+	-- Header Area
 	local header = Instance.new("Frame")
 	header.Name = "Header"
-	header.Size = UDim2.new(1, 0, 0, 54)
+	header.Size = UDim2.new(1, 0, 0, 58)
 	header.BackgroundTransparency = 1
 	header.Parent = container
 
+	-- Cast Bonus Pill Badge
+	local castPill = Instance.new("Frame")
+	castPill.Name = "CastPill"
+	castPill.Size = UDim2.new(0.44, 0, 0, 26)
+	castPill.Position = UDim2.new(0.04, 0, 0, 6)
+	castPill.BackgroundColor3 = Color3.fromRGB(20, 36, 45)
+	castPill.BackgroundTransparency = 0.2
+	castPill.BorderSizePixel = 0
+	castPill.Parent = header
+	Instance.new("UICorner", castPill).CornerRadius = UDim.new(0, 13)
+
+	local castStroke = Instance.new("UIStroke")
+	castStroke.Color = Color3.fromRGB(50, 255, 140)
+	castStroke.Thickness = 1.5
+	castStroke.Transparency = 0.3
+	castStroke.Parent = castPill
+
 	local castBonus = Instance.new("TextLabel")
 	castBonus.Name = "CastBonusLabel"
-	castBonus.Size = UDim2.new(0.48, 0, 0, 24)
-	castBonus.Position = UDim2.new(0.04, 0, 0, 6)
+	castBonus.Size = UDim2.fromScale(1, 1)
 	castBonus.BackgroundTransparency = 1
-	castBonus.Text = "PERFECT CAST"
-	castBonus.TextColor3 = Color3.fromRGB(50, 255, 140)
+	castBonus.Text = "✨ PERFECT CAST"
+	castBonus.TextColor3 = Color3.fromRGB(60, 255, 150)
 	castBonus.Font = Enum.Font.GothamBlack
-	castBonus.TextSize = 13
-	castBonus.TextXAlignment = Enum.TextXAlignment.Left
-	castBonus.Parent = header
+	castBonus.TextSize = 12
+	castBonus.Parent = castPill
+
+	-- Song Info Pill Badge
+	local songPill = Instance.new("Frame")
+	songPill.Name = "SongPill"
+	songPill.Size = UDim2.new(0.44, 0, 0, 26)
+	songPill.Position = UDim2.new(0.52, 0, 0, 6)
+	songPill.BackgroundColor3 = Color3.fromRGB(18, 28, 48)
+	songPill.BackgroundTransparency = 0.2
+	songPill.BorderSizePixel = 0
+	songPill.Parent = header
+	Instance.new("UICorner", songPill).CornerRadius = UDim.new(0, 13)
+
+	local songStroke = Instance.new("UIStroke")
+	songStroke.Color = Color3.fromRGB(0, 200, 255)
+	songStroke.Thickness = 1.5
+	songStroke.Transparency = 0.4
+	songStroke.Parent = songPill
 
 	local song = Instance.new("TextLabel")
 	song.Name = "SongLabel"
-	song.Size = UDim2.new(0.48, 0, 0, 24)
-	song.Position = UDim2.new(0.48, 0, 0, 6)
+	song.Size = UDim2.fromScale(1, 1)
 	song.BackgroundTransparency = 1
-	song.Text = "Melodi: Canon in D"
-	song.TextColor3 = Color3.fromRGB(200, 230, 255)
-	song.Font = Enum.Font.GothamMedium
-	song.TextSize = 11
-	song.TextXAlignment = Enum.TextXAlignment.Right
-	song.Parent = header
+	song.Text = "🎵 Canon in D"
+	song.TextColor3 = Color3.fromRGB(210, 240, 255)
+	song.Font = Enum.Font.GothamBold
+	song.TextSize = 12
+	song.Parent = songPill
 
+	-- Combo Banner
 	local combo = Instance.new("TextLabel")
 	combo.Name = "ComboLabel"
 	combo.Size = UDim2.new(1, 0, 0, 22)
-	combo.Position = UDim2.new(0, 0, 0, 28)
+	combo.Position = UDim2.new(0, 0, 0, 34)
 	combo.BackgroundTransparency = 1
 	combo.Text = "COMBO x0"
 	combo.TextColor3 = Color3.fromRGB(255, 215, 0)
 	combo.Font = Enum.Font.GothamBlack
-	combo.TextSize = 15
+	combo.TextSize = 16
 	combo.Visible = false
 	combo.Parent = header
 
-	-- Arena Frame
+	local comboStroke = Instance.new("UIStroke")
+	comboStroke.Color = Color3.fromRGB(0, 0, 0)
+	comboStroke.Thickness = 2
+	comboStroke.Transparency = 0.2
+	comboStroke.Parent = combo
+
+	-- Arena Frame (Playing Field)
 	local arena = Instance.new("Frame")
 	arena.Name = "ArenaFrame"
 	arena.Size = UDim2.new(0.92, 0, 0.67, 0)
-	arena.Position = UDim2.new(0.04, 0, 0, 56)
-	arena.BackgroundColor3 = Color3.fromRGB(10, 14, 22)
-	arena.BackgroundTransparency = 0.4
+	arena.Position = UDim2.new(0.04, 0, 0, 60)
+	arena.BackgroundColor3 = Color3.fromRGB(8, 12, 20)
+	arena.BackgroundTransparency = 0.35
 	arena.BorderSizePixel = 0
 	arena.ClipsDescendants = true
 	arena.Parent = container
-	Instance.new("UICorner", arena).CornerRadius = UDim.new(0, 10)
+	Instance.new("UICorner", arena).CornerRadius = UDim.new(0, 12)
 
-	-- 4 Columns
+	local arenaStroke = Instance.new("UIStroke")
+	arenaStroke.Color = Color3.fromRGB(40, 80, 120)
+	arenaStroke.Thickness = 1.5
+	arenaStroke.Transparency = 0.5
+	arenaStroke.Parent = arena
+
+	-- 4 Columns & Dividers
 	for i = 1, Config.COLUMN_COUNT do
 		local col = Instance.new("Frame")
 		col.Name = "Column" .. i
 		col.Size = UDim2.new(1 / Config.COLUMN_COUNT, 0, 1, 0)
 		col.Position = UDim2.new((i - 1) / Config.COLUMN_COUNT, 0, 0, 0)
-		col.BackgroundTransparency = (i % 2 == 0) and 0.95 or 1
+		col.BackgroundTransparency = (i % 2 == 0) and 0.94 or 0.98
 		col.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		col.BorderSizePixel = 0
 		col.Parent = arena
+
+		-- Vertical Lane Divider
+		if i < Config.COLUMN_COUNT then
+			local divider = Instance.new("Frame")
+			divider.Name = "Divider" .. i
+			divider.Size = UDim2.new(0, 1, 1, 0)
+			divider.Position = UDim2.new(i / Config.COLUMN_COUNT, -0.5, 0, 0)
+			divider.BackgroundColor3 = Color3.fromRGB(60, 120, 180)
+			divider.BackgroundTransparency = 0.6
+			divider.BorderSizePixel = 0
+			divider.ZIndex = 8
+			divider.Parent = arena
+		end
 	end
 
-	-- Keybind Guide Label bar
-	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
-	for i = 1, Config.COLUMN_COUNT do
-		local keyLbl = Instance.new("TextLabel")
-		keyLbl.Name = "Key_" .. i
-		keyLbl.Size = UDim2.new(1 / Config.COLUMN_COUNT, 0, 0, 24)
-		keyLbl.Position = UDim2.new((i - 1) / Config.COLUMN_COUNT, 0, Config.HIT_LINE - 0.02, 0)
-		keyLbl.BackgroundTransparency = 1
-		keyLbl.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
-		keyLbl.TextColor3 = Color3.fromRGB(180, 210, 240)
-		keyLbl.Font = Enum.Font.GothamBold
-		keyLbl.TextSize = 12
-		keyLbl.Parent = arena
-	end
+	-- Perfect Zone Glow Band
+	local pZoneBand = Instance.new("Frame")
+	pZoneBand.Name = "PerfectZoneGuide"
+	pZoneBand.Size = UDim2.new(1, 0, Config.TILE_HEIGHT, 0)
+	pZoneBand.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	pZoneBand.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+	pZoneBand.BackgroundTransparency = 0.92
+	pZoneBand.BorderSizePixel = 0
+	pZoneBand.ZIndex = 9
+	pZoneBand.Parent = arena
 
-	-- HitLine
+	-- Judgement Hit Line (Luminous Laser Line)
 	local hLine = Instance.new("Frame")
 	hLine.Name = "HitLine"
-	hLine.Size = UDim2.new(1, 0, 0, 4)
-	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE + 0.05, 0)
-	hLine.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+	hLine.Size = UDim2.new(1, 0, 0, 3)
+	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	hLine.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
 	hLine.BorderSizePixel = 0
-	hLine.ZIndex = 12
+	hLine.ZIndex = 14
 	hLine.Parent = arena
 
 	local hLineStroke = Instance.new("UIStroke")
-	hLineStroke.Color = Color3.fromRGB(150, 240, 255)
-	hLineStroke.Thickness = 1.5
-	hLineStroke.Transparency = 0.4
+	hLineStroke.Color = Color3.fromRGB(160, 245, 255)
+	hLineStroke.Thickness = 2
+	hLineStroke.Transparency = 0.2
 	hLineStroke.Parent = hLine
 
-	-- Center Judgement Feedback Label (Large animated timing banner)
+	-- Perfect Hit Target Receptors (One box in each column)
+	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
+	for i = 1, Config.COLUMN_COUNT do
+		local col = arena:FindFirstChild("Column" .. i)
+		if col then
+			local receptor = Instance.new("Frame")
+			receptor.Name = "ReceptorPad"
+			receptor.Size = UDim2.new(0.88, 0, Config.TILE_HEIGHT, 0)
+			receptor.Position = UDim2.new(0.06, 0, Config.HIT_LINE, 0)
+			receptor.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
+			receptor.BackgroundTransparency = 0.85
+			receptor.BorderSizePixel = 0
+			receptor.ZIndex = 11
+			receptor.Parent = col
+			Instance.new("UICorner", receptor).CornerRadius = UDim.new(0, 8)
+
+			local rAspect = Instance.new("UIAspectRatioConstraint")
+			rAspect.AspectRatio = 1
+			rAspect.Parent = receptor
+
+			local rStroke = Instance.new("UIStroke")
+			rStroke.Color = Color3.fromRGB(0, 220, 255)
+			rStroke.Thickness = 2
+			rStroke.Transparency = 0.3
+			rStroke.Parent = receptor
+
+			local keyText = Instance.new("TextLabel")
+			keyText.Name = "KeyLabel"
+			keyText.Size = UDim2.fromScale(1, 1)
+			keyText.BackgroundTransparency = 1
+			keyText.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
+			keyText.TextColor3 = Color3.fromRGB(240, 250, 255)
+			keyText.Font = Enum.Font.GothamBlack
+			keyText.TextSize = 16
+			keyText.ZIndex = 12
+			keyText.Parent = receptor
+
+			local ktStroke = Instance.new("UIStroke")
+			ktStroke.Color = Color3.fromRGB(0, 0, 0)
+			ktStroke.Thickness = 2
+			ktStroke.Transparency = 0.2
+			ktStroke.Parent = keyText
+		end
+	end
+
+	-- Center Judgement Feedback Label (Large animated banner in middle arena)
 	local centerJudge = Instance.new("TextLabel")
 	centerJudge.Name = "CenterJudgementLabel"
-	centerJudge.Size = UDim2.new(0.9, 0, 0, 36)
-	centerJudge.Position = UDim2.new(0.5, 0, Config.HIT_LINE - 0.16, 0)
+	centerJudge.Size = UDim2.new(0.9, 0, 0, 38)
+	centerJudge.Position = UDim2.new(0.5, 0, 0.44, 0)
 	centerJudge.AnchorPoint = Vector2.new(0.5, 0.5)
 	centerJudge.BackgroundTransparency = 1
 	centerJudge.Font = Enum.Font.GothamBlack
-	centerJudge.TextSize = 22
+	centerJudge.TextSize = 24
 	centerJudge.TextColor3 = Color3.fromRGB(255, 215, 0)
 	centerJudge.Text = ""
-	centerJudge.ZIndex = 35
+	centerJudge.ZIndex = 40
 	centerJudge.Parent = arena
 
 	local judgeStroke = Instance.new("UIStroke")
-	judgeStroke.Thickness = 2
+	judgeStroke.Thickness = 2.5
 	judgeStroke.Color = Color3.fromRGB(0, 0, 0)
-	judgeStroke.Transparency = 0.3
+	judgeStroke.Transparency = 0.1
 	judgeStroke.Parent = centerJudge
 
-	-- Progress Bar Container
+	-- Progress Bar Container (Catch Progress)
 	local pBar = Instance.new("Frame")
 	pBar.Name = "ProgressBar"
-	pBar.Size = UDim2.new(0.92, 0, 0, 16)
-	pBar.Position = UDim2.new(0.04, 0, 0.83, 0)
-	pBar.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
+	pBar.Size = UDim2.new(0.92, 0, 0, 18)
+	pBar.Position = UDim2.new(0.04, 0, 0.815, 0)
+	pBar.BackgroundColor3 = Color3.fromRGB(16, 24, 38)
 	pBar.BorderSizePixel = 0
 	pBar.Parent = container
-	Instance.new("UICorner", pBar).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", pBar).CornerRadius = UDim.new(0, 9)
+
+	local pBarStroke = Instance.new("UIStroke")
+	pBarStroke.Color = Color3.fromRGB(0, 180, 255)
+	pBarStroke.Thickness = 1.5
+	pBarStroke.Transparency = 0.4
+	pBarStroke.Parent = pBar
 
 	local pFill = Instance.new("Frame")
 	pFill.Name = "Fill"
@@ -229,57 +339,65 @@ local function buildDynamicGui(playerGui)
 	pFill.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
 	pFill.BorderSizePixel = 0
 	pFill.Parent = pBar
-	Instance.new("UICorner", pFill).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", pFill).CornerRadius = UDim.new(0, 9)
 
 	local fishIcon = Instance.new("TextLabel")
 	fishIcon.Name = "Fish"
-	fishIcon.Size = UDim2.new(0, 22, 0, 22)
-	fishIcon.Position = UDim2.new(0.1, -11, 0.5, -11)
+	fishIcon.Size = UDim2.new(0, 24, 0, 24)
+	fishIcon.Position = UDim2.new(0.1, -12, 0.5, -12)
 	fishIcon.BackgroundTransparency = 1
 	fishIcon.Text = "🐟"
-	fishIcon.TextSize = 15
+	fishIcon.TextSize = 16
+	fishIcon.ZIndex = 5
 	fishIcon.Parent = pBar
 
+	-- Progress & Live Info Label
 	local pLabel = Instance.new("TextLabel")
 	pLabel.Name = "ProgressLabel"
-	pLabel.Size = UDim2.new(0.92, 0, 0, 20)
-	pLabel.Position = UDim2.new(0.04, 0, 0.89, 0)
+	pLabel.Size = UDim2.new(0.92, 0, 0, 22)
+	pLabel.Position = UDim2.new(0.04, 0, 0.88, 0)
 	pLabel.BackgroundTransparency = 1
-	pLabel.Text = "0% Completed, 0 / 30 Notes"
-	pLabel.TextColor3 = Color3.fromRGB(200, 225, 255)
-	pLabel.Font = Enum.Font.GothamMedium
+	pLabel.Text = "🎣 Progres: 0%  •  0 / 30 Not  •  🎯 Akurasi: 100%"
+	pLabel.TextColor3 = Color3.fromRGB(220, 240, 255)
+	pLabel.Font = Enum.Font.GothamBold
 	pLabel.TextSize = 12
 	pLabel.Parent = container
 
-	-- Result Overlay
+	local plStroke = Instance.new("UIStroke")
+	plStroke.Color = Color3.fromRGB(0, 0, 0)
+	plStroke.Thickness = 1.5
+	plStroke.Transparency = 0.3
+	plStroke.Parent = pLabel
+
+	-- Result Overlay Screen
 	local result = Instance.new("Frame")
 	result.Name = "ResultOverlay"
 	result.Size = UDim2.fromScale(1, 1)
-	result.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
-	result.BackgroundTransparency = 0.15
+	result.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
+	result.BackgroundTransparency = 0.12
 	result.BorderSizePixel = 0
 	result.Visible = false
-	result.ZIndex = 25
+	result.ZIndex = 30
 	result.Parent = container
-	Instance.new("UICorner", result).CornerRadius = UDim.new(0, 16)
+	Instance.new("UICorner", result).CornerRadius = UDim.new(0, 18)
 
 	local resLabel = Instance.new("TextLabel")
 	resLabel.Name = "ResultLabel"
 	resLabel.Size = UDim2.new(1, 0, 0, 36)
-	resLabel.Position = UDim2.new(0, 0, 0.14, 0)
+	resLabel.Position = UDim2.new(0, 0, 0.12, 0)
 	resLabel.BackgroundTransparency = 1
 	resLabel.Text = "BERHASIL DITANGKAP!"
 	resLabel.TextColor3 = Color3.fromRGB(60, 240, 140)
 	resLabel.Font = Enum.Font.GothamBlack
 	resLabel.TextSize = 22
-	resLabel.ZIndex = 26
+	resLabel.ZIndex = 32
 	resLabel.Parent = result
 
 	return screenGui
 end
 
 --==================================================
--- CREATE / LOAD UI
+-- CREATE / INITIALIZE UI
 --==================================================
 
 function PianoTilesUI.Create()
@@ -289,7 +407,7 @@ function PianoTilesUI.Create()
 		return false
 	end
 
-	-- Ambil GUI dari StarterGui yang sudah di-clone, atau bangun fallback secara dinamis
+	-- Cari GUI yang sudah ada atau buat secara dinamis
 	gui = playerGui:FindFirstChild("PianoTilesGui")
 	if not gui then
 		gui = buildDynamicGui(playerGui)
@@ -313,37 +431,42 @@ function PianoTilesUI.Create()
 	end
 
 	--==================================================
-	-- HITLINE & JUDGEMENT LABELS
+	-- HITLINE, PERFECT ZONE & JUDGEMENT LABELS
 	--==================================================
 	hitLine = arenaFrame:FindFirstChild("HitLine")
+	perfectZoneGuide = arenaFrame:FindFirstChild("PerfectZoneGuide")
 
 	centerJudgementLabel = arenaFrame:FindFirstChild("CenterJudgementLabel")
 	if not centerJudgementLabel then
 		centerJudgementLabel = Instance.new("TextLabel")
 		centerJudgementLabel.Name = "CenterJudgementLabel"
-		centerJudgementLabel.Size = UDim2.new(0.9, 0, 0, 36)
-		centerJudgementLabel.Position = UDim2.new(0.5, 0, Config.HIT_LINE - 0.16, 0)
+		centerJudgementLabel.Size = UDim2.new(0.9, 0, 0, 38)
+		centerJudgementLabel.Position = UDim2.new(0.5, 0, 0.44, 0)
 		centerJudgementLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 		centerJudgementLabel.BackgroundTransparency = 1
 		centerJudgementLabel.Font = Enum.Font.GothamBlack
-		centerJudgementLabel.TextSize = 22
+		centerJudgementLabel.TextSize = 24
 		centerJudgementLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 		centerJudgementLabel.Text = ""
-		centerJudgementLabel.ZIndex = 35
+		centerJudgementLabel.ZIndex = 40
 		centerJudgementLabel.Parent = arenaFrame
 
 		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 2
+		stroke.Thickness = 2.5
 		stroke.Color = Color3.fromRGB(0, 0, 0)
-		stroke.Transparency = 0.3
+		stroke.Transparency = 0.1
 		stroke.Parent = centerJudgementLabel
 	end
 
 	--==================================================
-	-- COLUMNS & FLASHES
+	-- COLUMNS, FLASHES & RECEPTOR PADS
 	--==================================================
 	table.clear(columns)
 	table.clear(columnFlashes)
+	table.clear(receptorPads)
+	table.clear(receptorLabels)
+
+	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
 
 	for i = 1, Config.COLUMN_COUNT do
 		local column = arenaFrame:WaitForChild("Column" .. i, 5)
@@ -367,8 +490,52 @@ function PianoTilesUI.Create()
 			flash.ZIndex = 20
 			flash.Parent = column
 		end
-
 		columnFlashes[i] = flash
+
+		-- Receptor Pad (Target Box Tempat Tile Pas Pada Garis PERFECT)
+		local receptor = column:FindFirstChild("ReceptorPad")
+		if not receptor then
+			receptor = Instance.new("Frame")
+			receptor.Name = "ReceptorPad"
+			receptor.Size = UDim2.new(0.88, 0, Config.TILE_HEIGHT, 0)
+			receptor.Position = UDim2.new(0.06, 0, Config.HIT_LINE, 0)
+			receptor.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
+			receptor.BackgroundTransparency = 0.85
+			receptor.BorderSizePixel = 0
+			receptor.ZIndex = 11
+			receptor.Parent = column
+			Instance.new("UICorner", receptor).CornerRadius = UDim.new(0, 8)
+
+			local rAspect = Instance.new("UIAspectRatioConstraint")
+			rAspect.AspectRatio = 1
+			rAspect.Parent = receptor
+
+			local rStroke = Instance.new("UIStroke")
+			rStroke.Color = Color3.fromRGB(0, 220, 255)
+			rStroke.Thickness = 2
+			rStroke.Transparency = 0.3
+			rStroke.Parent = receptor
+
+			local keyText = Instance.new("TextLabel")
+			keyText.Name = "KeyLabel"
+			keyText.Size = UDim2.fromScale(1, 1)
+			keyText.BackgroundTransparency = 1
+			keyText.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
+			keyText.TextColor3 = Color3.fromRGB(240, 250, 255)
+			keyText.Font = Enum.Font.GothamBlack
+			keyText.TextSize = 16
+			keyText.ZIndex = 12
+			keyText.Parent = receptor
+
+			local ktStroke = Instance.new("UIStroke")
+			ktStroke.Color = Color3.fromRGB(0, 0, 0)
+			ktStroke.Thickness = 2
+			ktStroke.Transparency = 0.2
+			ktStroke.Parent = keyText
+		end
+
+		receptorPads[i] = receptor
+		receptorLabels[i] = receptor:FindFirstChild("KeyLabel")
 	end
 
 	--==================================================
@@ -376,11 +543,9 @@ function PianoTilesUI.Create()
 	--==================================================
 	local header = arenaContainer:WaitForChild("Header", 5)
 	if header then
-		castBonusLabel = header:WaitForChild("CastBonusLabel", 5)
-		songLabel = header:WaitForChild("SongLabel", 5)
-		comboLabel = header:WaitForChild("ComboLabel", 5)
-	else
-		warn("[PianoTilesUI] Header tidak ditemukan.")
+		castBonusLabel = header:FindFirstChild("CastBonusLabel", true)
+		songLabel = header:FindFirstChild("SongLabel", true)
+		comboLabel = header:FindFirstChild("ComboLabel", true)
 	end
 
 	--==================================================
@@ -443,6 +608,10 @@ function PianoTilesUI.GetColumns()
 	return columns
 end
 
+function PianoTilesUI.GetReceptorPads()
+	return receptorPads
+end
+
 function PianoTilesUI.GetHeaderElements()
 	return {
 		castBonusLabel = castBonusLabel,
@@ -495,10 +664,9 @@ function PianoTilesUI.CreateTile(column, y)
 	tile.Image = Config.TILE_IMAGES[column]
 	tile.ScaleType = Enum.ScaleType.Fit
 	tile.BorderSizePixel = 0
-	tile.ZIndex = 5
+	tile.ZIndex = 15
 	tile.Parent = parent
 
-	-- Menjaga tile berbentuk square
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.Name = "SquareConstraint"
 	aspect.AspectRatio = 1
@@ -516,6 +684,49 @@ end
 function PianoTilesUI.DestroyTile(tile)
 	if tile and tile.Parent then
 		tile:Destroy()
+	end
+end
+
+--==================================================
+-- RECEPTOR KEY PRESS TACTILE FEEDBACK
+--==================================================
+
+function PianoTilesUI.TriggerReceptorPress(column, ratingKey)
+	local pad = receptorPads[column]
+	if not pad then return end
+
+	local ratingData = (Config.HIT_RATINGS and Config.HIT_RATINGS[ratingKey or "GOOD"]) or {
+		flashColor = Color3.fromRGB(0, 220, 255),
+		glowColor = Color3.fromRGB(150, 240, 255),
+	}
+
+	local pStroke = pad:FindFirstChildOfClass("UIStroke")
+
+	pad.BackgroundColor3 = ratingData.flashColor
+	pad.BackgroundTransparency = 0.35
+	if pStroke then
+		pStroke.Color = ratingData.glowColor
+		pStroke.Thickness = 3
+	end
+
+	TweenService:Create(
+		pad,
+		TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{
+			BackgroundColor3 = Color3.fromRGB(0, 160, 255),
+			BackgroundTransparency = 0.85,
+		}
+	):Play()
+
+	if pStroke then
+		TweenService:Create(
+			pStroke,
+			TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{
+				Color = Color3.fromRGB(0, 220, 255),
+				Thickness = 2,
+			}
+		):Play()
 	end
 end
 
@@ -546,23 +757,21 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 		local stroke = centerJudgementLabel:FindFirstChildOfClass("UIStroke")
 		if stroke then
 			stroke.Color = ratingData.glowColor
-			stroke.Transparency = 0.15
+			stroke.Transparency = 0.1
 		end
 
-		-- Punchy pop bounce animation
-		centerJudgementLabel.TextSize = math.floor(18 * ratingData.scale)
+		centerJudgementLabel.TextSize = math.floor(20 * ratingData.scale)
 		TweenService:Create(
 			centerJudgementLabel,
 			TweenInfo.new(0.08, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-			{ TextSize = math.floor(25 * ratingData.scale) }
+			{ TextSize = math.floor(27 * ratingData.scale) }
 		):Play()
 
-		-- Fade out automatically
-		task.delay(0.40, function()
+		task.delay(0.42, function()
 			if centerJudgementLabel and centerJudgementLabel.Text == ratingData.symbol then
 				TweenService:Create(
 					centerJudgementLabel,
-					TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 					{ TextTransparency = 1 }
 				):Play()
 			end
@@ -571,25 +780,25 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 
 	-- 2. Floating Popup Badge above Column Hit Position
 	local posX = column and ((column - 0.5) / Config.COLUMN_COUNT) or 0.5
-	local posY = (y or Config.HIT_LINE) - 0.04
+	local posY = (y or Config.HIT_LINE) - 0.08
 
 	local popup = Instance.new("TextLabel")
 	popup.Name = "HitRatingPopup"
-	popup.Size = UDim2.new(0, 120, 0, 32)
+	popup.Size = UDim2.new(0, 130, 0, 34)
 	popup.Position = UDim2.new(posX, 0, posY, 0)
 	popup.AnchorPoint = Vector2.new(0.5, 0.5)
 	popup.BackgroundTransparency = 1
 	popup.Font = Enum.Font.GothamBlack
 	popup.Text = ratingData.symbol
 	popup.TextColor3 = ratingData.color
-	popup.TextSize = math.floor(12 * ratingData.scale)
-	popup.ZIndex = 45
+	popup.TextSize = math.floor(13 * ratingData.scale)
+	popup.ZIndex = 50
 	popup.Parent = arenaFrame
 
 	local pStroke = Instance.new("UIStroke")
 	pStroke.Thickness = 2
 	pStroke.Color = ratingData.glowColor
-	pStroke.Transparency = 0.2
+	pStroke.Transparency = 0.15
 	pStroke.Parent = popup
 
 	-- Score badge indicator (+300, +180, +80)
@@ -603,8 +812,14 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 		scoreLabel.Text = string.format("+%d", ratingData.score)
 		scoreLabel.TextColor3 = Color3.fromRGB(245, 245, 255)
 		scoreLabel.TextSize = 11
-		scoreLabel.ZIndex = 46
+		scoreLabel.ZIndex = 51
 		scoreLabel.Parent = popup
+
+		local sbStroke = Instance.new("UIStroke")
+		sbStroke.Color = Color3.fromRGB(0, 0, 0)
+		sbStroke.Thickness = 1.5
+		sbStroke.Transparency = 0.3
+		sbStroke.Parent = scoreLabel
 	end
 
 	-- Scale Pop-in & Upward Float Animation
@@ -612,8 +827,8 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 		popup,
 		TweenInfo.new(0.08, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 		{
-			TextSize = math.floor(18 * ratingData.scale),
-			Position = UDim2.new(posX, 0, posY - 0.02, 0),
+			TextSize = math.floor(19 * ratingData.scale),
+			Position = UDim2.new(posX, 0, posY - 0.03, 0),
 		}
 	)
 	popTween:Play()
@@ -623,7 +838,7 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 			popup,
 			TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 			{
-				Position = UDim2.new(posX, 0, posY - 0.07, 0),
+				Position = UDim2.new(posX, 0, posY - 0.09, 0),
 				TextTransparency = 1,
 			}
 		)
@@ -655,11 +870,11 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 	-- 3. Hit Ripple / Expanding Shockwave Effect
 	local ripple = Instance.new("Frame")
 	ripple.Name = "HitRipple"
-	ripple.Size = UDim2.new(0, 16, 0, 16)
+	ripple.Size = UDim2.new(0, 18, 0, 18)
 	ripple.Position = UDim2.new(posX, 0, y or Config.HIT_LINE, 0)
 	ripple.AnchorPoint = Vector2.new(0.5, 0.5)
 	ripple.BackgroundColor3 = ratingData.flashColor
-	ripple.BackgroundTransparency = 0.45
+	ripple.BackgroundTransparency = 0.40
 	ripple.BorderSizePixel = 0
 	ripple.ZIndex = 25
 	ripple.Parent = arenaFrame
@@ -667,15 +882,15 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 
 	local rStroke = Instance.new("UIStroke")
 	rStroke.Color = ratingData.glowColor
-	rStroke.Thickness = 2
-	rStroke.Transparency = 0.2
+	rStroke.Thickness = 2.5
+	rStroke.Transparency = 0.15
 	rStroke.Parent = ripple
 
 	TweenService:Create(
 		ripple,
 		TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 		{
-			Size = UDim2.new(0, 68, 0, 68),
+			Size = UDim2.new(0, 72, 0, 72),
 			BackgroundTransparency = 1,
 		}
 	):Play()
@@ -697,7 +912,7 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 		TweenService:Create(
 			hitLine,
 			TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ BackgroundColor3 = Color3.fromRGB(0, 220, 255) }
+			{ BackgroundColor3 = Color3.fromRGB(0, 230, 255) }
 		):Play()
 	end
 end
@@ -710,11 +925,12 @@ function PianoTilesUI.PlayHitEffect(tile, y, ratingKey, column)
 	ratingKey = ratingKey or "GOOD"
 	column = column or (tile and tile.Parent and tonumber(string.match(tile.Parent.Name, "%d+")))
 
-	-- Trigger Rating Popup & Column Flash
-	PianoTilesUI.ShowHitRating(ratingKey, column, y)
+	-- Trigger Receptor Pad feedback, Rating Popup & Column Flash
 	if column then
+		PianoTilesUI.TriggerReceptorPress(column, ratingKey)
 		PianoTilesUI.FlashColumn(column, ratingKey)
 	end
+	PianoTilesUI.ShowHitRating(ratingKey, column, y)
 
 	if not tile or not tile.Parent then
 		return
@@ -815,11 +1031,11 @@ function PianoTilesUI.UpdateHUD(
 			comboLabel.Visible = true
 
 			-- Pop animation
-			comboLabel.TextSize = 13
+			comboLabel.TextSize = 14
 			TweenService:Create(
 				comboLabel,
 				TweenInfo.new(0.09, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-				{ TextSize = 16 }
+				{ TextSize = 17 }
 			):Play()
 		else
 			comboLabel.Visible = false
@@ -856,7 +1072,7 @@ function PianoTilesUI.UpdateHUD(
 			TweenService:Create(
 				fish,
 				TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ Position = UDim2.new(percent, -11, 0.5, -11) }
+				{ Position = UDim2.new(percent, -12, 0.5, -12) }
 			):Play()
 		end
 	end
@@ -868,7 +1084,7 @@ function PianoTilesUI.UpdateHUD(
 
 		if liveMetrics and liveMetrics.accuracy then
 			progressLabel.Text = string.format(
-				"%d%% Ditangkap  •  %d/%d Notes  •  🎯 %.0f%% Akurasi",
+				"🎣 Progres: %d%%  •  %d/%d Not  •  🎯 Akurasi: %.1f%%",
 				percentInt,
 				currentNotes or 0,
 				targetNotes or 0,
@@ -876,7 +1092,7 @@ function PianoTilesUI.UpdateHUD(
 			)
 		else
 			progressLabel.Text = string.format(
-				"%d%% Selesai  •  %d / %d Notes",
+				"🎣 Progres: %d%%  •  %d / %d Not",
 				percentInt,
 				currentNotes or 0,
 				targetNotes or 0
@@ -895,12 +1111,12 @@ function PianoTilesUI.UpdateHeader(
 	melodyName
 )
 	if castBonusLabel then
-		castBonusLabel.Text = castLabel or ""
-		castBonusLabel.TextColor3 = castColor or Color3.fromRGB(255, 255, 255)
+		castBonusLabel.Text = "✨ " .. tostring(castLabel or "PERFECT CAST")
+		castBonusLabel.TextColor3 = castColor or Color3.fromRGB(60, 255, 150)
 	end
 
 	if songLabel then
-		songLabel.Text = "Melodi: " .. tostring(melodyName or "")
+		songLabel.Text = "🎵 " .. tostring(melodyName or "Melodi")
 	end
 end
 
@@ -955,15 +1171,21 @@ local function ensureResultDetails()
 		if not gradeBadgeLabel then
 			gradeBadgeLabel = Instance.new("TextLabel")
 			gradeBadgeLabel.Name = "GradeBadgeLabel"
-			gradeBadgeLabel.Size = UDim2.new(1, 0, 0, 52)
-			gradeBadgeLabel.Position = UDim2.new(0, 0, 0.32, 0)
+			gradeBadgeLabel.Size = UDim2.new(1, 0, 0, 56)
+			gradeBadgeLabel.Position = UDim2.new(0, 0, 0.28, 0)
 			gradeBadgeLabel.BackgroundTransparency = 1
 			gradeBadgeLabel.Font = Enum.Font.GothamBlack
-			gradeBadgeLabel.TextSize = 46
+			gradeBadgeLabel.TextSize = 48
 			gradeBadgeLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 			gradeBadgeLabel.Text = "S+"
-			gradeBadgeLabel.ZIndex = 30
+			gradeBadgeLabel.ZIndex = 35
 			gradeBadgeLabel.Parent = resultOverlay
+
+			local gbStroke = Instance.new("UIStroke")
+			gbStroke.Color = Color3.fromRGB(0, 0, 0)
+			gbStroke.Thickness = 2.5
+			gbStroke.Transparency = 0.2
+			gbStroke.Parent = gradeBadgeLabel
 		end
 	end
 
@@ -973,48 +1195,80 @@ local function ensureResultDetails()
 			gradeTitleLabel = Instance.new("TextLabel")
 			gradeTitleLabel.Name = "GradeTitleLabel"
 			gradeTitleLabel.Size = UDim2.new(1, 0, 0, 24)
-			gradeTitleLabel.Position = UDim2.new(0, 0, 0.54, 0)
+			gradeTitleLabel.Position = UDim2.new(0, 0, 0.48, 0)
 			gradeTitleLabel.BackgroundTransparency = 1
 			gradeTitleLabel.Font = Enum.Font.GothamBold
 			gradeTitleLabel.TextSize = 16
 			gradeTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 			gradeTitleLabel.Text = "ALL PERFECT"
-			gradeTitleLabel.ZIndex = 30
+			gradeTitleLabel.ZIndex = 35
 			gradeTitleLabel.Parent = resultOverlay
+
+			local gtStroke = Instance.new("UIStroke")
+			gtStroke.Color = Color3.fromRGB(0, 0, 0)
+			gtStroke.Thickness = 2
+			gtStroke.Transparency = 0.3
+			gtStroke.Parent = gradeTitleLabel
 		end
 	end
 
 	if not statsDetailLabel or statsDetailLabel.Parent ~= resultOverlay then
 		statsDetailLabel = resultOverlay:FindFirstChild("StatsDetailLabel")
 		if not statsDetailLabel then
+			local statsCard = Instance.new("Frame")
+			statsCard.Name = "StatsCard"
+			statsCard.Size = UDim2.new(0.92, 0, 0, 52)
+			statsCard.Position = UDim2.new(0.04, 0, 0.58, 0)
+			statsCard.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
+			statsCard.BackgroundTransparency = 0.3
+			statsCard.BorderSizePixel = 0
+			statsCard.ZIndex = 34
+			statsCard.Parent = resultOverlay
+			Instance.new("UICorner", statsCard).CornerRadius = UDim.new(0, 10)
+
 			statsDetailLabel = Instance.new("TextLabel")
 			statsDetailLabel.Name = "StatsDetailLabel"
-			statsDetailLabel.Size = UDim2.new(1, -20, 0, 20)
-			statsDetailLabel.Position = UDim2.new(0, 10, 0.68, 0)
+			statsDetailLabel.Size = UDim2.fromScale(1, 1)
 			statsDetailLabel.BackgroundTransparency = 1
 			statsDetailLabel.Font = Enum.Font.GothamMedium
 			statsDetailLabel.TextSize = 13
-			statsDetailLabel.TextColor3 = Color3.fromRGB(220, 235, 255)
+			statsDetailLabel.TextColor3 = Color3.fromRGB(220, 240, 255)
 			statsDetailLabel.Text = ""
-			statsDetailLabel.ZIndex = 30
-			statsDetailLabel.Parent = resultOverlay
+			statsDetailLabel.ZIndex = 35
+			statsDetailLabel.Parent = statsCard
 		end
 	end
 
 	if not multiplierDetailLabel or multiplierDetailLabel.Parent ~= resultOverlay then
 		multiplierDetailLabel = resultOverlay:FindFirstChild("MultiplierDetailLabel")
 		if not multiplierDetailLabel then
+			local multCard = Instance.new("Frame")
+			multCard.Name = "MultiplierCard"
+			multCard.Size = UDim2.new(0.92, 0, 0, 36)
+			multCard.Position = UDim2.new(0.04, 0, 0.76, 0)
+			multCard.BackgroundColor3 = Color3.fromRGB(30, 38, 24)
+			multCard.BackgroundTransparency = 0.3
+			multCard.BorderSizePixel = 0
+			multCard.ZIndex = 34
+			multCard.Parent = resultOverlay
+			Instance.new("UICorner", multCard).CornerRadius = UDim.new(0, 10)
+
+			local mcStroke = Instance.new("UIStroke")
+			mcStroke.Color = Color3.fromRGB(255, 215, 0)
+			mcStroke.Thickness = 1.5
+			mcStroke.Transparency = 0.4
+			mcStroke.Parent = multCard
+
 			multiplierDetailLabel = Instance.new("TextLabel")
 			multiplierDetailLabel.Name = "MultiplierDetailLabel"
-			multiplierDetailLabel.Size = UDim2.new(1, -20, 0, 20)
-			multiplierDetailLabel.Position = UDim2.new(0, 10, 0.80, 0)
+			multiplierDetailLabel.Size = UDim2.fromScale(1, 1)
 			multiplierDetailLabel.BackgroundTransparency = 1
 			multiplierDetailLabel.Font = Enum.Font.GothamBold
-			multiplierDetailLabel.TextSize = 12
+			multiplierDetailLabel.TextSize = 13
 			multiplierDetailLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
 			multiplierDetailLabel.Text = ""
-			multiplierDetailLabel.ZIndex = 30
-			multiplierDetailLabel.Parent = resultOverlay
+			multiplierDetailLabel.ZIndex = 35
+			multiplierDetailLabel.Parent = multCard
 		end
 	end
 end
@@ -1052,11 +1306,11 @@ function PianoTilesUI.ShowResult(
 			local okCount = (performance.breakdown and performance.breakdown.good) or performance.goodHits or 0
 			local mCount = (performance.breakdown and performance.breakdown.miss) or performance.mistakes or 0
 
-			statsDetailLabel.Text = string.format("🎯 Akurasi: %.1f%%  •  🔥 Max Combo: %d\n[ P: %d  G: %d  OK: %d  M: %d ]", acc, maxCombo, pCount, gCount, okCount, mCount)
-			statsDetailLabel.Size = UDim2.new(1, -20, 0, 34)
+			statsDetailLabel.Text = string.format("🎯 Akurasi: %.1f%%  •  🔥 Max Combo: %d\n[ P: %d  |  G: %d  |  OK: %d  |  M: %d ]", acc, maxCombo, pCount, gCount, okCount, mCount)
 			statsDetailLabel.Visible = true
 		end
 
+		local multCard = resultOverlay:FindFirstChild("MultiplierCard")
 		if multiplierDetailLabel then
 			if win then
 				local xpMult = performance.xpMultiplier or 1.0
@@ -1064,8 +1318,10 @@ function PianoTilesUI.ShowResult(
 				local luckBonus = performance.performanceLuckBonus or 0
 				multiplierDetailLabel.Text = string.format("⭐ EXP x%.2f  •  💰 Koin x%.2f  •  🍀 +%.1f Luck", xpMult, coinMult, luckBonus)
 				multiplierDetailLabel.Visible = true
+				if multCard then multCard.Visible = true end
 			else
 				multiplierDetailLabel.Visible = false
+				if multCard then multCard.Visible = false end
 			end
 		end
 
@@ -1115,6 +1371,7 @@ function PianoTilesUI.Destroy()
 	comboLabel = nil
 	centerJudgementLabel = nil
 	hitLine = nil
+	perfectZoneGuide = nil
 
 	resultOverlay = nil
 	resultLabel = nil
@@ -1131,6 +1388,8 @@ function PianoTilesUI.Destroy()
 
 	table.clear(columns)
 	table.clear(columnFlashes)
+	table.clear(receptorPads)
+	table.clear(receptorLabels)
 end
 
 return PianoTilesUI

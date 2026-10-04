@@ -21,8 +21,8 @@ Config.COLUMN_COUNT = 4
 -- Nilai ini dipakai sebagai ukuran/logical height tile untuk gameplay.
 -- UI juga membaca nilai yang sama.
 Config.TILE_HEIGHT = 0.16
-Config.HIT_LINE = 0.78
-Config.MISS_LINE = 0.80
+Config.HIT_LINE = 0.72
+Config.MISS_LINE = 0.86
 
 -- ============ TILE IMAGES ============
 Config.TILE_IMAGES = {
@@ -42,7 +42,7 @@ Config.HIT_RATINGS = {
 		flashColor = Color3.fromRGB(255, 220, 80),
 		score = 300,
 		scale = 1.25,
-		window = 0.04,
+		window = 0.05,
 	},
 	GREAT = {
 		text = "GREAT",
@@ -52,7 +52,7 @@ Config.HIT_RATINGS = {
 		flashColor = Color3.fromRGB(0, 210, 255),
 		score = 180,
 		scale = 1.10,
-		window = 0.08,
+		window = 0.09,
 	},
 	GOOD = {
 		text = "GOOD",
@@ -62,7 +62,7 @@ Config.HIT_RATINGS = {
 		flashColor = Color3.fromRGB(70, 220, 110),
 		score = 80,
 		scale = 0.95,
-		window = 0.15,
+		window = 0.18,
 	},
 	MISS = {
 		text = "MISS",
