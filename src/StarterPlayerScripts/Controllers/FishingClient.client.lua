@@ -31,6 +31,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local remote = RemoteContract.GetRemote()
 local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
+local FishingResultUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishingResultUI"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
 local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
@@ -1937,46 +1938,39 @@ if remote then
 
 			clientPity = pityState
 
-			local name = fishData.name or "Ikan"
-			local disp = fishData.displayName or "COMMON"
-			local stars = fishData.stars or "⭐"
-			local catBadge = fishData.categoryBadge or "🐟 IKAN"
-			local weight = fishData.weight or 1.0
-			local coins = rewardInfo.coins or (fishData.coins or 0)
-			local exp = rewardInfo.exp or (fishData.exp or 0)
-			local color = fishData.color or Color3.fromRGB(0, 200, 255)
-
-			local grade = rewardInfo.grade or "A"
-			local gradeTitle = rewardInfo.gradeTitle or ""
-			local xpMult = rewardInfo.xpMultiplier or 1.0
-			local coinMult = rewardInfo.coinMultiplier or 1.0
-			local luckBonus = rewardInfo.performanceLuckBonus or 0
-			local acc = rewardInfo.accuracy or 100
-
-			local extraTag = ""
-			if rewardInfo.wasPity then
-				extraTag = " 🌟 GARANSI PITY DIAKTIFKAN!"
-			elseif rewardInfo.isMutated and rewardInfo.mutationName and rewardInfo.mutationName ~= "" then
-				extraTag = string.format(" 🌠 MUTASI: %s!", rewardInfo.mutationName:upper())
-			elseif rewardInfo.isAllPerfect then
-				extraTag = " 🌟 ALL PERFECT!"
-			elseif rewardInfo.isFullCombo then
-				extraTag = " 🔥 FULL COMBO!"
+			-- Temukan instance tool tangkapan di backpack/karakter pemain
+			local foundTool = nil
+			local allBackpackFish = getFishInBackpack()
+			for _, t in ipairs(allBackpackFish) do
+				if (fishData.itemId and t:GetAttribute("ItemId") == fishData.itemId) or t:GetAttribute("FishName") == fishData.name or t.Name:find(fishData.name or "") then
+					foundTool = t
+					break
+				end
+			end
+			if not foundTool and #allBackpackFish > 0 then
+				foundTool = allBackpackFish[#allBackpackFish]
 			end
 
-			local gradeBadge = string.format(" [Grade %s • %s%s]", grade, gradeTitle, extraTag)
-			local multBadge = string.format(" (EXP x%.2f | Koin x%.2f | +%.1f Luck)", xpMult, coinMult, luckBonus)
+			-- Tampilkan Layar Modal Hasil Tangkapan (FishingResultUI)
+			FishingResultUI.Show(gui, {
+				fishData = fishData,
+				rewardInfo = rewardInfo,
+				pityState = pityState,
+				toolInstance = foundTool,
+			}, function(actionType, targetTool)
+				if actionType == "LOCK" then
+					if targetTool and targetTool.Parent then
+						RemoteContract.Client.ToggleLockItem(targetTool)
+					end
+				elseif actionType == "SELL" then
+					if targetTool and targetTool.Parent then
+						RemoteContract.Client.SellFish(targetTool)
+					end
+				end
+				updateInventoryUI()
+				updatePityUI()
+			end)
 
-			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n%s [%s] %s %s  •  ⚖️ %.1f Kg  •  🎯 %.1f%%\n💰 Nilai: %d Koin  •  ⭐ +%d EXP%s", gradeBadge, catBadge, disp, name, stars, weight, acc, coins, exp, multBadge)
-			showMessage(revealMsg, color, 5.5)
-
-			if rewardInfo.wasPity then
-				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.4)
-			elseif rewardInfo.isMutated then
-				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.2)
-			else
-				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
-			end
 			updateInventoryUI()
 			updatePityUI()
 		elseif action == RemoteContract.S2C.FISH_SOLD then
