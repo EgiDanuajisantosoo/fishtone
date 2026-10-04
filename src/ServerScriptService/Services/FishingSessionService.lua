@@ -20,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local LootTableSystem = require(Shared:WaitForChild("Systems"):WaitForChild("LootTableSystem"))
+local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
@@ -130,18 +131,21 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		activeSessions[oldSessionId] = nil
 	end
 
-	-- 4. Hitung Effective Luck & Roll Rarity di Server
+	-- 4. Hitung Multi-Source Luck & Effective Luck di Server (FISH-019)
 	local pData = PlayerDataService.Get(player)
-	local baseLuck = math.clamp(math.floor((pData.level or 1) / 5), 0, 10)
-	local castLuck = (castQuality == "PERFECT" and 35) or (castQuality == "GREAT" and 15) or 0
-	
 	local zone = ZoneConfig.GetZoneAtPosition(waterPos)
-	local zoneLuck = zone and zone.luckBonus or 0
 
-	local totalLuck = baseLuck + (rodLuck or 5) + zoneLuck
-	local effectiveLuck = FishingRaritySystem.CalculateEffectiveLuck(totalLuck, castLuck, 0, 0)
+	local luckAudit = LuckFormula.CalculateBreakdown({
+		level = pData.level or 1,
+		rod = rodLuck or 5,
+		castQuality = castQuality,
+		performance = pData.prevPerformanceLuckBonus or 0,
+		zone = zone and zone.luckBonus or 0,
+		buffs = 0,
+	})
+
+	local effectiveLuck = luckAudit.effectiveLuck
 	local rolledRarity, wasPity = FishingRaritySystem.EvaluateWithPity(effectiveLuck, pData.level or 1, pData.pity or {})
-
 	local rolledCategory = LootTableSystem.RollCategory(effectiveLuck, zone and zone.id)
 
 	-- 5. Hitung Durasi Menunggu Ikan Menyambar
@@ -170,6 +174,11 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		wasPity = wasPity,
 		zoneId = zone and zone.id or "MELODY_BAY",
 		lootCategory = rolledCategory,
+		effectiveLuck = effectiveLuck,
+		rawLuck = luckAudit.rawLuck,
+		luckMultiplier = luckAudit.multiplier,
+		luckTitle = luckAudit.title,
+		luckAudit = luckAudit,
 		status = "Active",
 	}
 
@@ -228,13 +237,14 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	local pData = PlayerDataService.Get(player)
 	local performance = PerformanceCalculator.Calculate(sanitizedMetrics)
 
-	-- 6. Generate Data Loot Berdasarkan Kategori, Rarity & Skor Performa (FISH-018)
+	-- 6. Generate Data Loot Berdasarkan Kategori, Rarity, Skor Performa & Effective Luck (FISH-018 / FISH-019)
 	local lootData = LootTableSystem.GenerateLoot(
 		session.lootCategory or "FISH",
 		session.rarity,
 		pData.level or 1,
 		performance.performanceScore,
-		session.zoneId
+		session.zoneId,
+		session.effectiveLuck or 0
 	)
 
 	-- 7. Terapkan Pengganda Performa (XP & Koin Multipliers)
@@ -249,9 +259,12 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	lootData.grade = performance.grade
 	lootData.accuracy = performance.accuracy
 	lootData.performanceLuckBonus = performance.performanceLuckBonus
+	lootData.effectiveLuck = session.effectiveLuck or 0
+	lootData.luckTitle = session.luckTitle or "🌱 Netral"
 
-	-- 8. Mutasi Profil Pemain (Pity, EXP, Jurnal, Statistik)
+	-- 8. Mutasi Profil Pemain (Pity, EXP, Jurnal, Statistik & Streak Luck)
 	pData.pity = PlayerDataService.UpdatePity(player, session.rarity)
+	pData.prevPerformanceLuckBonus = performance.performanceLuckBonus or 0
 	PlayerDataService.AddFish(player, 1)
 	PlayerDataService.AddExp(player, finalExp)
 	PlayerDataService.RecordJournal(player, lootData.name, lootData.weight)
@@ -284,6 +297,13 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		xpMultiplier = performance.xpMultiplier,
 		coinMultiplier = performance.coinMultiplier,
 		performanceLuckBonus = performance.performanceLuckBonus,
+		effectiveLuck = session.effectiveLuck or 0,
+		rawLuck = session.rawLuck or 0,
+		luckTitle = session.luckTitle or "🌱 Netral",
+		isMutated = lootData.isMutated == true,
+		mutationType = lootData.mutationType or "NONE",
+		mutationName = lootData.mutationName or "",
+		mutationPrefix = lootData.mutationPrefix or "",
 		isFullCombo = performance.isFullCombo,
 		isAllPerfect = performance.isAllPerfect,
 		wasPity = session.wasPity,

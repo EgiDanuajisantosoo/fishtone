@@ -1193,11 +1193,15 @@ local function updateInventoryUI()
 		cardStroke.Transparency = 0.35
 		cardStroke.Parent = card
 
+		local isMutated = tool:GetAttribute("IsMutated") == true
+		local mutPrefix = tool:GetAttribute("MutationPrefix") or ""
+		local mutTag = isMutated and string.format(" %s", mutPrefix) or ""
+
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.Size = UDim2.new(0.62, 0, 0, 22)
 		nameLabel.Position = UDim2.new(0, 14, 0, 8)
 		nameLabel.BackgroundTransparency = 1
-		nameLabel.Text = string.format("%s [%s] %s %s", catBadge, dispName, fishName, stars)
+		nameLabel.Text = string.format("%s [%s]%s %s %s", catBadge, dispName, mutTag, fishName, stars)
 		nameLabel.TextColor3 = color
 		nameLabel.Font = Enum.Font.GothamBlack
 		nameLabel.TextSize = 13
@@ -1591,7 +1595,9 @@ if remote then
 			local acc = rewardInfo.accuracy or 100
 
 			local extraTag = ""
-			if rewardInfo.isAllPerfect then
+			if rewardInfo.isMutated and rewardInfo.mutationName and rewardInfo.mutationName ~= "" then
+				extraTag = string.format(" 🌠 MUTASI: %s!", rewardInfo.mutationName:upper())
+			elseif rewardInfo.isAllPerfect then
 				extraTag = " 🌟 ALL PERFECT!"
 			elseif rewardInfo.isFullCombo then
 				extraTag = " 🔥 FULL COMBO!"
@@ -1603,7 +1609,11 @@ if remote then
 			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n%s [%s] %s %s  •  ⚖️ %.1f Kg  •  🎯 %.1f%%\n💰 Nilai: %d Koin  •  ⭐ +%d EXP%s", gradeBadge, catBadge, disp, name, stars, weight, acc, coins, exp, multBadge)
 			showMessage(revealMsg, color, 5.5)
 
-			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+			if rewardInfo.isMutated then
+				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.2)
+			else
+				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+			end
 			updateInventoryUI()
 		elseif action == RemoteContract.S2C.FISH_SOLD then
 			local fishName = arg1 or "Ikan"

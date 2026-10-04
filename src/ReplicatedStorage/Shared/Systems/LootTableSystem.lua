@@ -14,19 +14,20 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local LootDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("LootDefinitions"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
 
 local LootTableSystem = {}
 
--- ============ 1. HITUNG DISTRIBUSI KATEGORI LOOT ============
+-- ============ 1. HITUNG DISTRIBUSI KATEGORI LOOT (FISH-019) ============
 function LootTableSystem.GetCategoryChances(luck, zoneId)
-	luck = math.clamp(tonumber(luck) or 0, 0, 100)
+	local effLuck = LuckFormula.CalculateEffectiveLuck(luck)
 	local cats = LootDefinitions.CATEGORIES
 
-	-- Skalasi bobot dengan stat Luck
+	-- Skalasi bobot dengan stat Effective Luck
 	local fishWeight = cats.FISH.baseWeight
-	local treasureWeight = cats.TREASURE.baseWeight * (1 + (luck / 35))
-	local artifactWeight = cats.ARTIFACT.baseWeight * (1 + (luck / 45))
-	local junkWeight = cats.JUNK.baseWeight * (1 / (1 + (luck / 20)))
+	local treasureWeight = cats.TREASURE.baseWeight * (1 + (effLuck / 30))
+	local artifactWeight = cats.ARTIFACT.baseWeight * (1 + (effLuck / 40))
+	local junkWeight = cats.JUNK.baseWeight * (1 / (1 + (effLuck / 18)))
 
 	-- Penyesuaian zona
 	if zoneId == "SUMMIT_ABYSS" then
@@ -76,15 +77,16 @@ function LootTableSystem.RollCategory(luck, zoneId)
 end
 
 -- ============ 3. GENERATOR LOOT LENGKAP ============
-function LootTableSystem.GenerateLoot(category, rarity, playerLevel, performanceScore, zoneId)
+function LootTableSystem.GenerateLoot(category, rarity, playerLevel, performanceScore, zoneId, effectiveLuck)
 	category = tostring(category or "FISH"):upper()
 	rarity = tostring(rarity or "COMMON"):upper():gsub("%s+", "_")
 	playerLevel = math.max(1, tonumber(playerLevel) or 1)
 	performanceScore = math.clamp(tonumber(performanceScore) or 80, 0, 100)
+	effectiveLuck = math.max(0, tonumber(effectiveLuck) or 0)
 
 	-- KATEGORI 1: IKAN (FISH)
 	if category == "FISH" then
-		local fishData = FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId)
+		local fishData = FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId, effectiveLuck)
 		fishData.itemType = "FISH"
 		fishData.categoryName = "Ikan Samudra"
 		fishData.categoryBadge = "🐟 IKAN"

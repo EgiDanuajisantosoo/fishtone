@@ -15,6 +15,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("FishDefinitions"))
+local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
 
 local FishingRaritySystem = {}
 
@@ -239,16 +240,14 @@ function FishingRaritySystem.GetLevelFromTotalExp(totalExp)
 	return level, currentLevelExp, nextLevelExp, percent
 end
 
--- ============ 2. FORMULA EFFECTIVE LUCK & DIMINISHING RETURNS ============
+-- ============ 2. FORMULA EFFECTIVE LUCK & DIMINISHING RETURNS (FISH-019) ============
 function FishingRaritySystem.CalculateEffectiveLuck(baseLuck, castLuck, perfLuck, instLuck)
 	local raw = (tonumber(baseLuck) or 0) + (tonumber(castLuck) or 0) + (tonumber(perfLuck) or 0) + (tonumber(instLuck) or 0)
-	return math.clamp(raw, FishingRaritySystem.CONFIG.LUCK.MIN, FishingRaritySystem.CONFIG.LUCK.MAX)
+	return LuckFormula.CalculateEffectiveLuck(raw)
 end
 
 function FishingRaritySystem.GetLuckMultiplier(effectiveLuck)
-	effectiveLuck = math.clamp(tonumber(effectiveLuck) or 0, 0, 100)
-	-- Diminishing Return: 1 + (Luck / (Luck + 100)) -> Range: 1.00x - 1.50x
-	return 1 + (effectiveLuck / (effectiveLuck + 100))
+	return LuckFormula.GetLuckMultiplier(effectiveLuck)
 end
 
 -- ============ 3. SOFT LEVEL GATING MULTIPLIER ============
@@ -279,11 +278,11 @@ end
 
 -- ============ 4. HITUNG DISTRIBUSI PELUANG NYATA ============
 function FishingRaritySystem.GetRarityChances(luck, level, pityState)
-	luck = math.clamp(tonumber(luck) or 0, 0, 100)
+	local effLuck = LuckFormula.CalculateEffectiveLuck(luck)
 	level = math.max(1, tonumber(level) or 1)
 	pityState = pityState or {}
 
-	local luckMult = FishingRaritySystem.GetLuckMultiplier(luck)
+	local luckMult = LuckFormula.GetLuckMultiplier(effLuck)
 	local baseW = FishingRaritySystem.CONFIG.RARITY_BASE_WEIGHTS
 
 	-- Soft Pity Multipliers
@@ -307,12 +306,12 @@ function FishingRaritySystem.GetRarityChances(luck, level, pityState)
 	end
 
 	local weights = {
-		SPECIAL = baseW.SPECIAL * (luckMult ^ 2.5) * FishingRaritySystem.GetLevelMultiplier(level, "SPECIAL") * spePityMult,
-		MYTHIC = baseW.MYTHIC * (luckMult ^ 2.0) * FishingRaritySystem.GetLevelMultiplier(level, "MYTHIC") * mytPityMult,
-		LEGENDARY = baseW.LEGENDARY * (luckMult ^ 1.6) * FishingRaritySystem.GetLevelMultiplier(level, "LEGENDARY") * legPityMult,
-		SUPER_RARE = baseW.SUPER_RARE * (luckMult ^ 1.2) * FishingRaritySystem.GetLevelMultiplier(level, "SUPER_RARE"),
-		RARE = baseW.RARE * (luckMult ^ 0.8),
-		COMMON = baseW.COMMON * math.max(0.3, 2 - luckMult),
+		SPECIAL = baseW.SPECIAL * (luckMult ^ 3.2) * FishingRaritySystem.GetLevelMultiplier(level, "SPECIAL") * spePityMult,
+		MYTHIC = baseW.MYTHIC * (luckMult ^ 2.4) * FishingRaritySystem.GetLevelMultiplier(level, "MYTHIC") * mytPityMult,
+		LEGENDARY = baseW.LEGENDARY * (luckMult ^ 1.8) * FishingRaritySystem.GetLevelMultiplier(level, "LEGENDARY") * legPityMult,
+		SUPER_RARE = baseW.SUPER_RARE * (luckMult ^ 1.3) * FishingRaritySystem.GetLevelMultiplier(level, "SUPER_RARE"),
+		RARE = baseW.RARE * (luckMult ^ 0.85),
+		COMMON = baseW.COMMON * math.max(0.2, 2.0 - (luckMult ^ 1.1)),
 	}
 
 	local totalWeight = 0
@@ -393,19 +392,21 @@ function FishingRaritySystem.UpdatePityOnCatch(pityState, obtainedRarity)
 	return pityState
 end
 
--- ============ 6. GENERATOR IKAN DENGAN STATS LENGKAP ============
-function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId)
+-- ============ 6. GENERATOR IKAN DENGAN STATS LENGKAP & MUTASI (FISH-019) ============
+function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId, effectiveLuck)
 	local tierKey = tostring(rarity or "COMMON"):upper():gsub("%s+", "_")
 	local template = FishDefinitions.GetRandomFish(tierKey, zoneId)
 	local tierData = FishingRaritySystem.GetTierData(tierKey)
 
 	playerLevel = math.max(1, tonumber(playerLevel) or 1)
 	performanceScore = math.clamp(tonumber(performanceScore) or 80, 0, 100)
+	effectiveLuck = math.max(0, tonumber(effectiveLuck) or 0)
 
-	-- 1. Bobot Skewed (Pangkat 1.8)
+	-- 1. Bobot Skewed (Pangkat 1.8) dengan sedikit dorongan dari Luck
 	local minW = template.minWeight or 0.5
 	local maxW = template.maxWeight or 2.0
-	local normWeight = (math.random()) ^ FishingRaritySystem.CONFIG.ECONOMY.WEIGHT_POW
+	local luckWeightBonus = math.clamp(effectiveLuck / 400, 0, 0.25)
+	local normWeight = math.clamp(((math.random()) ^ FishingRaritySystem.CONFIG.ECONOMY.WEIGHT_POW) + luckWeightBonus, 0, 1)
 	local weight = minW + (normWeight * (maxW - minW))
 	weight = math.floor(weight * 10) / 10
 
@@ -428,23 +429,46 @@ function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore,
 	local weightExpMult = 0.85 + (0.30 * normWeight)
 	local exp = math.floor(baseExp * weightExpMult * perfMult)
 
+	-- 4. Roll Mutasi Ikan Berdasarkan Stat Luck (FISH-019)
+	local mutation = LuckFormula.RollMutation(effectiveLuck)
+	local fishName = template.name
+	local scale = template.scale or 1.0
+	local color = template.color or tierData.color
+
+	if mutation.isMutated then
+		fishName = mutation.prefix .. " " .. template.name
+		coins = math.floor(coins * mutation.coinMultiplier)
+		exp = math.floor(exp * mutation.expMultiplier)
+		weight = math.floor(weight * mutation.weightMultiplier * 10) / 10
+		scale = scale * mutation.scaleMultiplier
+		if mutation.color then
+			color = mutation.color
+		end
+	end
+
 	return {
 		id = template.id or ("FISH_" .. string.gsub(template.name:upper(), "%s+", "_")),
-		name = template.name,
+		name = fishName,
+		baseName = template.name,
 		description = template.description or "Ikan air tawar/laut yang eksotis.",
 		rarity = tierKey,
 		displayName = tierData.displayName,
 		stars = tierData.stars,
-		color = template.color or tierData.color,
+		color = color,
 		badgeColor = tierData.badgeColor,
 		targetNotes = tierData.targetNotes,
 		weight = weight,
 		coins = coins,
 		exp = exp,
-		scale = template.scale or 1.0,
+		scale = scale,
 		favoriteZone = template.favoriteZone,
 		normWeight = normWeight,
 		performanceMultiplier = perfMult,
+		isMutated = mutation.isMutated,
+		mutationType = mutation.mutationType,
+		mutationName = mutation.name,
+		mutationPrefix = mutation.prefix,
+		mutationGlow = mutation.glow,
 	}
 end
 

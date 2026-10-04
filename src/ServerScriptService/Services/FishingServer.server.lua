@@ -92,9 +92,15 @@ local function createItemTool(lootData)
 	tool:SetAttribute("Grade", grade)
 	tool:SetAttribute("Accuracy", acc)
 	tool:SetAttribute("PerformanceLuck", (lootData.performance and lootData.performance.performanceLuckBonus) or lootData.performanceLuckBonus or 0)
+	tool:SetAttribute("EffectiveLuck", lootData.effectiveLuck or 0)
+	tool:SetAttribute("LuckTitle", lootData.luckTitle or "")
 	tool:SetAttribute("FavoriteZone", lootData.favoriteZone or "")
+	tool:SetAttribute("IsMutated", lootData.isMutated == true)
+	tool:SetAttribute("MutationType", lootData.mutationType or "NONE")
+	tool:SetAttribute("MutationName", lootData.mutationName or "")
+	tool:SetAttribute("MutationPrefix", lootData.mutationPrefix or "")
 
-	local scale = math.clamp(lootData.scale or 1.0, 0.6, 3.0)
+	local scale = math.clamp(lootData.scale or 1.0, 0.6, 3.5)
 
 	-- ============ GENERASI 3D MODEL BERDASARKAN KATEGORI ============
 	if itemType == "TREASURE" then
