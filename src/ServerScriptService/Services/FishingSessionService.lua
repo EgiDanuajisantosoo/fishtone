@@ -31,7 +31,7 @@ local FishingSessionService = {}
 -- ============ CONFIGURATION ============
 local MAX_CAST_DISTANCE = 150 -- Jarak maksimal (studs) antara player dan target air
 local MIN_CAST_DISTANCE = 1   -- Jarak minimal (studs)
-local SESSION_TTL = 45        -- Waktu kedaluwarsa sesi (detik) setelah ikan menyambar
+local BASE_SESSION_TTL  = 90  -- Waktu kedaluwarsa sesi dasar (detik) setelah ikan menyambar
 
 -- ============ ACTIVE SESSIONS STORE ============
 local activeSessions = {} -- [sessionId] = sessionData
@@ -64,22 +64,28 @@ function FishingSessionService.SanitizeAndValidateMetrics(rawMetrics, session, n
 		return nil, string.format("Durasi minigame terlalu cepat (%.2fs), terdeteksi instant catch exploit", minigameElapsed)
 	end
 
-	-- 2. Bersihkan dan batasi seluruh parameter numerik
+	-- 2. Bersihkan dan batasi seluruh parameter numerik (dukung format flat maupun breakdown)
+	local breakdown = (typeof(rawMetrics.breakdown) == "table") and rawMetrics.breakdown or {}
+	local rawPerfect = rawMetrics.perfectHits or breakdown.perfect
+	local rawGreat = rawMetrics.greatHits or breakdown.great
+	local rawGood = rawMetrics.goodHits or breakdown.good
+	local rawMistakes = rawMetrics.mistakes or breakdown.miss
+
 	local won = rawMetrics.won == true or (rawMetrics.won ~= false and (tonumber(rawMetrics.score) or 0) > 0)
-	local perfectHits = cleanNumber(rawMetrics.perfectHits, 0, expectedTargetNotes * 2, 0)
-	local greatHits = cleanNumber(rawMetrics.greatHits, 0, expectedTargetNotes * 2, 0)
-	local goodHits = cleanNumber(rawMetrics.goodHits, 0, expectedTargetNotes * 2, 0)
-	local mistakes = cleanNumber(rawMetrics.mistakes, 0, 999, 0)
+	local perfectHits = cleanNumber(rawPerfect, 0, expectedTargetNotes * 3, 0)
+	local greatHits = cleanNumber(rawGreat, 0, expectedTargetNotes * 3, 0)
+	local goodHits = cleanNumber(rawGood, 0, expectedTargetNotes * 3, 0)
+	local mistakes = cleanNumber(rawMistakes, 0, 999, 0)
 
 	local totalHits = perfectHits + greatHits + goodHits
-	if totalHits == 0 and rawMetrics.score then
-		totalHits = cleanNumber(rawMetrics.score, 0, expectedTargetNotes * 2, 0)
+	if totalHits == 0 and (rawMetrics.score or breakdown.totalHits or rawMetrics.hits) then
+		totalHits = cleanNumber(rawMetrics.score or breakdown.totalHits or rawMetrics.hits, 0, expectedTargetNotes * 3, 0)
 		perfectHits = math.floor(totalHits * 0.6)
 		greatHits = math.floor(totalHits * 0.3)
 		goodHits = totalHits - perfectHits - greatHits
 	end
 
-	local maxCombo = cleanNumber(rawMetrics.maxCombo, 0, math.max(1, totalHits), 0)
+	local maxCombo = cleanNumber(rawMetrics.maxCombo or breakdown.maxCombo, 0, math.max(1, totalHits), 0)
 
 	-- 3. Invariant Validasi: Tidak boleh menang dengan 0 total hit
 	if won and totalHits <= 0 then
@@ -96,7 +102,7 @@ function FishingSessionService.SanitizeAndValidateMetrics(rawMetrics, session, n
 		mistakes = mistakes,
 		maxCombo = maxCombo,
 		targetNotes = expectedTargetNotes,
-		duration = math.max(0.5, tonumber(rawMetrics.duration) or minigameElapsed),
+		duration = math.max(0.5, tonumber(rawMetrics.duration or breakdown.duration) or minigameElapsed),
 	}
 
 	return sanitized, nil
@@ -160,7 +166,13 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		waitDuration = math.random(14, 20) / 10
 	end
 
-	-- 6. Bangun Session ID Unik
+	-- 6. Hitung TTL Sesi Dinamis Berdasarkan Target Notes Rarity
+	local tierData = FishingRaritySystem.GetTierData(rolledRarity)
+	local targetNotes = tierData.targetNotes or 30
+	-- Beri waktu leluasa: minimal 120 detik, atau (targetNotes * 1.5 detik) + 45 detik
+	local sessionTTL = math.max(BASE_SESSION_TTL, math.ceil(targetNotes * 1.5) + 45)
+
+	-- 7. Bangun Session ID Unik
 	local sessionId = string.format("%d_%d_%d", player.UserId, os.time(), math.random(1000, 9999))
 	local now = os.clock()
 
@@ -173,7 +185,7 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		castPower = castPower,
 		startTime = now,
 		waitDuration = waitDuration,
-		expireAt = now + waitDuration + SESSION_TTL,
+		expireAt = now + waitDuration + sessionTTL,
 		rarity = rolledRarity,
 		wasPity = wasPity,
 		zoneId = zone and zone.id or "MELODY_BAY",
