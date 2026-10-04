@@ -1,39 +1,10 @@
 --[[
     PianoTilesUI
+    FISH!TUNE — Piano Tiles Minigame UI & Visual Hit Feedback (FISH-013)
 
-    UI Piano Tiles menggunakan GUI yang sudah dibuat
-    secara manual di StarterGui.
-
-    Struktur yang diharapkan:
-
-    StarterGui
-    └── PianoTilesGui
-        └── ArenaContainer
-            ├── Header
-            │   ├── CastBonusLabel
-            │   ├── SongLabel
-            │   └── ComboLabel
-            │
-            ├── ArenaFrame
-            │   ├── Background
-            │   ├── Column1
-            │   ├── Column2
-            │   ├── Column3
-            │   └── Column4
-            │
-            ├── KeybindBG
-            ├── A
-            ├── W
-            ├── S
-            ├── D
-            ├── HitLine
-            │
-            ├── ProgressBar
-            │   ├── Background
-            │   └── Fill
-            │
-            └── ResultOverlay
-                └── ResultLabel
+    Menyediakan rendering antarmuka Piano Tiles, visual timing feedback
+    (PERFECT, GREAT, GOOD, MISS), floating judgement badges, dynamic column flashes,
+    hit line ripples, serta layar hasil akhir dengan grade & multiplier.
 ]]
 
 local Players = game:GetService("Players")
@@ -61,6 +32,8 @@ local arenaFrame
 local castBonusLabel
 local songLabel
 local comboLabel
+local centerJudgementLabel
+local hitLine
 
 local resultOverlay
 local resultLabel
@@ -84,7 +57,6 @@ local columnFlashes = {}
 
 local function getPlayerGui()
 	local player = Players.LocalPlayer
-
 	if not player then
 		return nil
 	end
@@ -108,10 +80,10 @@ local function buildDynamicGui(playerGui)
 	-- Arena Container
 	local container = Instance.new("Frame")
 	container.Name = "ArenaContainer"
-	container.Size = UDim2.new(0, 360, 0, 490)
-	container.Position = UDim2.new(0.5, -180, 0.5, -245)
+	container.Size = UDim2.new(0, 360, 0, 500)
+	container.Position = UDim2.new(0.5, -180, 0.5, -250)
 	container.BackgroundColor3 = Color3.fromRGB(15, 20, 32)
-	container.BackgroundTransparency = 0.25
+	container.BackgroundTransparency = 0.20
 	container.BorderSizePixel = 0
 	container.Parent = screenGui
 	Instance.new("UICorner", container).CornerRadius = UDim.new(0, 16)
@@ -125,7 +97,7 @@ local function buildDynamicGui(playerGui)
 	-- Header
 	local header = Instance.new("Frame")
 	header.Name = "Header"
-	header.Size = UDim2.new(1, 0, 0, 52)
+	header.Size = UDim2.new(1, 0, 0, 54)
 	header.BackgroundTransparency = 1
 	header.Parent = container
 
@@ -155,20 +127,20 @@ local function buildDynamicGui(playerGui)
 
 	local combo = Instance.new("TextLabel")
 	combo.Name = "ComboLabel"
-	combo.Size = UDim2.new(1, 0, 0, 20)
+	combo.Size = UDim2.new(1, 0, 0, 22)
 	combo.Position = UDim2.new(0, 0, 0, 28)
 	combo.BackgroundTransparency = 1
 	combo.Text = "COMBO x0"
 	combo.TextColor3 = Color3.fromRGB(255, 215, 0)
 	combo.Font = Enum.Font.GothamBlack
-	combo.TextSize = 14
+	combo.TextSize = 15
 	combo.Visible = false
 	combo.Parent = header
 
 	-- Arena Frame
 	local arena = Instance.new("Frame")
 	arena.Name = "ArenaFrame"
-	arena.Size = UDim2.new(0.92, 0, 0.68, 0)
+	arena.Size = UDim2.new(0.92, 0, 0.67, 0)
 	arena.Position = UDim2.new(0.04, 0, 0, 56)
 	arena.BackgroundColor3 = Color3.fromRGB(10, 14, 22)
 	arena.BackgroundTransparency = 0.4
@@ -190,14 +162,14 @@ local function buildDynamicGui(playerGui)
 	end
 
 	-- Keybind Guide Label bar
-	local keyNames = { "D", "F", "J", "K" }
+	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
 	for i = 1, Config.COLUMN_COUNT do
 		local keyLbl = Instance.new("TextLabel")
 		keyLbl.Name = "Key_" .. i
 		keyLbl.Size = UDim2.new(1 / Config.COLUMN_COUNT, 0, 0, 24)
-		keyLbl.Position = UDim2.new((i - 1) / Config.COLUMN_COUNT, 0, Config.HIT_LINE, 0)
+		keyLbl.Position = UDim2.new((i - 1) / Config.COLUMN_COUNT, 0, Config.HIT_LINE - 0.02, 0)
 		keyLbl.BackgroundTransparency = 1
-		keyLbl.Text = "[" .. (keyNames[i] or tostring(i)) .. "]"
+		keyLbl.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
 		keyLbl.TextColor3 = Color3.fromRGB(180, 210, 240)
 		keyLbl.Font = Enum.Font.GothamBold
 		keyLbl.TextSize = 12
@@ -205,13 +177,40 @@ local function buildDynamicGui(playerGui)
 	end
 
 	-- HitLine
-	local hitLine = Instance.new("Frame")
-	hitLine.Name = "HitLine"
-	hitLine.Size = UDim2.new(1, 0, 0, 3)
-	hitLine.Position = UDim2.new(0, 0, Config.HIT_LINE + 0.05, 0)
-	hitLine.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
-	hitLine.BorderSizePixel = 0
-	hitLine.Parent = arena
+	local hLine = Instance.new("Frame")
+	hLine.Name = "HitLine"
+	hLine.Size = UDim2.new(1, 0, 0, 4)
+	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE + 0.05, 0)
+	hLine.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+	hLine.BorderSizePixel = 0
+	hLine.ZIndex = 12
+	hLine.Parent = arena
+
+	local hLineStroke = Instance.new("UIStroke")
+	hLineStroke.Color = Color3.fromRGB(150, 240, 255)
+	hLineStroke.Thickness = 1.5
+	hLineStroke.Transparency = 0.4
+	hLineStroke.Parent = hLine
+
+	-- Center Judgement Feedback Label (Large animated timing banner)
+	local centerJudge = Instance.new("TextLabel")
+	centerJudge.Name = "CenterJudgementLabel"
+	centerJudge.Size = UDim2.new(0.9, 0, 0, 36)
+	centerJudge.Position = UDim2.new(0.5, 0, Config.HIT_LINE - 0.16, 0)
+	centerJudge.AnchorPoint = Vector2.new(0.5, 0.5)
+	centerJudge.BackgroundTransparency = 1
+	centerJudge.Font = Enum.Font.GothamBlack
+	centerJudge.TextSize = 22
+	centerJudge.TextColor3 = Color3.fromRGB(255, 215, 0)
+	centerJudge.Text = ""
+	centerJudge.ZIndex = 35
+	centerJudge.Parent = arena
+
+	local judgeStroke = Instance.new("UIStroke")
+	judgeStroke.Thickness = 2
+	judgeStroke.Color = Color3.fromRGB(0, 0, 0)
+	judgeStroke.Transparency = 0.3
+	judgeStroke.Parent = centerJudge
 
 	-- Progress Bar Container
 	local pBar = Instance.new("Frame")
@@ -234,11 +233,11 @@ local function buildDynamicGui(playerGui)
 
 	local fishIcon = Instance.new("TextLabel")
 	fishIcon.Name = "Fish"
-	fishIcon.Size = UDim2.new(0, 20, 0, 20)
-	fishIcon.Position = UDim2.new(0.1, -10, 0.5, -10)
+	fishIcon.Size = UDim2.new(0, 22, 0, 22)
+	fishIcon.Position = UDim2.new(0.1, -11, 0.5, -11)
 	fishIcon.BackgroundTransparency = 1
 	fishIcon.Text = "🐟"
-	fishIcon.TextSize = 14
+	fishIcon.TextSize = 15
 	fishIcon.Parent = pBar
 
 	local pLabel = Instance.new("TextLabel")
@@ -284,9 +283,7 @@ end
 --==================================================
 
 function PianoTilesUI.Create()
-
 	local playerGui = getPlayerGui()
-
 	if not playerGui then
 		warn("[PianoTilesUI] PlayerGui tidak ditemukan.")
 		return false
@@ -304,64 +301,70 @@ function PianoTilesUI.Create()
 	end
 
 	arenaContainer = gui:FindFirstChild("ArenaContainer") or gui:WaitForChild("ArenaContainer", 3)
-
 	if not arenaContainer then
 		warn("[PianoTilesUI] ArenaContainer tidak ditemukan.")
 		return false
 	end
 
 	arenaFrame = arenaContainer:FindFirstChild("ArenaFrame") or arenaContainer:WaitForChild("ArenaFrame", 3)
-
 	if not arenaFrame then
 		warn("[PianoTilesUI] ArenaFrame tidak ditemukan.")
 		return false
 	end
 
 	--==================================================
-	-- COLUMNS
+	-- HITLINE & JUDGEMENT LABELS
 	--==================================================
+	hitLine = arenaFrame:FindFirstChild("HitLine")
 
+	centerJudgementLabel = arenaFrame:FindFirstChild("CenterJudgementLabel")
+	if not centerJudgementLabel then
+		centerJudgementLabel = Instance.new("TextLabel")
+		centerJudgementLabel.Name = "CenterJudgementLabel"
+		centerJudgementLabel.Size = UDim2.new(0.9, 0, 0, 36)
+		centerJudgementLabel.Position = UDim2.new(0.5, 0, Config.HIT_LINE - 0.16, 0)
+		centerJudgementLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+		centerJudgementLabel.BackgroundTransparency = 1
+		centerJudgementLabel.Font = Enum.Font.GothamBlack
+		centerJudgementLabel.TextSize = 22
+		centerJudgementLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		centerJudgementLabel.Text = ""
+		centerJudgementLabel.ZIndex = 35
+		centerJudgementLabel.Parent = arenaFrame
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 2
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Transparency = 0.3
+		stroke.Parent = centerJudgementLabel
+	end
+
+	--==================================================
+	-- COLUMNS & FLASHES
+	--==================================================
 	table.clear(columns)
 	table.clear(columnFlashes)
 
 	for i = 1, Config.COLUMN_COUNT do
-
-		local column = arenaFrame:WaitForChild(
-			"Column" .. i,
-			5
-		)
-
+		local column = arenaFrame:WaitForChild("Column" .. i, 5)
 		if not column then
-			warn(
-				"[PianoTilesUI] Column"
-					.. i
-					.. " tidak ditemukan."
-			)
-
+			warn("[PianoTilesUI] Column" .. i .. " tidak ditemukan.")
 			return false
 		end
 
 		columns[i] = column
 
-		-- Flash merah dibuat oleh script karena sifatnya effect
-		local flash = column:FindFirstChild("MissFlash")
-
+		-- Flash Frame (mendukung warna Gold, Cyan, Green, Red)
+		local flash = column:FindFirstChild("ColumnFlash") or column:FindFirstChild("MissFlash")
 		if not flash then
-
 			flash = Instance.new("Frame")
-
-			flash.Name = "MissFlash"
+			flash.Name = "ColumnFlash"
 			flash.Size = UDim2.fromScale(1, 1)
-
-			flash.BackgroundColor3 =
-				Color3.fromRGB(255, 40, 40)
-
-			flash.BackgroundTransparency = 0.6
+			flash.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			flash.BackgroundTransparency = 1
 			flash.BorderSizePixel = 0
-
 			flash.Visible = false
 			flash.ZIndex = 20
-
 			flash.Parent = column
 		end
 
@@ -371,93 +374,43 @@ function PianoTilesUI.Create()
 	--==================================================
 	-- HEADER
 	--==================================================
-
-	local header = arenaContainer:WaitForChild(
-		"Header",
-		5
-	)
-
+	local header = arenaContainer:WaitForChild("Header", 5)
 	if header then
-
-		castBonusLabel = header:WaitForChild(
-			"CastBonusLabel",
-			5
-		)
-
-		songLabel = header:WaitForChild(
-			"SongLabel",
-			5
-		)
-
-		comboLabel = header:WaitForChild(
-			"ComboLabel",
-			5
-		)
-
+		castBonusLabel = header:WaitForChild("CastBonusLabel", 5)
+		songLabel = header:WaitForChild("SongLabel", 5)
+		comboLabel = header:WaitForChild("ComboLabel", 5)
 	else
-
 		warn("[PianoTilesUI] Header tidak ditemukan.")
-
 	end
 
 	--==================================================
 	-- PROGRESS
 	--==================================================
-
-	progressContainer = arenaContainer:WaitForChild(
-		"ProgressBar",
-		5
-	)
-
+	progressContainer = arenaContainer:WaitForChild("ProgressBar", 5)
 	if progressContainer then
-
-		progressFill =
-			progressContainer:WaitForChild(
-				"Fill",
-				5
-			)
-
+		progressFill = progressContainer:WaitForChild("Fill", 5)
+		fish = progressContainer:FindFirstChild("Fish")
+		progressGlow = progressContainer:FindFirstChild("UIStroke")
 	end
 
-	-- ProgressLabel sekarang langsung anak ArenaContainer
-	progressLabel =
-		arenaContainer:WaitForChild(
-			"ProgressLabel",
-			5
-		)
-	
-	progressGlow =
-		progressContainer:FindFirstChild(
-			"UIStroke"
-		)
-
-	fish = progressContainer:WaitForChild("Fish", 5)
-	
+	progressLabel = arenaContainer:WaitForChild("ProgressLabel", 5)
 
 	--==================================================
 	-- RESULT
 	--==================================================
-
-	resultOverlay = arenaContainer:WaitForChild(
-		"ResultOverlay",
-		5
-	)
-
+	resultOverlay = arenaContainer:WaitForChild("ResultOverlay", 5)
 	if resultOverlay then
-
-		resultLabel =
-			resultOverlay:WaitForChild(
-				"ResultLabel",
-				5
-			)
-
+		resultLabel = resultOverlay:WaitForChild("ResultLabel", 5)
 	end
 
 	--==================================================
 	-- INITIAL STATE
 	--==================================================
-
 	gui.Enabled = false
+
+	if centerJudgementLabel then
+		centerJudgementLabel.Text = ""
+	end
 
 	if comboLabel then
 		comboLabel.Visible = false
@@ -519,294 +472,417 @@ end
 --==================================================
 
 function PianoTilesUI.SetEnabled(enabled)
-
 	if gui then
 		gui.Enabled = enabled
 	end
-
 end
 
 --==================================================
--- TILE
+-- TILE CREATION & MOVEMENT
 --==================================================
 
 function PianoTilesUI.CreateTile(column, y)
-
 	local parent = columns[column]
-
 	if not parent then
 		return nil
 	end
 
 	local tile = Instance.new("ImageLabel")
-
 	tile.Name = "Tile"
-
-	tile.Size = UDim2.new(
-		0.88,
-		0,
-		Config.TILE_HEIGHT,
-		0
-	)
-
-	tile.Position = UDim2.new(
-		0.06,
-		0,
-		y,
-		0
-	)
-
+	tile.Size = UDim2.new(0.88, 0, Config.TILE_HEIGHT, 0)
+	tile.Position = UDim2.new(0.06, 0, y, 0)
 	tile.BackgroundTransparency = 1
-
-	tile.Image =
-		Config.TILE_IMAGES[column]
-
-	tile.ScaleType =
-		Enum.ScaleType.Fit
-
+	tile.Image = Config.TILE_IMAGES[column]
+	tile.ScaleType = Enum.ScaleType.Fit
 	tile.BorderSizePixel = 0
 	tile.ZIndex = 5
-
 	tile.Parent = parent
 
 	-- Menjaga tile berbentuk square
-	local aspect =
-		Instance.new("UIAspectRatioConstraint")
-
+	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.Name = "SquareConstraint"
 	aspect.AspectRatio = 1
-
 	aspect.Parent = tile
 
 	return tile
 end
 
---==================================================
--- MOVE TILE
---==================================================
-
 function PianoTilesUI.MoveTile(tile, y)
-
 	if tile and tile.Parent then
-
-		tile.Position =
-			UDim2.new(
-				0.06,
-				0,
-				y,
-				0
-			)
-
+		tile.Position = UDim2.new(0.06, 0, y, 0)
 	end
-
 end
 
---==================================================
--- DESTROY TILE
---==================================================
-
 function PianoTilesUI.DestroyTile(tile)
-
 	if tile and tile.Parent then
 		tile:Destroy()
 	end
-
 end
 
 --==================================================
--- HIT EFFECT
+-- TIMING JUDGEMENT FEEDBACK (PERFECT / GREAT / GOOD / MISS)
 --==================================================
 
-function PianoTilesUI.PlayHitEffect(tile, y)
+function PianoTilesUI.ShowHitRating(ratingKey, column, y)
+	if not arenaFrame then return end
+
+	ratingKey = ratingKey or "GOOD"
+	local ratingData = (Config.HIT_RATINGS and Config.HIT_RATINGS[ratingKey]) or {
+		text = ratingKey,
+		symbol = ratingKey,
+		color = Color3.fromRGB(80, 235, 120),
+		glowColor = Color3.fromRGB(180, 255, 200),
+		flashColor = Color3.fromRGB(70, 220, 110),
+		score = 80,
+		scale = 1.0,
+	}
+
+	-- 1. Update Center Judgement Banner
+	if centerJudgementLabel then
+		centerJudgementLabel.Text = ratingData.symbol
+		centerJudgementLabel.TextColor3 = ratingData.color
+		centerJudgementLabel.TextTransparency = 0
+
+		local stroke = centerJudgementLabel:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = ratingData.glowColor
+			stroke.Transparency = 0.15
+		end
+
+		-- Punchy pop bounce animation
+		centerJudgementLabel.TextSize = math.floor(18 * ratingData.scale)
+		TweenService:Create(
+			centerJudgementLabel,
+			TweenInfo.new(0.08, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ TextSize = math.floor(25 * ratingData.scale) }
+		):Play()
+
+		-- Fade out automatically
+		task.delay(0.40, function()
+			if centerJudgementLabel and centerJudgementLabel.Text == ratingData.symbol then
+				TweenService:Create(
+					centerJudgementLabel,
+					TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ TextTransparency = 1 }
+				):Play()
+			end
+		end)
+	end
+
+	-- 2. Floating Popup Badge above Column Hit Position
+	local posX = column and ((column - 0.5) / Config.COLUMN_COUNT) or 0.5
+	local posY = (y or Config.HIT_LINE) - 0.04
+
+	local popup = Instance.new("TextLabel")
+	popup.Name = "HitRatingPopup"
+	popup.Size = UDim2.new(0, 120, 0, 32)
+	popup.Position = UDim2.new(posX, 0, posY, 0)
+	popup.AnchorPoint = Vector2.new(0.5, 0.5)
+	popup.BackgroundTransparency = 1
+	popup.Font = Enum.Font.GothamBlack
+	popup.Text = ratingData.symbol
+	popup.TextColor3 = ratingData.color
+	popup.TextSize = math.floor(12 * ratingData.scale)
+	popup.ZIndex = 45
+	popup.Parent = arenaFrame
+
+	local pStroke = Instance.new("UIStroke")
+	pStroke.Thickness = 2
+	pStroke.Color = ratingData.glowColor
+	pStroke.Transparency = 0.2
+	pStroke.Parent = popup
+
+	-- Score badge indicator (+300, +180, +80)
+	if ratingData.score and ratingData.score > 0 then
+		local scoreLabel = Instance.new("TextLabel")
+		scoreLabel.Name = "ScoreBadge"
+		scoreLabel.Size = UDim2.new(1, 0, 0, 14)
+		scoreLabel.Position = UDim2.new(0, 0, 1, -2)
+		scoreLabel.BackgroundTransparency = 1
+		scoreLabel.Font = Enum.Font.GothamBold
+		scoreLabel.Text = string.format("+%d", ratingData.score)
+		scoreLabel.TextColor3 = Color3.fromRGB(245, 245, 255)
+		scoreLabel.TextSize = 11
+		scoreLabel.ZIndex = 46
+		scoreLabel.Parent = popup
+	end
+
+	-- Scale Pop-in & Upward Float Animation
+	local popTween = TweenService:Create(
+		popup,
+		TweenInfo.new(0.08, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{
+			TextSize = math.floor(18 * ratingData.scale),
+			Position = UDim2.new(posX, 0, posY - 0.02, 0),
+		}
+	)
+	popTween:Play()
+
+	popTween.Completed:Once(function()
+		local floatTween = TweenService:Create(
+			popup,
+			TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{
+				Position = UDim2.new(posX, 0, posY - 0.07, 0),
+				TextTransparency = 1,
+			}
+		)
+		if pStroke then
+			TweenService:Create(
+				pStroke,
+				TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ Transparency = 1 }
+			):Play()
+		end
+		for _, child in ipairs(popup:GetChildren()) do
+			if child:IsA("TextLabel") then
+				TweenService:Create(
+					child,
+					TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ TextTransparency = 1 }
+				):Play()
+			end
+		end
+
+		floatTween:Play()
+		floatTween.Completed:Once(function()
+			if popup and popup.Parent then
+				popup:Destroy()
+			end
+		end)
+	end)
+
+	-- 3. Hit Ripple / Expanding Shockwave Effect
+	local ripple = Instance.new("Frame")
+	ripple.Name = "HitRipple"
+	ripple.Size = UDim2.new(0, 16, 0, 16)
+	ripple.Position = UDim2.new(posX, 0, y or Config.HIT_LINE, 0)
+	ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+	ripple.BackgroundColor3 = ratingData.flashColor
+	ripple.BackgroundTransparency = 0.45
+	ripple.BorderSizePixel = 0
+	ripple.ZIndex = 25
+	ripple.Parent = arenaFrame
+	Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
+
+	local rStroke = Instance.new("UIStroke")
+	rStroke.Color = ratingData.glowColor
+	rStroke.Thickness = 2
+	rStroke.Transparency = 0.2
+	rStroke.Parent = ripple
+
+	TweenService:Create(
+		ripple,
+		TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{
+			Size = UDim2.new(0, 68, 0, 68),
+			BackgroundTransparency = 1,
+		}
+	):Play()
+	TweenService:Create(
+		rStroke,
+		TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Transparency = 1, Thickness = 0.5 }
+	):Play()
+
+	task.delay(0.24, function()
+		if ripple and ripple.Parent then
+			ripple:Destroy()
+		end
+	end)
+
+	-- 4. HitLine Glow Reaction
+	if hitLine then
+		hitLine.BackgroundColor3 = ratingData.flashColor
+		TweenService:Create(
+			hitLine,
+			TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ BackgroundColor3 = Color3.fromRGB(0, 220, 255) }
+		):Play()
+	end
+end
+
+--==================================================
+-- HIT EFFECT (TILE + RATING + FLASH)
+--==================================================
+
+function PianoTilesUI.PlayHitEffect(tile, y, ratingKey, column)
+	ratingKey = ratingKey or "GOOD"
+	column = column or (tile and tile.Parent and tonumber(string.match(tile.Parent.Name, "%d+")))
+
+	-- Trigger Rating Popup & Column Flash
+	PianoTilesUI.ShowHitRating(ratingKey, column, y)
+	if column then
+		PianoTilesUI.FlashColumn(column, ratingKey)
+	end
 
 	if not tile or not tile.Parent then
 		return
 	end
 
-	local tween =
-		TweenService:Create(
-			tile,
-
-			TweenInfo.new(
-				0.14,
-				Enum.EasingStyle.Quad,
-				Enum.EasingDirection.Out
+	local tween = TweenService:Create(
+		tile,
+		TweenInfo.new(
+			0.14,
+			Enum.EasingStyle.Quad,
+			Enum.EasingDirection.Out
+		),
+		{
+			ImageTransparency = 1,
+			Size = UDim2.new(
+				0.98,
+				0,
+				Config.TILE_HEIGHT * 1.25,
+				0
 			),
-
-			{
-				ImageTransparency = 1,
-
-				Size = UDim2.new(
-					0.96,
-					0,
-					Config.TILE_HEIGHT * 1.15,
-					0
-				),
-
-				Position = UDim2.new(
-					0.02,
-					0,
-					y - 0.01,
-					0
-				),
-			}
-		)
+			Position = UDim2.new(
+				0.01,
+				0,
+				y - 0.02,
+				0
+			),
+		}
+	)
 
 	tween:Play()
-
 	tween.Completed:Once(function()
-
 		if tile and tile.Parent then
 			tile:Destroy()
 		end
-
 	end)
-
 end
 
 --==================================================
--- HUD
+-- COLUMN FLASH WITH JUDGEMENT COLORS
+--==================================================
+
+function PianoTilesUI.FlashColumn(column, ratingKey)
+	local flash = columnFlashes[column]
+	if not flash then
+		return
+	end
+
+	ratingKey = ratingKey or "MISS"
+	local ratingData = (Config.HIT_RATINGS and Config.HIT_RATINGS[ratingKey]) or {
+		flashColor = (ratingKey == "MISS" and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(255, 215, 0))
+	}
+
+	flash.BackgroundColor3 = ratingData.flashColor
+	flash.BackgroundTransparency = (ratingKey == "MISS" and 0.40 or 0.60)
+	flash.Visible = true
+
+	local tween = TweenService:Create(
+		flash,
+		TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ BackgroundTransparency = 1 }
+	)
+	tween:Play()
+
+	task.delay(0.20, function()
+		if flash and flash.Parent then
+			flash.Visible = false
+		end
+	end)
+end
+
+--==================================================
+-- HUD UPDATE
 --==================================================
 
 function PianoTilesUI.UpdateHUD(
 	progress,
 	combo,
 	currentNotes, 
-	targetNotes
+	targetNotes,
+	liveMetrics
 )
-
-	-- COMBO
-
+	-- 1. COMBO BADGE WITH DYNAMIC COLORS & SCALE BOUNCE
 	if comboLabel then
+		if combo and combo >= 2 then
+			local comboColor = Color3.fromRGB(80, 235, 120) -- Emerald Green
+			local comboPrefix = "COMBO"
 
-		if combo >= 2 then
+			if combo >= 10 then
+				comboColor = Color3.fromRGB(255, 215, 0) -- Gold
+				comboPrefix = "🔥 COMBO"
+			elseif combo >= 5 then
+				comboColor = Color3.fromRGB(0, 230, 255) -- Cyan
+				comboPrefix = "✨ COMBO"
+			end
 
-			comboLabel.Text =
-				"COMBO x"
-				.. combo
-				.. (
-					combo >= 3
-					and "\n "
-					or ""
-				)
-
+			comboLabel.Text = string.format("%s x%d", comboPrefix, combo)
+			comboLabel.TextColor3 = comboColor
 			comboLabel.Visible = true
 
+			-- Pop animation
+			comboLabel.TextSize = 13
+			TweenService:Create(
+				comboLabel,
+				TweenInfo.new(0.09, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+				{ TextSize = 16 }
+			):Play()
 		else
-
 			comboLabel.Visible = false
-
 		end
-
 	end
 
-	-- PROGRESS
-
+	-- 2. PROGRESS BAR & FISH
 	if progressFill then
-
-		local percent =
-			math.clamp(progress, 0, 1)
+		local percent = math.clamp(progress or 0, 0, 1)
 		
 		progressFill.AnchorPoint = Vector2.new(0, 0)
-		progressFill.Position = UDim2.fromScale(0.475, 0)
+		progressFill.Position = UDim2.fromScale(0, 0)
 
 		TweenService:Create(
 			progressFill,
-
-			TweenInfo.new(
-				0.4,
-				Enum.EasingStyle.Quad,
-				Enum.EasingDirection.Out
-			),
-
-			{
-				Size =
-					UDim2.fromScale(
-						0.05,
-						1 - percent
-					)
-			}
-
+			TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Size = UDim2.fromScale(percent, 1) }
 		):Play()
 
-		local barColor =
-			Color3.fromRGB(
-				255,
-				255,
-				255
-			)
-
-		if percent >= 0.70 then
-
-			barColor =
-				Color3.fromRGB(
-					255,
-					255,
-					255
-				)
-
+		local barColor = Color3.fromRGB(0, 220, 255)
+		if percent >= 0.75 then
+			barColor = Color3.fromRGB(60, 240, 140) -- Emerald
 		elseif percent <= 0.25 then
-
-			barColor =
-				Color3.fromRGB(
-					255,
-					255,
-					255
-				)
-
+			barColor = Color3.fromRGB(255, 180, 50) -- Amber warning
 		end
 
-		progressFill.BackgroundColor3 =
-			barColor
+		progressFill.BackgroundColor3 = barColor
 
 		if progressGlow then
 			progressGlow.Color = barColor
 		end
 		
-		if fish then
-
+		if fish and progressContainer then
 			TweenService:Create(
 				fish,
-
-				TweenInfo.new(
-					0.4,
-					Enum.EasingStyle.Quad,
-					Enum.EasingDirection.Out
-				),
-
-				{
-					Position = UDim2.fromScale(
-						fish.Position.X.Scale,
-						1 - percent
-					)
-				}
-
+				TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ Position = UDim2.new(percent, -11, 0.5, -11) }
 			):Play()
-
 		end
-
 	end
-	
-	
 
+	-- 3. PROGRESS & LIVE ACCURACY LABEL
 	if progressLabel then
+		local percent = math.clamp(progress or 0, 0, 1)
+		local percentInt = math.floor(percent * 100)
 
-		local percent =
-			math.clamp(progress, 0, 1)
-
-		local percentInt =
-			math.floor(percent * 100)
-
-		progressLabel.Text =
-			string.format(
-				"%d%% Completed , %d / %d Notes",
+		if liveMetrics and liveMetrics.accuracy then
+			progressLabel.Text = string.format(
+				"%d%% Ditangkap  •  %d/%d Notes  •  🎯 %.0f%% Akurasi",
+				percentInt,
+				currentNotes or 0,
+				targetNotes or 0,
+				liveMetrics.accuracy
+			)
+		else
+			progressLabel.Text = string.format(
+				"%d%% Selesai  •  %d / %d Notes",
 				percentInt,
 				currentNotes or 0,
 				targetNotes or 0
 			)
-
+		end
 	end
-
 end
 
 --==================================================
@@ -818,63 +894,14 @@ function PianoTilesUI.UpdateHeader(
 	castColor,
 	melodyName
 )
-
 	if castBonusLabel then
-
-		castBonusLabel.Text =
-			castLabel or ""
-
-		castBonusLabel.TextColor3 =
-			castColor
-			or Color3.fromRGB(
-				255,
-				255,
-				255
-			)
-
+		castBonusLabel.Text = castLabel or ""
+		castBonusLabel.TextColor3 = castColor or Color3.fromRGB(255, 255, 255)
 	end
 
 	if songLabel then
-
-		songLabel.Text =
-			"Melodi: \n"
-			.. tostring(
-				melodyName or ""
-			)
-
+		songLabel.Text = "Melodi: " .. tostring(melodyName or "")
 	end
-
-end
-
---==================================================
--- MISS FLASH
---==================================================
-
-function PianoTilesUI.FlashColumn(column)
-
-	local flash =
-		columnFlashes[column]
-
-	if not flash then
-		return
-	end
-
-	flash.Visible = true
-
-	task.delay(
-		0.18,
-		function()
-
-			if flash
-				and flash.Parent then
-
-				flash.Visible = false
-
-			end
-
-		end
-	)
-
 end
 
 --==================================================
@@ -882,57 +909,42 @@ end
 --==================================================
 
 function PianoTilesUI.ShakeArena()
-
 	if not arenaContainer then
 		return
 	end
 
-	local originalPosition =
-		arenaContainer.Position
+	local originalPosition = arenaContainer.Position
 
-	local shakeTween =
-		TweenService:Create(
-
-			arenaContainer,
-
-			TweenInfo.new(
-				0.06,
-				Enum.EasingStyle.Sine,
-				Enum.EasingDirection.InOut,
-				3,
-				true
-			),
-
-			{
-				Position =
-				originalPosition
-				+ UDim2.new(
-					0,
-					math.random(-6, 6),
-					0,
-					math.random(-3, 3)
-				)
-			}
-		)
+	local shakeTween = TweenService:Create(
+		arenaContainer,
+		TweenInfo.new(
+			0.06,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.InOut,
+			3,
+			true
+		),
+		{
+			Position = originalPosition + UDim2.new(
+				0,
+				math.random(-6, 6),
+				0,
+				math.random(-3, 3)
+			)
+		}
+	)
 
 	shakeTween:Play()
 
-	task.delay(
-		0.2,
-		function()
-
-			if arenaContainer then
-				arenaContainer.Position =
-					originalPosition
-			end
-
+	task.delay(0.2, function()
+		if arenaContainer then
+			arenaContainer.Position = originalPosition
 		end
-	)
-
+	end)
 end
 
 --==================================================
--- RESULT
+-- RESULT OVERLAY
 --==================================================
 
 local function ensureResultDetails()
@@ -1012,34 +1024,12 @@ function PianoTilesUI.ShowResult(
 	message,
 	performance
 )
-
-	if not resultOverlay
-		or not resultLabel then
-
+	if not resultOverlay or not resultLabel then
 		return
-
 	end
 
-	resultLabel.Text =
-		message
-		or (
-			win
-			and "BERHASIL DITANGKAP!"
-			or "IKAN TERLEPAS!"
-		)
-
-	resultLabel.TextColor3 =
-		win
-		and Color3.fromRGB(
-			60,
-			240,
-			140
-		)
-		or Color3.fromRGB(
-			255,
-			70,
-			70
-		)
+	resultLabel.Text = message or (win and "BERHASIL DITANGKAP!" or "IKAN TERLEPAS!")
+	resultLabel.TextColor3 = win and Color3.fromRGB(60, 240, 140) or Color3.fromRGB(255, 70, 70)
 
 	ensureResultDetails()
 
@@ -1056,8 +1046,14 @@ function PianoTilesUI.ShowResult(
 
 		if statsDetailLabel then
 			local acc = performance.accuracy or 0
-			local combo = (performance.breakdown and performance.breakdown.maxCombo) or performance.maxCombo or 0
-			statsDetailLabel.Text = string.format("🎯 Akurasi: %.1f%%  •  🔥 Max Combo: %d", acc, combo)
+			local maxCombo = (performance.breakdown and performance.breakdown.maxCombo) or performance.maxCombo or 0
+			local pCount = (performance.breakdown and performance.breakdown.perfect) or performance.perfectHits or 0
+			local gCount = (performance.breakdown and performance.breakdown.great) or performance.greatHits or 0
+			local okCount = (performance.breakdown and performance.breakdown.good) or performance.goodHits or 0
+			local mCount = (performance.breakdown and performance.breakdown.miss) or performance.mistakes or 0
+
+			statsDetailLabel.Text = string.format("🎯 Akurasi: %.1f%%  •  🔥 Max Combo: %d\n[ P: %d  G: %d  OK: %d  M: %d ]", acc, maxCombo, pCount, gCount, okCount, mCount)
+			statsDetailLabel.Size = UDim2.new(1, -20, 0, 34)
 			statsDetailLabel.Visible = true
 		end
 
@@ -1088,11 +1084,9 @@ function PianoTilesUI.ShowResult(
 	end
 
 	resultOverlay.Visible = true
-
 end
 
 function PianoTilesUI.HideResult()
-
 	if resultOverlay then
 		resultOverlay.Visible = false
 	end
@@ -1101,7 +1095,6 @@ function PianoTilesUI.HideResult()
 	if gradeTitleLabel then gradeTitleLabel.Visible = false end
 	if statsDetailLabel then statsDetailLabel.Visible = false end
 	if multiplierDetailLabel then multiplierDetailLabel.Visible = false end
-
 end
 
 --==================================================
@@ -1109,7 +1102,6 @@ end
 --==================================================
 
 function PianoTilesUI.Destroy()
-
 	if gui then
 		gui.Enabled = false
 	end
@@ -1121,6 +1113,8 @@ function PianoTilesUI.Destroy()
 	castBonusLabel = nil
 	songLabel = nil
 	comboLabel = nil
+	centerJudgementLabel = nil
+	hitLine = nil
 
 	resultOverlay = nil
 	resultLabel = nil
@@ -1133,10 +1127,10 @@ function PianoTilesUI.Destroy()
 	progressFill = nil
 	progressLabel = nil
 	progressGlow = nil
+	fish = nil
 
 	table.clear(columns)
 	table.clear(columnFlashes)
-
 end
 
 return PianoTilesUI

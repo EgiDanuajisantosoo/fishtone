@@ -232,13 +232,32 @@ function RhythmSession:_clearTiles()
 	table.clear(self.Tiles)
 end
 
+function RhythmSession:GetLiveStats()
+	local totalHits = self.PerfectHits + self.GreatHits + self.GoodHits
+	local totalAttempts = totalHits + self.Mistakes
+	local acc = 100
+	if totalAttempts > 0 then
+		local weighted = (self.PerfectHits * 1.0) + (self.GreatHits * 0.8) + (self.GoodHits * 0.5)
+		acc = math.clamp((weighted / totalAttempts) * 100, 0, 100)
+	end
+
+	return {
+		accuracy = math.floor(acc * 10) / 10,
+		perfect = self.PerfectHits,
+		great = self.GreatHits,
+		good = self.GoodHits,
+		miss = self.Mistakes,
+		combo = self.Combo,
+		maxCombo = self.MaxCombo,
+	}
+end
+
 function RhythmSession:_registerHit(entry, y)
 	if self.State ~= "PLAYING" or entry.hit then return end
 	entry.hit = true
 
 	local note = self.Melody.notes[entry.noteIndex] or 0
 	playPianoNote(note)
-	PianoTilesUI.PlayHitEffect(entry.frame, y)
 
 	self.Score += 1
 	self.Combo += 1
@@ -246,20 +265,29 @@ function RhythmSession:_registerHit(entry, y)
 		self.MaxCombo = self.Combo
 	end
 
-	-- Precision Rating
+	-- Precision Rating calculation
 	local delta = math.abs(y - Config.HIT_LINE)
-	if delta <= 0.04 then
+	local perfectWindow = (Config.HIT_RATINGS and Config.HIT_RATINGS.PERFECT and Config.HIT_RATINGS.PERFECT.window) or 0.04
+	local greatWindow = (Config.HIT_RATINGS and Config.HIT_RATINGS.GREAT and Config.HIT_RATINGS.GREAT.window) or 0.08
+
+	local ratingKey = "GOOD"
+	if delta <= perfectWindow then
+		ratingKey = "PERFECT"
 		self.PerfectHits += 1
-	elseif delta <= 0.08 then
+	elseif delta <= greatWindow then
+		ratingKey = "GREAT"
 		self.GreatHits += 1
 	else
+		ratingKey = "GOOD"
 		self.GoodHits += 1
 	end
+
+	PianoTilesUI.PlayHitEffect(entry.frame, y, ratingKey, entry.column)
 
 	self.CurrentNotes = math.clamp(self.CurrentNotes + 1, 0, self.TargetNotes)
 	self.Progress = math.clamp(self.CurrentNotes / self.TargetNotes, 0, 1)
 
-	PianoTilesUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes)
+	PianoTilesUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes, self:GetLiveStats())
 
 	if self.CurrentNotes >= self.TargetNotes then
 		self:EndSession(true, "BERHASIL DITANGKAP!")
@@ -276,11 +304,12 @@ function RhythmSession:_registerMistake(column)
 	self.CurrentNotes = math.clamp(self.CurrentNotes - self.PenaltyNotes, 0, self.TargetNotes)
 	self.Progress = math.clamp(self.CurrentNotes / self.TargetNotes, 0, 1)
 
+	PianoTilesUI.ShowHitRating("MISS", column, Config.HIT_LINE)
 	if column then
-		PianoTilesUI.FlashColumn(column)
+		PianoTilesUI.FlashColumn(column, "MISS")
 	end
 	PianoTilesUI.ShakeArena()
-	PianoTilesUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes)
+	PianoTilesUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes, self:GetLiveStats())
 
 	if self.CurrentNotes <= 0 then
 		self:EndSession(false, "IKAN TERLEPAS!")

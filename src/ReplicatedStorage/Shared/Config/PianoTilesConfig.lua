@@ -32,6 +32,51 @@ Config.TILE_IMAGES = {
 	[4] = "rbxassetid://107689147771762",
 }
 
+-- ============ HIT RATINGS & JUDGEMENT FEEDBACK ============
+Config.HIT_RATINGS = {
+	PERFECT = {
+		text = "PERFECT",
+		symbol = "★ PERFECT ★",
+		color = Color3.fromRGB(255, 215, 0), -- Radiant Gold
+		glowColor = Color3.fromRGB(255, 245, 160),
+		flashColor = Color3.fromRGB(255, 220, 80),
+		score = 300,
+		scale = 1.25,
+		window = 0.04,
+	},
+	GREAT = {
+		text = "GREAT",
+		symbol = "◆ GREAT ◆",
+		color = Color3.fromRGB(0, 230, 255), -- Electric Cyan
+		glowColor = Color3.fromRGB(160, 245, 255),
+		flashColor = Color3.fromRGB(0, 210, 255),
+		score = 180,
+		scale = 1.10,
+		window = 0.08,
+	},
+	GOOD = {
+		text = "GOOD",
+		symbol = "● GOOD ●",
+		color = Color3.fromRGB(80, 235, 120), -- Emerald Green
+		glowColor = Color3.fromRGB(180, 255, 200),
+		flashColor = Color3.fromRGB(70, 220, 110),
+		score = 80,
+		scale = 0.95,
+		window = 0.15,
+	},
+	MISS = {
+		text = "MISS",
+		symbol = "✕ MISS ✕",
+		color = Color3.fromRGB(255, 60, 60), -- Crimson Red
+		glowColor = Color3.fromRGB(255, 150, 150),
+		flashColor = Color3.fromRGB(255, 40, 40),
+		score = 0,
+		scale = 0.90,
+		window = 999,
+	},
+}
+
+
 -- ============ CAST BONUS ============
 Config.CAST_BONUSES = {
 	PERFECT = {
