@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("FishDefinitions"))
 local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
+local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
 
 local FishingRaritySystem = {}
 
@@ -277,6 +278,7 @@ function FishingRaritySystem.GetLevelMultiplier(level, rarity)
 end
 
 -- ============ 4. HITUNG DISTRIBUSI PELUANG NYATA ============
+-- ============ 4. HITUNG DISTRIBUSI PELUANG NYATA (DENGAN SOFT PITY) ============
 function FishingRaritySystem.GetRarityChances(luck, level, pityState)
 	local effLuck = LuckFormula.CalculateEffectiveLuck(luck)
 	level = math.max(1, tonumber(level) or 1)
@@ -285,25 +287,10 @@ function FishingRaritySystem.GetRarityChances(luck, level, pityState)
 	local luckMult = LuckFormula.GetLuckMultiplier(effLuck)
 	local baseW = FishingRaritySystem.CONFIG.RARITY_BASE_WEIGHTS
 
-	-- Soft Pity Multipliers
-	local pLeg = pityState.LEGENDARY or pityState.SSR or 0
-	local pMyt = pityState.MYTHIC or pityState.UR or 0
-	local pSpe = pityState.SPECIAL or pityState.EX or 0
-
-	local legPityMult = 1
-	if pLeg >= FishingRaritySystem.CONFIG.PITY.LEGENDARY.start then
-		legPityMult = 1 + ((pLeg - FishingRaritySystem.CONFIG.PITY.LEGENDARY.start) * FishingRaritySystem.CONFIG.PITY.LEGENDARY.rate)
-	end
-
-	local mytPityMult = 1
-	if pMyt >= FishingRaritySystem.CONFIG.PITY.MYTHIC.start then
-		mytPityMult = 1 + ((pMyt - FishingRaritySystem.CONFIG.PITY.MYTHIC.start) * FishingRaritySystem.CONFIG.PITY.MYTHIC.rate)
-	end
-
-	local spePityMult = 1
-	if pSpe >= FishingRaritySystem.CONFIG.PITY.SPECIAL.start then
-		spePityMult = 1 + ((pSpe - FishingRaritySystem.CONFIG.PITY.SPECIAL.start) * FishingRaritySystem.CONFIG.PITY.SPECIAL.rate)
-	end
+	-- Multiplier Soft Pity dari PitySystem (FISH-020)
+	local spePityMult = PitySystem.GetPityMultiplier(pityState, "SPECIAL")
+	local mytPityMult = PitySystem.GetPityMultiplier(pityState, "MYTHIC")
+	local legPityMult = PitySystem.GetPityMultiplier(pityState, "LEGENDARY")
 
 	local weights = {
 		SPECIAL = baseW.SPECIAL * (luckMult ^ 3.2) * FishingRaritySystem.GetLevelMultiplier(level, "SPECIAL") * spePityMult,
@@ -327,7 +314,7 @@ function FishingRaritySystem.GetRarityChances(luck, level, pityState)
 	return chances, weights, totalWeight
 end
 
--- ============ 5. ROLL RNG & PITY EVALUATION ============
+-- ============ 5. ROLL RNG & PITY EVALUATION (FISH-020) ============
 function FishingRaritySystem.RollRarity(luck, level, pityState)
 	local _, weights, totalWeight = FishingRaritySystem.GetRarityChances(luck, level, pityState)
 	local roll = math.random() * totalWeight
@@ -344,52 +331,11 @@ function FishingRaritySystem.RollRarity(luck, level, pityState)
 end
 
 function FishingRaritySystem.EvaluateWithPity(luck, level, pityState)
-	pityState = pityState or { SPECIAL = 0, MYTHIC = 0, LEGENDARY = 0 }
-
-	local pSpecial = pityState.SPECIAL or pityState.EX or 0
-	local pMythic = pityState.MYTHIC or pityState.UR or 0
-	local pLegendary = pityState.LEGENDARY or pityState.SSR or 0
-
-	-- Cek Hard Pity Threshold
-	if pSpecial >= FishingRaritySystem.CONFIG.PITY.SPECIAL.hard then
-		return "SPECIAL", true
-	elseif pMythic >= FishingRaritySystem.CONFIG.PITY.MYTHIC.hard then
-		return "MYTHIC", true
-	elseif pLegendary >= FishingRaritySystem.CONFIG.PITY.LEGENDARY.hard then
-		return "LEGENDARY", true
-	end
-
-	return FishingRaritySystem.RollRarity(luck, level, pityState), false
+	return PitySystem.Evaluate(luck, level, pityState, FishingRaritySystem.RollRarity)
 end
 
 function FishingRaritySystem.UpdatePityOnCatch(pityState, obtainedRarity)
-	pityState = pityState or {}
-	local r = tostring(obtainedRarity):upper()
-
-	if r == "SPECIAL" or r == "EX" then
-		pityState.SPECIAL = 0
-		pityState.MYTHIC = 0
-		pityState.LEGENDARY = 0
-	elseif r == "MYTHIC" or r == "UR" then
-		pityState.MYTHIC = 0
-		pityState.LEGENDARY = 0
-		pityState.SPECIAL = (pityState.SPECIAL or 0) + 1
-	elseif r == "LEGENDARY" or r == "SSR" then
-		pityState.LEGENDARY = 0
-		pityState.MYTHIC = (pityState.MYTHIC or 0) + 1
-		pityState.SPECIAL = (pityState.SPECIAL or 0) + 1
-	else
-		pityState.LEGENDARY = (pityState.LEGENDARY or 0) + 1
-		pityState.MYTHIC = (pityState.MYTHIC or 0) + 1
-		pityState.SPECIAL = (pityState.SPECIAL or 0) + 1
-	end
-
-	-- Sync aliases
-	pityState.EX = pityState.SPECIAL
-	pityState.UR = pityState.MYTHIC
-	pityState.SSR = pityState.LEGENDARY
-
-	return pityState
+	return PitySystem.UpdatePityOnCatch(pityState, obtainedRarity)
 end
 
 -- ============ 6. GENERATOR IKAN DENGAN STATS LENGKAP & MUTASI (FISH-019) ============

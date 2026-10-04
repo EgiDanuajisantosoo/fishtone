@@ -32,6 +32,7 @@ local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("Remo
 local remote = RemoteContract.GetRemote()
 local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
 local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
 local fsm = FishingStateMachine.new()
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
@@ -1449,6 +1450,204 @@ end
 
 buildInventoryUI()
 
+-- ============ SISTEM PITY TRACKER HUD (FISH-020) ============
+local pityTrackerBtn, pityFrame
+local pityBars = {} -- [tierKey] = { fillBar = ..., countLabel = ..., tagLabel = ... }
+
+local function updatePityUI()
+	if not pityFrame then return end
+	local allProg = PitySystem.GetAllProgress(clientPity)
+
+	for tierKey, prog in pairs(allProg) do
+		local widgets = pityBars[tierKey]
+		if widgets then
+			local countStr = string.format("%d / %d", prog.current, prog.hardPity)
+			widgets.countLabel.Text = countStr
+
+			local targetScale = math.clamp(prog.current / prog.hardPity, 0, 1)
+			TweenService:Create(widgets.fillBar, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Size = UDim2.new(targetScale, 0, 1, 0)
+			}):Play()
+
+			if prog.isHardPityGuaranteed then
+				widgets.tagLabel.Text = "👑 100% GARANSI!"
+				widgets.tagLabel.TextColor3 = Color3.fromRGB(255, 230, 80)
+				widgets.tagLabel.Visible = true
+			elseif prog.isSoftPityActive then
+				widgets.tagLabel.Text = string.format("🔥 SOFT PITY (x%.1f)", prog.multiplier)
+				widgets.tagLabel.TextColor3 = Color3.fromRGB(255, 160, 50)
+				widgets.tagLabel.Visible = true
+			else
+				widgets.tagLabel.Text = string.format("(%s)", prog.displayName)
+				widgets.tagLabel.TextColor3 = Color3.fromRGB(150, 170, 195)
+				widgets.tagLabel.Visible = false
+			end
+		end
+	end
+end
+
+local function togglePityFrame(forcedState)
+	if not pityFrame then return end
+	local newState = (forcedState ~= nil) and forcedState or (not pityFrame.Visible)
+	if newState then
+		updatePityUI()
+		pityFrame.Visible = true
+		pityFrame.Size = UDim2.new(0, 240, 0, 180)
+		TweenService:Create(pityFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 260, 0, 200)
+		}):Play()
+	else
+		pityFrame.Visible = false
+	end
+end
+
+local function buildPityTrackerUI()
+	-- 1. Tombol Toggle Pity di HUD
+	pityTrackerBtn = Instance.new("TextButton")
+	pityTrackerBtn.Name = "PityTrackerBtn"
+	pityTrackerBtn.Size = UDim2.new(0, 140, 0, 36)
+	pityTrackerBtn.Position = UDim2.new(0, 20, 0.31, 0)
+	pityTrackerBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
+	pityTrackerBtn.BackgroundTransparency = 0.25
+	pityTrackerBtn.BorderSizePixel = 0
+	pityTrackerBtn.Text = "🌟 PITY TRACKER"
+	pityTrackerBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+	pityTrackerBtn.Font = Enum.Font.GothamBlack
+	pityTrackerBtn.TextSize = 12
+	pityTrackerBtn.Parent = gui
+	Instance.new("UICorner", pityTrackerBtn).CornerRadius = UDim.new(0, 10)
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(255, 200, 50)
+	btnStroke.Thickness = 1.5
+	btnStroke.Transparency = 0.4
+	btnStroke.Parent = pityTrackerBtn
+
+	pityTrackerBtn.MouseButton1Click:Connect(function()
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+		togglePityFrame()
+	end)
+
+	-- 2. Frame Detail Pity Tracker
+	pityFrame = Instance.new("Frame")
+	pityFrame.Name = "PityFrame"
+	pityFrame.Size = UDim2.new(0, 260, 0, 200)
+	pityFrame.Position = UDim2.new(0, 20, 0.37, 0)
+	pityFrame.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
+	pityFrame.BackgroundTransparency = 0.15
+	pityFrame.BorderSizePixel = 0
+	pityFrame.Visible = false
+	pityFrame.Parent = gui
+	Instance.new("UICorner", pityFrame).CornerRadius = UDim.new(0, 14)
+
+	local frameStroke = Instance.new("UIStroke")
+	frameStroke.Color = Color3.fromRGB(255, 200, 50)
+	frameStroke.Thickness = 1.5
+	frameStroke.Transparency = 0.3
+	frameStroke.Parent = pityFrame
+
+	-- Header
+	local headerLabel = Instance.new("TextLabel")
+	headerLabel.Size = UDim2.new(1, -20, 0, 24)
+	headerLabel.Position = UDim2.new(0, 12, 0, 8)
+	headerLabel.BackgroundTransparency = 1
+	headerLabel.Text = "🌟 JAMINAN PITY GACHA"
+	headerLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
+	headerLabel.Font = Enum.Font.GothamBlack
+	headerLabel.TextSize = 13
+	headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+	headerLabel.Parent = pityFrame
+
+	local subHeader = Instance.new("TextLabel")
+	subHeader.Size = UDim2.new(1, -20, 0, 14)
+	subHeader.Position = UDim2.new(0, 12, 0, 30)
+	subHeader.BackgroundTransparency = 1
+	subHeader.Text = "Garansi bertambah tiap tarikan tanpa reset"
+	subHeader.TextColor3 = Color3.fromRGB(160, 180, 200)
+	subHeader.Font = Enum.Font.GothamMedium
+	subHeader.TextSize = 10
+	subHeader.TextXAlignment = Enum.TextXAlignment.Left
+	subHeader.Parent = pityFrame
+
+	local tiersToDisplay = {
+		{ key = "SPECIAL", name = "👑 SPECIAL", color = Color3.fromRGB(255, 60, 200), yOffset = 50 },
+		{ key = "MYTHIC", name = "🔥 MYTHIC", color = Color3.fromRGB(235, 45, 45), yOffset = 98 },
+		{ key = "LEGENDARY", name = "🌟 LEGENDARY", color = Color3.fromRGB(240, 185, 20), yOffset = 146 },
+	}
+
+	for _, t in ipairs(tiersToDisplay) do
+		local row = Instance.new("Frame")
+		row.Name = "PityRow_" .. t.key
+		row.Size = UDim2.new(1, -24, 0, 42)
+		row.Position = UDim2.new(0, 12, 0, t.yOffset)
+		row.BackgroundTransparency = 1
+		row.Parent = pityFrame
+
+		local rowTitle = Instance.new("TextLabel")
+		rowTitle.Size = UDim2.new(0.5, 0, 0, 16)
+		rowTitle.Position = UDim2.new(0, 0, 0, 0)
+		rowTitle.BackgroundTransparency = 1
+		rowTitle.Text = t.name
+		rowTitle.TextColor3 = t.color
+		rowTitle.Font = Enum.Font.GothamBold
+		rowTitle.TextSize = 11
+		rowTitle.TextXAlignment = Enum.TextXAlignment.Left
+		rowTitle.Parent = row
+
+		local countLabel = Instance.new("TextLabel")
+		countLabel.Name = "CountLabel"
+		countLabel.Size = UDim2.new(0.48, 0, 0, 16)
+		countLabel.Position = UDim2.new(0.52, 0, 0, 0)
+		countLabel.BackgroundTransparency = 1
+		countLabel.Text = "0 / 100"
+		countLabel.TextColor3 = Color3.fromRGB(220, 230, 245)
+		countLabel.Font = Enum.Font.GothamBold
+		countLabel.TextSize = 11
+		countLabel.TextXAlignment = Enum.TextXAlignment.Right
+		countLabel.Parent = row
+
+		local barBg = Instance.new("Frame")
+		barBg.Name = "BarBg"
+		barBg.Size = UDim2.new(1, 0, 0, 10)
+		barBg.Position = UDim2.new(0, 0, 0, 18)
+		barBg.BackgroundColor3 = Color3.fromRGB(24, 30, 45)
+		barBg.BorderSizePixel = 0
+		barBg.Parent = row
+		Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
+
+		local fillBar = Instance.new("Frame")
+		fillBar.Name = "Fill"
+		fillBar.Size = UDim2.new(0, 0, 1, 0)
+		fillBar.BackgroundColor3 = t.color
+		fillBar.BorderSizePixel = 0
+		fillBar.Parent = barBg
+		Instance.new("UICorner", fillBar).CornerRadius = UDim.new(1, 0)
+
+		local tagLabel = Instance.new("TextLabel")
+		tagLabel.Name = "Tag"
+		tagLabel.Size = UDim2.new(1, 0, 0, 12)
+		tagLabel.Position = UDim2.new(0, 0, 0, 30)
+		tagLabel.BackgroundTransparency = 1
+		tagLabel.Text = "🔥 SOFT PITY"
+		tagLabel.TextColor3 = Color3.fromRGB(255, 160, 50)
+		tagLabel.Font = Enum.Font.GothamBold
+		tagLabel.TextSize = 9
+		tagLabel.TextXAlignment = Enum.TextXAlignment.Right
+		tagLabel.Visible = false
+		tagLabel.Parent = row
+
+		pityBars[t.key] = {
+			fillBar = fillBar,
+			countLabel = countLabel,
+			tagLabel = tagLabel,
+		}
+	end
+
+	updatePityUI()
+end
+
+buildPityTrackerUI()
+
 -- ============ LISTENER INPUT AKTIVASI ============
 local lastTriggerTime = 0
 local function handleInteractionTrigger()
@@ -1595,7 +1794,9 @@ if remote then
 			local acc = rewardInfo.accuracy or 100
 
 			local extraTag = ""
-			if rewardInfo.isMutated and rewardInfo.mutationName and rewardInfo.mutationName ~= "" then
+			if rewardInfo.wasPity then
+				extraTag = " 🌟 GARANSI PITY DIAKTIFKAN!"
+			elseif rewardInfo.isMutated and rewardInfo.mutationName and rewardInfo.mutationName ~= "" then
 				extraTag = string.format(" 🌠 MUTASI: %s!", rewardInfo.mutationName:upper())
 			elseif rewardInfo.isAllPerfect then
 				extraTag = " 🌟 ALL PERFECT!"
@@ -1609,12 +1810,15 @@ if remote then
 			local revealMsg = string.format("🎉 TANGKAPAN BERHASIL!%s\n%s [%s] %s %s  •  ⚖️ %.1f Kg  •  🎯 %.1f%%\n💰 Nilai: %d Koin  •  ⭐ +%d EXP%s", gradeBadge, catBadge, disp, name, stars, weight, acc, coins, exp, multBadge)
 			showMessage(revealMsg, color, 5.5)
 
-			if rewardInfo.isMutated then
+			if rewardInfo.wasPity then
+				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.4)
+			elseif rewardInfo.isMutated then
 				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.2)
 			else
 				playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
 			end
 			updateInventoryUI()
+			updatePityUI()
 		elseif action == RemoteContract.S2C.FISH_SOLD then
 			local fishName = arg1 or "Ikan"
 			local coinsGained = arg2 or 0
@@ -1635,11 +1839,21 @@ if remote then
 			local newLevel = arg1 or 2
 			showMessage("⭐ LEVEL UP! Selamat, kamu sekarang Level " .. newLevel .. "! ⭐", Color3.fromRGB(255, 215, 0), 4.5)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
+		elseif action == RemoteContract.S2C.PLAYER_DATA_UPDATE then
+			local pData = arg1 or {}
+			local pityState = arg2 or pData.pity or {}
+			clientPity = pityState
+			updatePityUI()
 		elseif action == RemoteContract.S2C.NOTIFICATION then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
 			if tostring(arg1):find("❌") or tostring(arg1):find("tidak valid") or tostring(arg1):find("Gagal") then
 				fsm:ForceReset("ServerRejectedAction")
 			end
 		end
+	end)
+
+	-- Request Data Pemain Awal
+	task.defer(function()
+		RemoteContract.Client.GetPlayerData()
 	end)
 end
