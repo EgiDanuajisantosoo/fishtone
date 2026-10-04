@@ -650,20 +650,26 @@ local function isWaterInstance(inst, mat)
 	if mat == Enum.Material.Water then
 		return true
 	end
-	if inst and inst:IsA("BasePart") then
+	if inst and (inst:IsA("BasePart") or inst:IsA("Model")) then
 		local name = inst.Name:lower()
-		if inst.Material == Enum.Material.Water
-			or name:find("ocean")
-			or name:find("water")
-			or name:find("lake")
-			or name:find("danau")
-			or name:find("river")
-			or name:find("sungai")
-			or name:find("laut")
-			or name:find("sea")
-			or name:find("pool")
-			or name:find("kolam") then
+		if inst:IsA("BasePart") and inst.Material == Enum.Material.Water then
 			return true
+		end
+		if name:find("water") or name:find("ocean") or name:find("lake") or name:find("danau")
+			or name:find("river") or name:find("sungai") or name:find("laut") or name:find("sea")
+			or name:find("pool") or name:find("kolam") or name:find("air") or name:find("wave")
+			or name:find("aqua") or name:find("beach") then
+			return true
+		end
+		if inst:GetAttribute("IsWater") == true or inst:GetAttribute("Water") == true or inst:HasTag("Water") then
+			return true
+		end
+		if inst.Parent and inst.Parent ~= workspace and inst.Parent:IsA("Model") then
+			local pName = inst.Parent.Name:lower()
+			if pName:find("water") or pName:find("ocean") or pName:find("lake") or pName:find("danau")
+				or pName:find("river") or pName:find("sungai") or pName:find("laut") or pName:find("sea") then
+				return true
+			end
 		end
 	end
 	return false
@@ -679,26 +685,28 @@ local function findWaterTarget()
 	rayParams.FilterDescendantsInstances = { char }
 	rayParams.IgnoreWater = false
 
+	-- 1. Deteksi Target Berdasarkan Arah Mouse Kursor
 	local mouse = player:GetMouse()
 	if mouse and mouse.UnitRay then
-		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 150, rayParams)
+		local mouseResult = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 200, rayParams)
 		if mouseResult and isWaterInstance(mouseResult.Instance, mouseResult.Material) then
 			local dist = (mouseResult.Position - hrp.Position).Magnitude
-			if dist >= 6 and dist <= 48 then
+			if dist >= 4 and dist <= 65 then
 				return mouseResult.Position
 			end
 		end
 	end
 
+	-- 2. Deteksi Sapuan Multi-Arah di Depan Karakter
 	local lookCFrame = hrp.CFrame
-	local angles = { 0, -15, 15, -30, 30, -45, 45 }
-	local distances = { 12, 20, 30, 42 }
+	local angles = { 0, -15, 15, -30, 30, -45, 45, -60, 60, -75, 75 }
+	local distances = { 8, 16, 24, 34, 46, 58 }
 
 	for _, dist in ipairs(distances) do
 		for _, angleDeg in ipairs(angles) do
 			local checkDir = (lookCFrame * CFrame.Angles(0, math.rad(angleDeg), 0)).LookVector
-			local startPos = hrp.Position + (checkDir * dist) + Vector3.new(0, 10, 0)
-			local downRay = workspace:Raycast(startPos, Vector3.new(0, -35, 0), rayParams)
+			local startPos = hrp.Position + (checkDir * dist) + Vector3.new(0, 12, 0)
+			local downRay = workspace:Raycast(startPos, Vector3.new(0, -45, 0), rayParams)
 			if downRay and isWaterInstance(downRay.Instance, downRay.Material) then
 				return downRay.Position
 			end
@@ -947,18 +955,21 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 	local fishEnd = waterPos + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
 	animateFishLeap(fishStart, fishEnd, 0.75, 4.5)
 
-	local bobberPart = activeBobber and (activeBobber:IsA("Model") and activeBobber.PrimaryPart or activeBobber)
-	if bobberPart then
-		local down = TweenService:Create(bobberPart, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = waterPos - Vector3.new(0, 1.2, 0)
-		})
-		down:Play()
-		down.Completed:Wait()
-		if activeBobber and activeBobber.Parent then
-			TweenService:Create(bobberPart, TweenInfo.new(0.25, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
-				Position = waterPos + Vector3.new(0, 0.4, 0)
-			}):Play()
-		end
+	local bobberPart = activeBobber and (activeBobber:IsA("Model") and (activeBobber.PrimaryPart or activeBobber:FindFirstChildWhichIsA("BasePart")) or activeBobber)
+	if bobberPart and bobberPart:IsA("BasePart") then
+		pcall(function()
+			local down = TweenService:Create(bobberPart, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = waterPos - Vector3.new(0, 1.2, 0)
+			})
+			down:Play()
+			task.delay(0.2, function()
+				if activeBobber and activeBobber.Parent and bobberPart and bobberPart.Parent then
+					TweenService:Create(bobberPart, TweenInfo.new(0.25, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+						Position = waterPos + Vector3.new(0, 0.4, 0)
+					}):Play()
+				end
+			end)
+		end)
 	end
 
 	showMessage("🎣 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)

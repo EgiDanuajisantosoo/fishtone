@@ -94,6 +94,192 @@ local function getPlayerGui()
 end
 
 --==================================================
+-- DYNAMIC FALLBACK GUI BUILDER
+--==================================================
+
+local function buildDynamicGui(playerGui)
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "PianoTilesGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.DisplayOrder = 20
+	screenGui.Enabled = false
+	screenGui.Parent = playerGui
+
+	-- Arena Container
+	local container = Instance.new("Frame")
+	container.Name = "ArenaContainer"
+	container.Size = UDim2.new(0, 360, 0, 490)
+	container.Position = UDim2.new(0.5, -180, 0.5, -245)
+	container.BackgroundColor3 = Color3.fromRGB(15, 20, 32)
+	container.BackgroundTransparency = 0.25
+	container.BorderSizePixel = 0
+	container.Parent = screenGui
+	Instance.new("UICorner", container).CornerRadius = UDim.new(0, 16)
+
+	local cStroke = Instance.new("UIStroke")
+	cStroke.Color = Color3.fromRGB(0, 200, 255)
+	cStroke.Thickness = 2
+	cStroke.Transparency = 0.3
+	cStroke.Parent = container
+
+	-- Header
+	local header = Instance.new("Frame")
+	header.Name = "Header"
+	header.Size = UDim2.new(1, 0, 0, 52)
+	header.BackgroundTransparency = 1
+	header.Parent = container
+
+	local castBonus = Instance.new("TextLabel")
+	castBonus.Name = "CastBonusLabel"
+	castBonus.Size = UDim2.new(0.48, 0, 0, 24)
+	castBonus.Position = UDim2.new(0.04, 0, 0, 6)
+	castBonus.BackgroundTransparency = 1
+	castBonus.Text = "PERFECT CAST"
+	castBonus.TextColor3 = Color3.fromRGB(50, 255, 140)
+	castBonus.Font = Enum.Font.GothamBlack
+	castBonus.TextSize = 13
+	castBonus.TextXAlignment = Enum.TextXAlignment.Left
+	castBonus.Parent = header
+
+	local song = Instance.new("TextLabel")
+	song.Name = "SongLabel"
+	song.Size = UDim2.new(0.48, 0, 0, 24)
+	song.Position = UDim2.new(0.48, 0, 0, 6)
+	song.BackgroundTransparency = 1
+	song.Text = "Melodi: Canon in D"
+	song.TextColor3 = Color3.fromRGB(200, 230, 255)
+	song.Font = Enum.Font.GothamMedium
+	song.TextSize = 11
+	song.TextXAlignment = Enum.TextXAlignment.Right
+	song.Parent = header
+
+	local combo = Instance.new("TextLabel")
+	combo.Name = "ComboLabel"
+	combo.Size = UDim2.new(1, 0, 0, 20)
+	combo.Position = UDim2.new(0, 0, 0, 28)
+	combo.BackgroundTransparency = 1
+	combo.Text = "COMBO x0"
+	combo.TextColor3 = Color3.fromRGB(255, 215, 0)
+	combo.Font = Enum.Font.GothamBlack
+	combo.TextSize = 14
+	combo.Visible = false
+	combo.Parent = header
+
+	-- Arena Frame
+	local arena = Instance.new("Frame")
+	arena.Name = "ArenaFrame"
+	arena.Size = UDim2.new(0.92, 0, 0.68, 0)
+	arena.Position = UDim2.new(0.04, 0, 0, 56)
+	arena.BackgroundColor3 = Color3.fromRGB(10, 14, 22)
+	arena.BackgroundTransparency = 0.4
+	arena.BorderSizePixel = 0
+	arena.ClipsDescendants = true
+	arena.Parent = container
+	Instance.new("UICorner", arena).CornerRadius = UDim.new(0, 10)
+
+	-- 4 Columns
+	for i = 1, Config.COLUMN_COUNT do
+		local col = Instance.new("Frame")
+		col.Name = "Column" .. i
+		col.Size = UDim2.new(1 / Config.COLUMN_COUNT, 0, 1, 0)
+		col.Position = UDim2.new((i - 1) / Config.COLUMN_COUNT, 0, 0, 0)
+		col.BackgroundTransparency = (i % 2 == 0) and 0.95 or 1
+		col.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		col.BorderSizePixel = 0
+		col.Parent = arena
+	end
+
+	-- Keybind Guide Label bar
+	local keyNames = { "D", "F", "J", "K" }
+	for i = 1, Config.COLUMN_COUNT do
+		local keyLbl = Instance.new("TextLabel")
+		keyLbl.Name = "Key_" .. i
+		keyLbl.Size = UDim2.new(1 / Config.COLUMN_COUNT, 0, 0, 24)
+		keyLbl.Position = UDim2.new((i - 1) / Config.COLUMN_COUNT, 0, Config.HIT_LINE, 0)
+		keyLbl.BackgroundTransparency = 1
+		keyLbl.Text = "[" .. (keyNames[i] or tostring(i)) .. "]"
+		keyLbl.TextColor3 = Color3.fromRGB(180, 210, 240)
+		keyLbl.Font = Enum.Font.GothamBold
+		keyLbl.TextSize = 12
+		keyLbl.Parent = arena
+	end
+
+	-- HitLine
+	local hitLine = Instance.new("Frame")
+	hitLine.Name = "HitLine"
+	hitLine.Size = UDim2.new(1, 0, 0, 3)
+	hitLine.Position = UDim2.new(0, 0, Config.HIT_LINE + 0.05, 0)
+	hitLine.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+	hitLine.BorderSizePixel = 0
+	hitLine.Parent = arena
+
+	-- Progress Bar Container
+	local pBar = Instance.new("Frame")
+	pBar.Name = "ProgressBar"
+	pBar.Size = UDim2.new(0.92, 0, 0, 16)
+	pBar.Position = UDim2.new(0.04, 0, 0.83, 0)
+	pBar.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
+	pBar.BorderSizePixel = 0
+	pBar.Parent = container
+	Instance.new("UICorner", pBar).CornerRadius = UDim.new(0, 8)
+
+	local pFill = Instance.new("Frame")
+	pFill.Name = "Fill"
+	pFill.Size = UDim2.new(0.1, 0, 1, 0)
+	pFill.Position = UDim2.new(0, 0, 0, 0)
+	pFill.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+	pFill.BorderSizePixel = 0
+	pFill.Parent = pBar
+	Instance.new("UICorner", pFill).CornerRadius = UDim.new(0, 8)
+
+	local fishIcon = Instance.new("TextLabel")
+	fishIcon.Name = "Fish"
+	fishIcon.Size = UDim2.new(0, 20, 0, 20)
+	fishIcon.Position = UDim2.new(0.1, -10, 0.5, -10)
+	fishIcon.BackgroundTransparency = 1
+	fishIcon.Text = "🐟"
+	fishIcon.TextSize = 14
+	fishIcon.Parent = pBar
+
+	local pLabel = Instance.new("TextLabel")
+	pLabel.Name = "ProgressLabel"
+	pLabel.Size = UDim2.new(0.92, 0, 0, 20)
+	pLabel.Position = UDim2.new(0.04, 0, 0.89, 0)
+	pLabel.BackgroundTransparency = 1
+	pLabel.Text = "0% Completed, 0 / 30 Notes"
+	pLabel.TextColor3 = Color3.fromRGB(200, 225, 255)
+	pLabel.Font = Enum.Font.GothamMedium
+	pLabel.TextSize = 12
+	pLabel.Parent = container
+
+	-- Result Overlay
+	local result = Instance.new("Frame")
+	result.Name = "ResultOverlay"
+	result.Size = UDim2.fromScale(1, 1)
+	result.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
+	result.BackgroundTransparency = 0.15
+	result.BorderSizePixel = 0
+	result.Visible = false
+	result.ZIndex = 25
+	result.Parent = container
+	Instance.new("UICorner", result).CornerRadius = UDim.new(0, 16)
+
+	local resLabel = Instance.new("TextLabel")
+	resLabel.Name = "ResultLabel"
+	resLabel.Size = UDim2.new(1, 0, 0, 36)
+	resLabel.Position = UDim2.new(0, 0, 0.14, 0)
+	resLabel.BackgroundTransparency = 1
+	resLabel.Text = "BERHASIL DITANGKAP!"
+	resLabel.TextColor3 = Color3.fromRGB(60, 240, 140)
+	resLabel.Font = Enum.Font.GothamBlack
+	resLabel.TextSize = 22
+	resLabel.ZIndex = 26
+	resLabel.Parent = result
+
+	return screenGui
+end
+
+--==================================================
 -- CREATE / LOAD UI
 --==================================================
 
@@ -106,28 +292,25 @@ function PianoTilesUI.Create()
 		return false
 	end
 
-	-- Ambil GUI dari StarterGui yang sudah di-clone
-	gui = playerGui:WaitForChild("PianoTilesGui", 5)
+	-- Ambil GUI dari StarterGui yang sudah di-clone, atau bangun fallback secara dinamis
+	gui = playerGui:FindFirstChild("PianoTilesGui")
+	if not gui then
+		gui = buildDynamicGui(playerGui)
+	end
 
 	if not gui then
-		warn("[PianoTilesUI] PianoTilesGui tidak ditemukan.")
+		warn("[PianoTilesUI] Gagal menginisialisasi PianoTilesGui.")
 		return false
 	end
 
-	arenaContainer = gui:WaitForChild(
-		"ArenaContainer",
-		5
-	)
+	arenaContainer = gui:FindFirstChild("ArenaContainer") or gui:WaitForChild("ArenaContainer", 3)
 
 	if not arenaContainer then
 		warn("[PianoTilesUI] ArenaContainer tidak ditemukan.")
 		return false
 	end
 
-	arenaFrame = arenaContainer:WaitForChild(
-		"ArenaFrame",
-		5
-	)
+	arenaFrame = arenaContainer:FindFirstChild("ArenaFrame") or arenaContainer:WaitForChild("ArenaFrame", 3)
 
 	if not arenaFrame then
 		warn("[PianoTilesUI] ArenaFrame tidak ditemukan.")
