@@ -17,6 +17,7 @@ local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
+local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
 local InventoryService = {}
@@ -385,6 +386,10 @@ function InventoryService.SellItem(player, targetArg)
 	local itemName = foundTool:GetAttribute("FishName") or foundTool.Name
 	foundTool:Destroy()
 
+	if pData.stats then
+		pData.stats.totalItemsSold = (pData.stats.totalItemsSold or 0) + 1
+	end
+
 	PlayerDataService.AddCoins(player, coins)
 	RemoteContract.Server.FishSold(player, itemName, coins, pData.coins)
 
@@ -415,6 +420,9 @@ function InventoryService.SellAll(player, filterCategory)
 	end
 
 	if countSold > 0 then
+		if pData.stats then
+			pData.stats.totalItemsSold = (pData.stats.totalItemsSold or 0) + countSold
+		end
 		PlayerDataService.AddCoins(player, totalGained)
 		RemoteContract.Server.AllFishSold(player, countSold, totalGained, pData.coins)
 		if countLocked > 0 then

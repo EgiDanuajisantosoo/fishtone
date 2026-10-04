@@ -33,6 +33,8 @@ local remote = RemoteContract.GetRemote()
 local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
 local FishingResultUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishingResultUI"))
 local FishDexUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishDexUI"))
+local ShopUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ShopUI"))
+local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
 local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
@@ -1384,8 +1386,8 @@ local function buildInventoryUI()
 	-- 1. Tombol Toggle Inventory di Layar (HUD)
 	invToggleBtn = Instance.new("TextButton")
 	invToggleBtn.Name = "InvToggleBtn"
-	invToggleBtn.Size = UDim2.new(0, 145, 0, 38)
-	invToggleBtn.Position = UDim2.new(0, 20, 0.22, 0)
+	invToggleBtn.Size = UDim2.new(0, 145, 0, 36)
+	invToggleBtn.Position = UDim2.new(0, 20, 0.20, 0)
 	invToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	invToggleBtn.BackgroundTransparency = 0.25
 	invToggleBtn.BorderSizePixel = 0
@@ -1663,8 +1665,8 @@ local function buildPityTrackerUI()
 	-- 1. Tombol Toggle Pity di HUD
 	pityTrackerBtn = Instance.new("TextButton")
 	pityTrackerBtn.Name = "PityTrackerBtn"
-	pityTrackerBtn.Size = UDim2.new(0, 145, 0, 38)
-	pityTrackerBtn.Position = UDim2.new(0, 20, 0.28, 0)
+	pityTrackerBtn.Size = UDim2.new(0, 145, 0, 36)
+	pityTrackerBtn.Position = UDim2.new(0, 20, 0.26, 0)
 	pityTrackerBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	pityTrackerBtn.BackgroundTransparency = 0.25
 	pityTrackerBtn.BorderSizePixel = 0
@@ -1690,7 +1692,7 @@ local function buildPityTrackerUI()
 	pityFrame = Instance.new("Frame")
 	pityFrame.Name = "PityFrame"
 	pityFrame.Size = UDim2.new(0, 260, 0, 200)
-	pityFrame.Position = UDim2.new(0, 20, 0.41, 0)
+	pityFrame.Position = UDim2.new(0, 20, 0.45, 0)
 	pityFrame.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
 	pityFrame.BackgroundTransparency = 0.15
 	pityFrame.BorderSizePixel = 0
@@ -1808,12 +1810,11 @@ buildPityTrackerUI()
 
 -- ============ SISTEM FISHDEX HUD (FISH-023) ============
 local fishDexBtn
-
 local function buildFishDexHUD()
 	fishDexBtn = Instance.new("TextButton")
 	fishDexBtn.Name = "FishDexBtn"
-	fishDexBtn.Size = UDim2.new(0, 145, 0, 38)
-	fishDexBtn.Position = UDim2.new(0, 20, 0.34, 0)
+	fishDexBtn.Size = UDim2.new(0, 145, 0, 36)
+	fishDexBtn.Position = UDim2.new(0, 20, 0.32, 0)
 	fishDexBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	fishDexBtn.BackgroundTransparency = 0.25
 	fishDexBtn.BorderSizePixel = 0
@@ -1841,6 +1842,41 @@ local function buildFishDexHUD()
 end
 
 buildFishDexHUD()
+
+-- ============ SISTEM TOKO HUD (FISH-024) ============
+local shopBtn
+local function buildShopHUD()
+	shopBtn = Instance.new("TextButton")
+	shopBtn.Name = "ShopBtn"
+	shopBtn.Size = UDim2.new(0, 145, 0, 36)
+	shopBtn.Position = UDim2.new(0, 20, 0.38, 0)
+	shopBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
+	shopBtn.BackgroundTransparency = 0.25
+	shopBtn.BorderSizePixel = 0
+	shopBtn.Text = "🛒 TOKO [K]"
+	shopBtn.TextColor3 = Color3.fromRGB(251, 191, 36)
+	shopBtn.Font = Enum.Font.GothamBlack
+	shopBtn.TextSize = 12
+	shopBtn.Parent = gui
+	Instance.new("UICorner", shopBtn).CornerRadius = UDim.new(0, 10)
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(234, 179, 8)
+	btnStroke.Thickness = 1.5
+	btnStroke.Transparency = 0.4
+	btnStroke.Parent = shopBtn
+
+	shopBtn.MouseButton1Click:Connect(function()
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+		if ShopUI.IsOpen() then
+			ShopUI.Hide()
+		else
+			ShopUI.Show(gui)
+		end
+	end)
+end
+
+buildShopHUD()
 
 -- ============ LISTENER INPUT AKTIVASI ============
 local lastTriggerTime = 0
@@ -1882,6 +1918,15 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 
+	-- Hotkey K untuk Toggle Toko Samudra
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.K) then
+		if ShopUI.IsOpen() then
+			ShopUI.Hide()
+		else
+			ShopUI.Show(gui)
+		end
+		return
+	end
 	if gameProcessed then return end
 
 	if isCastingMeterActive then
@@ -2057,6 +2102,46 @@ if remote then
 				FishDexUI.UpdateJournalData(pData.journal)
 			end
 			updatePityUI()
+		elseif action == RemoteContract.S2C.SHOP_CATALOG_DATA then
+			local catalog = arg1
+			ShopUI.UpdateCatalogData(catalog)
+			if catalog and catalog.openModal and not ShopUI.IsOpen() then
+				ShopUI.Show(gui, catalog)
+			end
+		elseif action == RemoteContract.S2C.SHOP_TRANSACTION_SUCCESS then
+			local itemType = arg1
+			local itemId = arg2
+			local details = arg3
+			local newCoins = arg4
+			showMessage(string.format("🎉 Transaksi Berhasil: %s!", tostring(details or itemId)), Color3.fromRGB(50, 255, 130), 3.5)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+			RemoteContract.Client.GetShopCatalog()
+		elseif action == RemoteContract.S2C.SHOP_TRANSACTION_FAILED then
+			showMessage("❌ " .. tostring(arg1 or "Transaksi gagal"), Color3.fromRGB(255, 100, 100), 3.5)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 0.7)
+		elseif action == RemoteContract.S2C.ROD_EQUIPPED then
+			local rodId = arg1
+			local rodData = arg2
+			local rodName = (rodData and rodData.name) or rodId or "Joran"
+			local luckVal = (rodData and rodData.luckBonus) or 5
+			showMessage(string.format("🎣 Berhasil memasang %s (+%d Luck)!", rodName, luckVal), Color3.fromRGB(0, 230, 255), 3.5)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.5)
+			RemoteContract.Client.GetShopCatalog()
+		elseif action == RemoteContract.S2C.BAIT_UPDATED then
+			local eqBait = arg1
+			local baits = arg2
+			if eqBait and eqBait ~= "" and eqBait ~= "NONE" then
+				local bData = EconomyConfig.GetBait(eqBait)
+				showMessage(string.format("🪱 Umpan terpasang: %s (+%d Luck)", bData and bData.name or eqBait, bData and bData.luckBonus or 0), Color3.fromRGB(74, 222, 128), 2.5)
+			end
+			RemoteContract.Client.GetShopCatalog()
+		elseif action == RemoteContract.S2C.BAG_UPGRADED then
+			local newTier = arg1
+			local totalSlots = arg2
+			local newCoins = arg3
+			showMessage(string.format("🎒 Kapasitas tas berhasil diperluas menjadi %d Slot (Tier %d)!", totalSlots, newTier), Color3.fromRGB(255, 215, 0), 4.0)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
+			RemoteContract.Client.GetShopCatalog()
 		elseif action == RemoteContract.S2C.NOTIFICATION then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
 			if tostring(arg1):find("❌") or tostring(arg1):find("tidak valid") or tostring(arg1):find("Gagal") then
@@ -2065,8 +2150,9 @@ if remote then
 		end
 	end)
 
-	-- Request Data Pemain Awal
+	-- Request Data Pemain Awal & Katalog Toko
 	task.defer(function()
 		RemoteContract.Client.GetPlayerData()
+		RemoteContract.Client.GetShopCatalog()
 	end)
 end
