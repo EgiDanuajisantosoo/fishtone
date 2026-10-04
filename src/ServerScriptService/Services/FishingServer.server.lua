@@ -22,7 +22,6 @@ local PlayerDataService = require(script.Parent.PlayerDataService)
 local FishingSessionService = require(script.Parent.FishingSessionService)
 local InventoryService = require(script.Parent.InventoryService)
 local EconomyService = require(script.Parent.EconomyService)
-local MerchantNpcService = require(script.Parent.MerchantNpcService)
 local remote = RemoteContract.GetRemote()
 
 local function isRodTool(tool)
@@ -160,7 +159,7 @@ if remote then
 
 		-- 5. Menjual Berdasarkan Kategori Tertentu (SellCategory)
 		if action == RemoteContract.C2S.SELL_CATEGORY then
-			InventoryService.SellAll(player, arg1)
+			InventoryService.SellCategory(player, arg1)
 			return
 		end
 
@@ -225,15 +224,26 @@ else
 end
 
 -- ============ PROXIMITY PROMPT GLOBAL HANDLER (STUDIO MAP INTEGRATION) ============
+-- Mendengarkan secara universal interaksi ProximityPrompt yang dibuat manual di Roblox Studio:
+-- 1. Jual Ikan: Nama prompt atau actionText mengandung "sell", "jual", "merchant", "pedagang"
+-- 2. Toko/Shop: Nama prompt atau actionText mengandung "shop", "toko", "beli", "rod", "bait"
 local ProximityPromptService = game:GetService("ProximityPromptService")
 
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	local pName = prompt.Name:lower()
 	local pAction = prompt.ActionText:lower()
+	local pObject = prompt.ObjectText:lower()
 
-	if pName == "sellfishprompt" or pName == "sellfish" or pName == "merchantprompt" or pAction:find("jual") or pAction:find("sell") then
+	-- A. Penjualan Ikan & Loot (Sell Fish / Sell All)
+	if pName:find("sell") or pName:find("jual") or pName:find("merchant") or pName:find("pedagang")
+		or pAction:find("sell") or pAction:find("jual")
+		or pObject:find("ikan") or pObject:find("lapak") or pObject:find("merchant") then
 		InventoryService.SellAll(player)
-	elseif pName:find("shop") or pName:find("toko") or pAction:find("beli") or pAction:find("shop") then
+
+	-- B. Toko Peralatan Pancing (Shop)
+	elseif pName:find("shop") or pName:find("toko") or pName:find("bait") or pName:find("rod")
+		or pAction:find("shop") or pAction:find("toko") or pAction:find("beli") or pAction:find("buy")
+		or pObject:find("toko") or pObject:find("shop") then
 		local catalog = EconomyService.GetShopCatalog(player)
 		catalog.openModal = true
 		RemoteContract.Server.ShopCatalogData(player, catalog)
