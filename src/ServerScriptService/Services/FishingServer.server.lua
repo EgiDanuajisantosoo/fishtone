@@ -311,3 +311,51 @@ if remote then
 else
 	warn("FishingServer: FishingRemote tidak ditemukan di ReplicatedStorage")
 end
+
+-- ============ PROXIMITY PROMPT GLOBAL HANDLER (STUDIO MAP INTEGRATION) ============
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
+ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+	local pName = prompt.Name:lower()
+	local pAction = prompt.ActionText:lower()
+
+	if pName == "sellfishprompt" or pName == "sellfish" or pName == "merchantprompt" or pAction:find("jual") or pAction:find("sell") then
+		local pData = PlayerDataService.Get(player)
+		local backpack = player:FindFirstChild("Backpack")
+		local char = player.Character
+
+		local totalGained = 0
+		local count = 0
+		local toolsToSell = {}
+
+		if backpack then
+			for _, item in ipairs(backpack:GetChildren()) do
+				if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+					table.insert(toolsToSell, item)
+				end
+			end
+		end
+		if char then
+			for _, item in ipairs(char:GetChildren()) do
+				if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
+					table.insert(toolsToSell, item)
+				end
+			end
+		end
+
+		for _, tool in ipairs(toolsToSell) do
+			local val = tool:GetAttribute("Coins") or 15
+			totalGained += val
+			count += 1
+			tool:Destroy()
+		end
+
+		if count > 0 then
+			PlayerDataService.AddCoins(player, totalGained)
+			RemoteContract.Server.AllFishSold(player, count, totalGained, pData.coins)
+		else
+			RemoteContract.Server.Notify(player, "⚠️ Kamu belum memiliki ikan di inventory untuk dijual!")
+		end
+	end
+end)
+
