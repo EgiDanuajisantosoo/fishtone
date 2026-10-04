@@ -55,6 +55,7 @@ FishTune-Roblox/
     ├── ServerScriptService/
     │   └── Services/
     │       ├── FishingServer.server.lua         -- Server-authoritative session & economy service
+    │       ├── FishingSessionService.lua        -- Manajemen sesi pancing terotentikasi & anti-exploit (FISH-009)
     │       ├── MelodyBayService.server.lua      -- Builder 3D dunia & dermaga Melody Bay (FISH-006)
     │       └── PlayerDataService.lua            -- DataStore persistence & profile service (FISH-004)
     └── StarterPlayerScripts/

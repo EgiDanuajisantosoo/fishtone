@@ -18,9 +18,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
+local FishingSessionService = require(script.Parent.FishingSessionService)
 local remote = RemoteContract.GetRemote()
-local activeSessions = {} -- [sessionId] = { player, userId, waterPos, castQuality, castPower, startTime, waitDuration, status }
-local playerSessions = {} -- [player.UserId] = sessionId
 
 
 
@@ -161,13 +160,7 @@ local function createFishTool(fishData)
 	return tool
 end
 
-Players.PlayerRemoving:Connect(function(player)
-	local activeSess = playerSessions[player.UserId]
-	if activeSess then
-		activeSessions[activeSess] = nil
-	end
-	playerSessions[player.UserId] = nil
-end)
+
 
 -- Handler Komunikasi Client-Server
 if remote then
@@ -181,147 +174,42 @@ if remote then
 				return
 			end
 
-			local oldSess = playerSessions[player.UserId]
-
-			if oldSess then
-				activeSessions[oldSess] = nil
-			end
-
 			local waterPos = arg1
-			local castQuality = tostring(arg2 or "GOOD"):upper()
-			local castPower = tonumber(arg3) or 0.5
-
-			-- ============================================
-			-- ROLL RARITY
-			-- TANPA PERFORMANCE LUCK
-			-- ============================================
-
+			local castQuality = arg2
+			local castPower = arg3
 			local rodLuck = getRodLuck(player)
 
-			local baseLuck = math.clamp(
-				math.floor(pData.level / 5),
-				0,
-				10
+			local session, err = FishingSessionService.CreateSession(player, waterPos, castQuality, castPower, rodLuck)
+			if not session then
+				RemoteContract.Server.Notify(player, "❌ " .. tostring(err or "Gagal memulai sesi memancing"))
+				return
+			end
+
+			RemoteContract.Server.SessionStarted(
+				player,
+				session.sessionId,
+				session.waitDuration,
+				session.castQuality,
+				session.rarity
 			)
-
-			local castLuck = 0
-
-			if castQuality == "PERFECT" then
-				castLuck = 35
-			elseif castQuality == "GREAT" then
-				castLuck = 15
-			end
-
-			local effectiveLuck =
-				FishingRaritySystem.CalculateEffectiveLuck(
-					baseLuck + rodLuck,
-					castLuck,
-					0,
-					0
-				)
-
-			local rolledRarity, wasPity =
-				FishingRaritySystem.EvaluateWithPity(
-					effectiveLuck,
-					pData.level,
-					pData.pity
-				)
-
-			-- ============================================
-			-- WAIT TIME
-			-- ============================================
-
-			local waitDuration = math.random(28, 42) / 10
-
-			if castQuality == "PERFECT" then
-				waitDuration = math.random(12, 20) / 10
-			elseif castQuality == "GREAT" then
-				waitDuration = math.random(18, 28) / 10
-			end
-
-			-- ============================================
-			-- SESSION
-			-- ============================================
-
-			local sessionId =
-				tostring(player.UserId)
-				.. "_"
-				.. tostring(os.time())
-				.. "_"
-				.. tostring(math.random(1000, 9999))
-
-			local sessionData = {
-				player = player,
-				userId = player.UserId,
-				waterPos = waterPos,
-				castQuality = castQuality,
-				castPower = castPower,
-				startTime = os.clock(),
-				waitDuration = waitDuration,
-				status = "Active",
-
-				rarity = rolledRarity,
-				wasPity = wasPity,
-			}
-
-			activeSessions[sessionId] = sessionData
-			playerSessions[player.UserId] = sessionId
-
-			-- Kirim rarity ke client
-			RemoteContract.Server.SessionStarted(player, sessionId, waitDuration, castQuality, rolledRarity)
-
 			return
 		end
 
 		-- 2. Pengiriman Hasil Tangkapan Rhythm (SubmitCatch) - SERVER AUTHORITATIVE
 		if action == RemoteContract.C2S.SUBMIT_CATCH then
-			local sessionId = tostring(arg1 or "")
-			local metrics = arg2 or {}
-			local session = activeSessions[sessionId]
-
-			if not session or session.userId ~= player.UserId or session.status ~= "Active" then
-				RemoteContract.Server.Notify(player, "❌ Sesi memancing tidak valid atau sudah kadaluarsa.")
-				return
-			end
-
-			session.status = "Completed"
-			activeSessions[sessionId] = nil
-			playerSessions[player.UserId] = nil
+			local sessionId = arg1
+			local metrics = arg2
 
 			if not hasFishingRod(player) then
 				RemoteContract.Server.Notify(player, "⚠️ Kamu tidak memiliki Joran Pancing di inventory!")
 				return
 			end
 
-			-- Hitung Effective Luck di Server (Specification v1.0)
-			local rodLuck = getRodLuck(player)
-			local baseLuck = math.clamp(math.floor(pData.level / 5), 0, 10)
-			local castLuck = 0
-			if session.castQuality == "PERFECT" then
-				castLuck = 35
-			elseif session.castQuality == "GREAT" then
-				castLuck = 15
+			local fishData, rewardInfo, updatedData = FishingSessionService.ValidateAndComplete(player, sessionId, metrics)
+			if not fishData then
+				RemoteContract.Server.Notify(player, "❌ " .. tostring(rewardInfo or "Sesi memancing tidak valid."))
+				return
 			end
-
-			local accuracy = tonumber(metrics.accuracy) or 80
-			local performanceScore = accuracy
-
-			-- Rarity sudah ditentukan ketika session dimulai
-			local rolledRarity = session.rarity
-			local wasPity = session.wasPity
-
-			local fishData = FishingRaritySystem.GenerateFish(
-				rolledRarity,
-				pData.level,
-				performanceScore
-			)
-			-- Update Pity State
-			pData.pity = PlayerDataService.UpdatePity(player, rolledRarity)
-
-			-- Tambah EXP dan Total Ikan (Koin didapat saat ikan dijual!)
-			PlayerDataService.AddFish(player, 1)
-			PlayerDataService.AddExp(player, fishData.exp)
-			PlayerDataService.RecordJournal(player, fishData.name, fishData.weight)
 
 			-- Buat Tool Ikan 3D di Backpack Player
 			local backpack = player:FindFirstChild("Backpack")
@@ -330,13 +218,7 @@ if remote then
 				fishTool.Parent = backpack
 			end
 
-			local rewardInfo = {
-				coins = fishData.coins, -- Nilai estimasi koin saat dijual
-				exp = fishData.exp,
-				wasPity = wasPity,
-			}
-
-			RemoteContract.Server.CatchSuccess(player, fishData, rewardInfo, pData, pData.pity)
+			RemoteContract.Server.CatchSuccess(player, fishData, rewardInfo, updatedData, updatedData.pity)
 			return
 		end
 
@@ -415,13 +297,8 @@ if remote then
 
 		-- 5. Pembatalan Sesi (CancelFishing)
 		if action == RemoteContract.C2S.CANCEL_FISHING then
-			local sessionId = tostring(arg1 or "")
-			if activeSessions[sessionId] and activeSessions[sessionId].userId == player.UserId then
-				activeSessions[sessionId] = nil
-			end
-			if playerSessions[player.UserId] == sessionId then
-				playerSessions[player.UserId] = nil
-			end
+			local sessionId = arg1
+			FishingSessionService.CancelSession(player, sessionId)
 			return
 		end
 
