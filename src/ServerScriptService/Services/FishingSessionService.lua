@@ -267,7 +267,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	pData.prevPerformanceLuckBonus = performance.performanceLuckBonus or 0
 	PlayerDataService.AddFish(player, 1)
 	PlayerDataService.AddExp(player, finalExp)
-	PlayerDataService.RecordJournal(player, lootData.name, lootData.weight)
+	PlayerDataService.RecordJournal(player, lootData, lootData.weight)
 
 	if pData.stats then
 		pData.stats.totalCatches = (pData.stats.totalCatches or 0) + 1

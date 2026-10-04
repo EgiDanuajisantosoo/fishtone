@@ -167,26 +167,42 @@ function PlayerDataService.UpdatePity(player, rolledRarity)
 	return pData.pity
 end
 
-function PlayerDataService.RecordJournal(player, fishName, weight)
+function PlayerDataService.RecordJournal(player, fishData, weight, extraData)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return end
 	if not pData.journal then
 		pData.journal = {}
 	end
 
-	local entry = pData.journal[fishName]
+	local fishName = (typeof(fishData) == "table" and (fishData.name or fishData.id)) or tostring(fishData or "Ikan")
+	local fishId = (typeof(fishData) == "table" and (fishData.id or fishData.name)) or fishName
+	local actualWeight = tonumber(weight) or (typeof(fishData) == "table" and tonumber(fishData.weight)) or 1.0
+
+	local entry = pData.journal[fishId] or pData.journal[fishName]
 	if not entry then
-		pData.journal[fishName] = {
+		entry = {
+			id = fishId,
+			name = (typeof(fishData) == "table" and fishData.name) or fishName,
+			rarity = (typeof(fishData) == "table" and fishData.rarity) or "COMMON",
 			count = 1,
-			maxWeight = weight or 1.0,
+			maxWeight = actualWeight,
 			firstCaught = os.time(),
+			mutations = {},
 		}
+		pData.journal[fishId] = entry
 	else
 		entry.count = (entry.count or 0) + 1
-		if (weight or 0) > (entry.maxWeight or 0) then
-			entry.maxWeight = weight
+		if actualWeight > (entry.maxWeight or 0) then
+			entry.maxWeight = actualWeight
 		end
 	end
+
+	if typeof(fishData) == "table" and fishData.isMutated and fishData.mutationType then
+		entry.mutations = entry.mutations or {}
+		entry.mutations[fishData.mutationType] = true
+	end
+
+	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
 end
 
 -- ============ DATA PERSISTENCE ============

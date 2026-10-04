@@ -32,6 +32,7 @@ local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("Remo
 local remote = RemoteContract.GetRemote()
 local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
 local FishingResultUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishingResultUI"))
+local FishDexUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishDexUI"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
 local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
@@ -40,6 +41,7 @@ local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 
 local clientPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
+local lastPlayerData = {}
 local activeSessionId = nil
 
 -- ============ GUI ROOT ============
@@ -1804,6 +1806,42 @@ end
 
 buildPityTrackerUI()
 
+-- ============ SISTEM FISHDEX HUD (FISH-023) ============
+local fishDexBtn
+
+local function buildFishDexHUD()
+	fishDexBtn = Instance.new("TextButton")
+	fishDexBtn.Name = "FishDexBtn"
+	fishDexBtn.Size = UDim2.new(0, 140, 0, 36)
+	fishDexBtn.Position = UDim2.new(0, 20, 0.38, 0)
+	fishDexBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
+	fishDexBtn.BackgroundTransparency = 0.25
+	fishDexBtn.BorderSizePixel = 0
+	fishDexBtn.Text = "📖 FISHDEX [J]"
+	fishDexBtn.TextColor3 = Color3.fromRGB(0, 230, 255)
+	fishDexBtn.Font = Enum.Font.GothamBlack
+	fishDexBtn.TextSize = 12
+	fishDexBtn.Parent = gui
+	Instance.new("UICorner", fishDexBtn).CornerRadius = UDim.new(0, 10)
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(0, 200, 255)
+	btnStroke.Thickness = 1.5
+	btnStroke.Transparency = 0.4
+	btnStroke.Parent = fishDexBtn
+
+	fishDexBtn.MouseButton1Click:Connect(function()
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+		if FishDexUI.IsOpen() then
+			FishDexUI.Hide()
+		else
+			FishDexUI.Show(gui, lastPlayerData)
+		end
+	end)
+end
+
+buildFishDexHUD()
+
 -- ============ LISTENER INPUT AKTIVASI ============
 local lastTriggerTime = 0
 local function handleInteractionTrigger()
@@ -1831,6 +1869,16 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	-- Hotkey B atau I untuk Toggle Inventory
 	if not gameProcessed and (input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.I) then
 		toggleInventory()
+		return
+	end
+
+	-- Hotkey J untuk Toggle FishDex
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.J) then
+		if FishDexUI.IsOpen() then
+			FishDexUI.Hide()
+		else
+			FishDexUI.Show(gui, lastPlayerData)
+		end
 		return
 	end
 
@@ -1971,6 +2019,13 @@ if remote then
 				updatePityUI()
 			end)
 
+			if pData and typeof(pData) == "table" then
+				lastPlayerData = pData
+				if pData.journal then
+					FishDexUI.UpdateJournalData(pData.journal)
+				end
+			end
+
 			updateInventoryUI()
 			updatePityUI()
 		elseif action == RemoteContract.S2C.FISH_SOLD then
@@ -1996,7 +2051,11 @@ if remote then
 		elseif action == RemoteContract.S2C.PLAYER_DATA_UPDATE then
 			local pData = arg1 or {}
 			local pityState = arg2 or pData.pity or {}
+			lastPlayerData = pData
 			clientPity = pityState
+			if pData.journal then
+				FishDexUI.UpdateJournalData(pData.journal)
+			end
 			updatePityUI()
 		elseif action == RemoteContract.S2C.NOTIFICATION then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
