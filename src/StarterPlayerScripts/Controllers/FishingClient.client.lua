@@ -336,11 +336,49 @@ local function showStrikeAlert(pos)
 	end)
 end
 
+local function createProceduralFishModel()
+	local model = Instance.new("Model")
+	model.Name = "AnimatedFish"
+
+	local body = Instance.new("Part")
+	body.Name = "Body"
+	body.Shape = Enum.PartType.Ball
+	body.Size = Vector3.new(0.9, 0.7, 2.2)
+	body.Color = Color3.fromRGB(0, 210, 255)
+	body.Material = Enum.Material.SmoothPlastic
+	body.CanCollide = false
+	body.Anchored = true
+	body.Parent = model
+
+	local tail = Instance.new("WedgePart")
+	tail.Name = "Tail"
+	tail.Size = Vector3.new(0.3, 0.8, 0.9)
+	tail.Color = Color3.fromRGB(0, 180, 240)
+	tail.Material = Enum.Material.SmoothPlastic
+	tail.CanCollide = false
+	tail.Anchored = true
+	tail.CFrame = body.CFrame * CFrame.new(0, 0, 1.1) * CFrame.Angles(0, math.pi, 0)
+	tail.Parent = model
+
+	local fin = Instance.new("WedgePart")
+	fin.Name = "Fin"
+	fin.Size = Vector3.new(0.2, 0.5, 0.7)
+	fin.Color = Color3.fromRGB(255, 215, 0)
+	fin.Material = Enum.Material.Neon
+	fin.CanCollide = false
+	fin.Anchored = true
+	fin.CFrame = body.CFrame * CFrame.new(0, 0.5, -0.2) * CFrame.Angles(0, math.pi, 0)
+	fin.Parent = model
+
+	model.PrimaryPart = body
+	return model
+end
+
 local function animateFishLeap(startPos, endPos, duration, height)
-	duration = duration or 0.8
-	height = height or 6
+	duration = duration or 0.85
+	height = height or 5.5
 	
-	local fish = fishTemplate and fishTemplate:Clone()
+	local fish = (fishTemplate and fishTemplate:Clone()) or createProceduralFishModel()
 	if not fish then return end
 	
 	fish.Parent = workspace
@@ -854,11 +892,18 @@ fsm:OnEnter(FishingStateMachine.States.CHARGING_CAST, function(payload)
 	end)
 end)
 
+-- Track unique session token to prevent timer race conditions
+local sessionToken = 0
+
 -- FSM Lifecycle: Hook saat melempar kail ke air (CASTING)
 fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	local waterPos = payload.waterPos
 	local castQuality = payload.castQuality
 	local finalPower = payload.finalPower
+
+	sessionToken += 1
+	local currentToken = sessionToken
+	activeSessionId = nil
 
 	isCastingMeterActive = false
 	castMeterContainer.Visible = false
@@ -896,10 +941,10 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 		RemoteContract.Client.StartFishing(waterPos, castQuality, finalPower)
 	end
 
-	-- Fallback Timer: Jika server lambat merespon dalam 2.2 detik, mulai sesi otomatis
-	task.delay(2.2, function()
-		if fsm:Is(FishingStateMachine.States.CASTING) then
-			onSessionStarted("LOCAL_FALLBACK", 1.8, castQuality, "COMMON")
+	-- Fallback Timer: Jika server tidak merespon dalam 2.8 detik, jalankan sesi otomatis
+	task.delay(2.8, function()
+		if sessionToken == currentToken and fsm:Is(FishingStateMachine.States.CASTING) then
+			onSessionStarted("LOCAL_FALLBACK", 1.6, castQuality, "COMMON")
 		end
 	end)
 end)
@@ -948,35 +993,37 @@ executeCastAfterMeter = function()
 	})
 end
 
-local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
+onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
+	sessionToken += 1
+	local currentToken = sessionToken
 	activeSessionId = sessionId
+
 	local waterPos = currentWaterTarget or findWaterTarget()
 	if not waterPos then
 		fsm:ForceReset("NoWaterTargetOnSession")
 		return
 	end
 
-	if not fsm:CanTransitionTo(FishingStateMachine.States.WAITING_FOR_BITE) and not fsm:Is(FishingStateMachine.States.CASTING) then
-		return
+	if not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) then
+		fsm:Transition(FishingStateMachine.States.WAITING_FOR_BITE, {
+			sessionId = sessionId,
+			waitDuration = waitDuration,
+			castQuality = castQuality,
+			rarity = rarity
+		})
 	end
 
-	fsm:Transition(FishingStateMachine.States.WAITING_FOR_BITE, {
-		sessionId = sessionId,
-		waitDuration = waitDuration,
-		castQuality = castQuality,
-		rarity = rarity
-	})
-
 	if castQuality == "PERFECT" then
-		showMessage("⭐ PERFECT CAST! (+35 Luck) Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 3)
+		showMessage("⭐ PERFECT CAST! (+35 Luck) Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 2.5)
 	elseif castQuality == "GREAT" then
-		showMessage("✨ GREAT CAST! (+15 Luck) Peluang Rarity Meningkat!", Color3.fromRGB(0, 220, 255), 3)
+		showMessage("✨ GREAT CAST! (+15 Luck) Peluang Rarity Meningkat!", Color3.fromRGB(0, 220, 255), 2.5)
 	else
-		showMessage("🎣 Kail di air... Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 3.5)
+		showMessage("🎣 Kail di air... Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 2.5)
 	end
 
 	task.wait(waitDuration)
-	if not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) or activeSessionId ~= sessionId then
+
+	if sessionToken ~= currentToken or not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) then
 		return
 	end
 
@@ -987,7 +1034,7 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 
 	local fishStart = waterPos + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
 	local fishEnd = waterPos + Vector3.new(math.random(-3, 3), -1, math.random(-3, 3))
-	animateFishLeap(fishStart, fishEnd, 0.75, 4.5)
+	animateFishLeap(fishStart, fishEnd, 0.8, 5.5)
 
 	local bobberPart = activeBobber and (activeBobber:IsA("Model") and (activeBobber.PrimaryPart or activeBobber:FindFirstChildWhichIsA("BasePart")) or activeBobber)
 	if bobberPart and bobberPart:IsA("BasePart") then
@@ -1024,8 +1071,10 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 		animateFishLeap(waterPos, catchTarget, 0.9, 7)
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
-		if remote and activeSessionId then
+		if remote and activeSessionId and activeSessionId ~= "LOCAL_FALLBACK" then
 			RemoteContract.Client.SubmitCatch(activeSessionId, metrics)
+		else
+			showMessage("🎉 TANGKAPAN BERHASIL! Skor: " .. tostring(metrics.score or 0), Color3.fromRGB(50, 255, 130), 4.0)
 		end
 
 		task.delay(2.8, function()
@@ -1036,7 +1085,7 @@ local function onSessionStarted(sessionId, waitDuration, castQuality, rarity)
 		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
-		if remote and activeSessionId then
+		if remote and activeSessionId and activeSessionId ~= "LOCAL_FALLBACK" then
 			RemoteContract.Client.CancelFishing(activeSessionId)
 		end
 
