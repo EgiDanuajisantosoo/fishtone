@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
+local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 
 local player = Players.LocalPlayer
@@ -189,6 +190,21 @@ local function renderRodsTab(parent)
 		badge.TextSize = 9
 		badge.Parent = card
 		Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 4)
+
+		-- Badge Instrumen (FISH-027 / FISH!TUNE)
+		local instType = InstrumentDefinitions.GetInstrumentTypeForRod(rod.id)
+		local instData = InstrumentDefinitions.GetInstrumentData(instType)
+		local instBadge = Instance.new("TextLabel")
+		instBadge.Size = UDim2.new(0, 95, 0, 16)
+		instBadge.Position = UDim2.new(0, 190, 0, 34)
+		instBadge.BackgroundColor3 = Color3.fromRGB(36, 25, 48)
+		instBadge.BorderSizePixel = 0
+		instBadge.Text = instData and instData.badge or "🎹 PIANO"
+		instBadge.TextColor3 = instData and instData.color or Color3.fromRGB(56, 189, 248)
+		instBadge.Font = Enum.Font.GothamBold
+		instBadge.TextSize = 9
+		instBadge.Parent = card
+		Instance.new("UICorner", instBadge).CornerRadius = UDim.new(0, 4)
 
 		local statsLabel = Instance.new("TextLabel")
 		statsLabel.Size = UDim2.new(0.55, 0, 0, 18)
