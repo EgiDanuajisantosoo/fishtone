@@ -1131,28 +1131,108 @@ function PianoTilesUI.CreateTile(column, y)
 		return nil
 	end
 
-	local tile = Instance.new("ImageLabel")
+	local tile = Instance.new("Frame")
 	tile.Name = "Tile"
 	tile.Size = UDim2.new(0.88, 0, Config.TILE_HEIGHT, 0)
 	tile.Position = UDim2.new(0.06, 0, y, 0)
-	tile.BackgroundTransparency = 1
-	tile.Image = Config.TILE_IMAGES[column]
-	tile.ScaleType = Enum.ScaleType.Fit
+	tile.BackgroundColor3 = Color3.fromRGB(15, 25, 42)
+	tile.BackgroundTransparency = 0.15
 	tile.BorderSizePixel = 0
 	tile.ZIndex = 15
 	tile.Parent = parent
+	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 8)
 
-	local aspect = Instance.new("UIAspectRatioConstraint")
-	aspect.Name = "SquareConstraint"
-	aspect.AspectRatio = 1
-	aspect.Parent = tile
+	local tStroke = Instance.new("UIStroke")
+	tStroke.Name = "TileStroke"
+	tStroke.Color = Color3.fromRGB(56, 189, 248)
+	tStroke.Thickness = 1.8
+	tStroke.Transparency = 0.3
+	tStroke.Parent = tile
+
+	local tileImg = Instance.new("ImageLabel")
+	tileImg.Name = "TileImage"
+	tileImg.Size = UDim2.new(0.80, 0, 0.80, 0)
+	tileImg.Position = UDim2.new(0.10, 0, 0.10, 0)
+	tileImg.BackgroundTransparency = 1
+	tileImg.Image = Config.TILE_IMAGES[column]
+	tileImg.ScaleType = Enum.ScaleType.Fit
+	tileImg.BorderSizePixel = 0
+	tileImg.ZIndex = 16
+	tileImg.Parent = tile
+
+	-- Center Hit Line Notch on the Tile
+	local notch = Instance.new("Frame")
+	notch.Name = "CenterNotch"
+	notch.Size = UDim2.new(1, 0, 0, 2)
+	notch.Position = UDim2.new(0, 0, 0.5, -1)
+	notch.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
+	notch.BackgroundTransparency = 0.5
+	notch.BorderSizePixel = 0
+	notch.ZIndex = 17
+	notch.Parent = tile
 
 	return tile
 end
 
 function PianoTilesUI.MoveTile(tile, y)
-	if tile and tile.Parent then
-		tile.Position = UDim2.new(0.06, 0, y, 0)
+	if not tile or not tile.Parent then return end
+	tile.Position = UDim2.new(0.06, 0, y, 0)
+
+	-- Real-time Hit Zone Glow Feedback on Tile
+	local tileCenter = y + (Config.TILE_HEIGHT * 0.5)
+	local delta = math.abs(tileCenter - Config.HIT_LINE)
+
+	local stroke = tile:FindFirstChild("TileStroke")
+	local notch = tile:FindFirstChild("CenterNotch")
+
+	if delta <= 0.045 then
+		-- In PERFECT Zone: Radiant Gold!
+		if stroke then
+			stroke.Color = Color3.fromRGB(255, 215, 0)
+			stroke.Thickness = 2.5
+			stroke.Transparency = 0.05
+		end
+		if notch then
+			notch.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			notch.BackgroundTransparency = 0.1
+		end
+		tile.BackgroundColor3 = Color3.fromRGB(42, 34, 12)
+	elseif delta <= 0.085 then
+		-- In GREAT Zone: Electric Cyan!
+		if stroke then
+			stroke.Color = Color3.fromRGB(56, 189, 248)
+			stroke.Thickness = 2.0
+			stroke.Transparency = 0.2
+		end
+		if notch then
+			notch.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
+			notch.BackgroundTransparency = 0.25
+		end
+		tile.BackgroundColor3 = Color3.fromRGB(12, 28, 42)
+	elseif delta <= 0.18 then
+		-- In GOOD Zone: Emerald Green!
+		if stroke then
+			stroke.Color = Color3.fromRGB(74, 222, 128)
+			stroke.Thickness = 1.6
+			stroke.Transparency = 0.3
+		end
+		if notch then
+			notch.BackgroundColor3 = Color3.fromRGB(74, 222, 128)
+			notch.BackgroundTransparency = 0.4
+		end
+		tile.BackgroundColor3 = Color3.fromRGB(12, 32, 22)
+	else
+		-- Outside: Default Blue
+		if stroke then
+			stroke.Color = Color3.fromRGB(56, 189, 248)
+			stroke.Thickness = 1.5
+			stroke.Transparency = 0.5
+		end
+		if notch then
+			notch.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
+			notch.BackgroundTransparency = 0.6
+		end
+		tile.BackgroundColor3 = Color3.fromRGB(15, 25, 42)
 	end
 end
 
@@ -1420,7 +1500,7 @@ function PianoTilesUI.PlayHitEffect(tile, y, ratingKey, column, instrument)
 			Enum.EasingDirection.Out
 		),
 		{
-			ImageTransparency = 1,
+			BackgroundTransparency = 1,
 			Size = UDim2.new(
 				0.98,
 				0,
@@ -1437,6 +1517,18 @@ function PianoTilesUI.PlayHitEffect(tile, y, ratingKey, column, instrument)
 	)
 
 	tween:Play()
+	for _, child in ipairs(tile:GetChildren()) do
+		if child:IsA("ImageLabel") or child:IsA("TextLabel") or child:IsA("Frame") then
+			TweenService:Create(child, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 1,
+			}):Play()
+			if child:IsA("ImageLabel") then
+				TweenService:Create(child, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					ImageTransparency = 1,
+				}):Play()
+			end
+		end
+	end
 	tween.Completed:Once(function()
 		if tile and tile.Parent then
 			tile:Destroy()
