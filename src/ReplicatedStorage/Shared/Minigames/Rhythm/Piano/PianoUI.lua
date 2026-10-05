@@ -127,84 +127,10 @@ local function buildDynamicGui(playerGui)
 	combo.Visible = false
 	combo.Parent = header
 
-	-- Top Hit Zone Legend (Keterangan Posisi Not: PERFECT, GREAT, GOOD)
-	local legendBar = Instance.new("Frame")
-	legendBar.Name = "HitZoneLegend"
-	legendBar.Size = UDim2.new(0.92, 0, 0, 20)
-	legendBar.Position = UDim2.new(0.04, 0, 0, 60)
-	legendBar.BackgroundTransparency = 1
-	legendBar.ZIndex = 25
-	legendBar.Parent = container
-
-	local legendLayout = Instance.new("UIListLayout")
-	legendLayout.FillDirection = Enum.FillDirection.Horizontal
-	legendLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	legendLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	legendLayout.Padding = UDim.new(0, 8)
-	legendLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	legendLayout.Parent = legendBar
-
-	-- 1. Perfect Legend Tag (Emas)
-	local pTag = Instance.new("TextLabel")
-	pTag.Name = "LegendPerfect"
-	pTag.Size = UDim2.new(0, 105, 0, 18)
-	pTag.BackgroundColor3 = Color3.fromRGB(42, 32, 12)
-	pTag.BackgroundTransparency = 0.25
-	pTag.Text = "⭐ PERFECT: Emas"
-	pTag.TextColor3 = Color3.fromRGB(255, 215, 0)
-	pTag.Font = Enum.Font.GothamBold
-	pTag.TextSize = 9
-	pTag.LayoutOrder = 1
-	pTag.Parent = legendBar
-	Instance.new("UICorner", pTag).CornerRadius = UDim.new(0, 9)
-	local pTagStroke = Instance.new("UIStroke")
-	pTagStroke.Color = Color3.fromRGB(250, 204, 21)
-	pTagStroke.Thickness = 1
-	pTagStroke.Transparency = 0.4
-	pTagStroke.Parent = pTag
-
-	-- 2. Great Legend Tag (Cyan)
-	local grTag = Instance.new("TextLabel")
-	grTag.Name = "LegendGreat"
-	grTag.Size = UDim2.new(0, 98, 0, 18)
-	grTag.BackgroundColor3 = Color3.fromRGB(12, 32, 42)
-	grTag.BackgroundTransparency = 0.25
-	grTag.Text = "◆ GREAT: Cyan"
-	grTag.TextColor3 = Color3.fromRGB(56, 189, 248)
-	grTag.Font = Enum.Font.GothamBold
-	grTag.TextSize = 9
-	grTag.LayoutOrder = 2
-	grTag.Parent = legendBar
-	Instance.new("UICorner", grTag).CornerRadius = UDim.new(0, 9)
-	local grTagStroke = Instance.new("UIStroke")
-	grTagStroke.Color = Color3.fromRGB(56, 189, 248)
-	grTagStroke.Thickness = 1
-	grTagStroke.Transparency = 0.4
-	grTagStroke.Parent = grTag
-
-	-- 3. Good Legend Tag (Hijau)
-	local gdTag = Instance.new("TextLabel")
-	gdTag.Name = "LegendGood"
-	gdTag.Size = UDim2.new(0, 95, 0, 18)
-	gdTag.BackgroundColor3 = Color3.fromRGB(12, 38, 24)
-	gdTag.BackgroundTransparency = 0.25
-	gdTag.Text = "● GOOD: Hijau"
-	gdTag.TextColor3 = Color3.fromRGB(74, 222, 128)
-	gdTag.Font = Enum.Font.GothamBold
-	gdTag.TextSize = 9
-	gdTag.LayoutOrder = 3
-	gdTag.Parent = legendBar
-	Instance.new("UICorner", gdTag).CornerRadius = UDim.new(0, 9)
-	local gdTagStroke = Instance.new("UIStroke")
-	gdTagStroke.Color = Color3.fromRGB(74, 222, 128)
-	gdTagStroke.Thickness = 1
-	gdTagStroke.Transparency = 0.4
-	gdTagStroke.Parent = gdTag
-
 	local arena = Instance.new("Frame")
 	arena.Name = "ArenaFrame"
-	arena.Size = UDim2.new(0.92, 0, 0.64, 0)
-	arena.Position = UDim2.new(0.04, 0, 0, 84)
+	arena.Size = UDim2.new(0.92, 0, 0.67, 0)
+	arena.Position = UDim2.new(0.04, 0, 0, 62)
 	arena.BackgroundColor3 = Color3.fromRGB(8, 14, 24)
 	arena.BackgroundTransparency = 0.35
 	arena.BorderSizePixel = 0
@@ -235,217 +161,56 @@ local function buildDynamicGui(playerGui)
 		end
 	end
 
-	-- ============ LAYERED HIT ZONE GUIDES (PERFECT, GREAT, GOOD) ============
+	local pZoneBand = Instance.new("Frame")
+	pZoneBand.Name = "PerfectZoneGuide"
+	pZoneBand.Size = UDim2.new(1, 0, Config.TILE_HEIGHT, 0)
+	pZoneBand.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	pZoneBand.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+	pZoneBand.BackgroundTransparency = 0.92
+	pZoneBand.BorderSizePixel = 0
+	pZoneBand.ZIndex = 9
+	pZoneBand.Parent = arena
 
-	-- 1. GOOD HIT ZONE GUIDE (Y: 0.54 to 0.86, Hijau Emerald)
-	local goodZone = Instance.new("Frame")
-	goodZone.Name = "GoodZoneGuide"
-	goodZone.Size = UDim2.new(1, 0, 0.32, 0)
-	goodZone.Position = UDim2.new(0, 0, 0.54, 0)
-	goodZone.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
-	goodZone.BackgroundTransparency = 0.94
-	goodZone.BorderSizePixel = 0
-	goodZone.ZIndex = 8
-	goodZone.Parent = arena
-
-	local goodTopLine = Instance.new("Frame")
-	goodTopLine.Name = "GoodTopLine"
-	goodTopLine.Size = UDim2.new(1, 0, 0, 1)
-	goodTopLine.Position = UDim2.new(0, 0, 0, 0)
-	goodTopLine.BackgroundColor3 = Color3.fromRGB(74, 222, 128)
-	goodTopLine.BackgroundTransparency = 0.65
-	goodTopLine.BorderSizePixel = 0
-	goodTopLine.ZIndex = 9
-	goodTopLine.Parent = goodZone
-
-	local goodLabel = Instance.new("TextLabel")
-	goodLabel.Name = "GoodZoneLabel"
-	goodLabel.Size = UDim2.new(0, 70, 0, 14)
-	goodLabel.Position = UDim2.new(0, 6, 0, 2)
-	goodLabel.BackgroundTransparency = 1
-	goodLabel.Text = "● GOOD"
-	goodLabel.TextColor3 = Color3.fromRGB(74, 222, 128)
-	goodLabel.Font = Enum.Font.GothamBold
-	goodLabel.TextSize = 9
-	goodLabel.TextXAlignment = Enum.TextXAlignment.Left
-	goodLabel.ZIndex = 10
-	goodLabel.Parent = goodZone
-
-	-- 2. GREAT HIT ZONE GUIDE (Y: 0.63 to 0.81, Electric Cyan)
-	local greatZone = Instance.new("Frame")
-	greatZone.Name = "GreatZoneGuide"
-	greatZone.Size = UDim2.new(1, 0, 0.18, 0)
-	greatZone.Position = UDim2.new(0, 0, 0.63, 0)
-	greatZone.BackgroundColor3 = Color3.fromRGB(6, 182, 212)
-	greatZone.BackgroundTransparency = 0.88
-	greatZone.BorderSizePixel = 0
-	greatZone.ZIndex = 9
-	greatZone.Parent = arena
-
-	local greatTopLine = Instance.new("Frame")
-	greatTopLine.Name = "GreatTopLine"
-	greatTopLine.Size = UDim2.new(1, 0, 0, 1)
-	greatTopLine.Position = UDim2.new(0, 0, 0, 0)
-	greatTopLine.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
-	greatTopLine.BackgroundTransparency = 0.50
-	greatTopLine.BorderSizePixel = 0
-	greatTopLine.ZIndex = 10
-	greatTopLine.Parent = greatZone
-
-	local greatLabel = Instance.new("TextLabel")
-	greatLabel.Name = "GreatZoneLabel"
-	greatLabel.Size = UDim2.new(0, 70, 0, 14)
-	greatLabel.Position = UDim2.new(0, 6, 0, 2)
-	greatLabel.BackgroundTransparency = 1
-	greatLabel.Text = "◆ GREAT"
-	greatLabel.TextColor3 = Color3.fromRGB(56, 189, 248)
-	greatLabel.Font = Enum.Font.GothamBold
-	greatLabel.TextSize = 9
-	greatLabel.TextXAlignment = Enum.TextXAlignment.Left
-	greatLabel.ZIndex = 11
-	greatLabel.Parent = greatZone
-
-	-- 3. PERFECT HIT ZONE GUIDE (Y: 0.67 to 0.77, Radiant Gold)
-	local perfectZone = Instance.new("Frame")
-	perfectZone.Name = "PerfectZoneGuide"
-	perfectZone.Size = UDim2.new(1, 0, 0.10, 0)
-	perfectZone.Position = UDim2.new(0, 0, 0.67, 0)
-	perfectZone.BackgroundColor3 = Color3.fromRGB(234, 179, 8)
-	perfectZone.BackgroundTransparency = 0.76
-	perfectZone.BorderSizePixel = 0
-	perfectZone.ZIndex = 11
-	perfectZone.Parent = arena
-
-	local perfectStroke = Instance.new("UIStroke")
-	perfectStroke.Color = Color3.fromRGB(250, 204, 21)
-	perfectStroke.Thickness = 1.2
-	perfectStroke.Transparency = 0.30
-	perfectStroke.Parent = perfectZone
-
-	local perfectLabelLeft = Instance.new("TextLabel")
-	perfectLabelLeft.Name = "PerfectZoneLabelLeft"
-	perfectLabelLeft.Size = UDim2.new(0, 80, 0, 14)
-	perfectLabelLeft.Position = UDim2.new(0, 6, 0.5, -7)
-	perfectLabelLeft.BackgroundTransparency = 1
-	perfectLabelLeft.Text = "★ PERFECT"
-	perfectLabelLeft.TextColor3 = Color3.fromRGB(255, 215, 0)
-	perfectLabelLeft.Font = Enum.Font.GothamBlack
-	perfectLabelLeft.TextSize = 9
-	perfectLabelLeft.TextXAlignment = Enum.TextXAlignment.Left
-	perfectLabelLeft.ZIndex = 13
-	perfectLabelLeft.Parent = perfectZone
-
-	local perfectLabelRight = Instance.new("TextLabel")
-	perfectLabelRight.Name = "PerfectZoneLabelRight"
-	perfectLabelRight.Size = UDim2.new(0, 80, 0, 14)
-	perfectLabelRight.Position = UDim2.new(1, -86, 0.5, -7)
-	perfectLabelRight.BackgroundTransparency = 1
-	perfectLabelRight.Text = "PERFECT ★"
-	perfectLabelRight.TextColor3 = Color3.fromRGB(255, 215, 0)
-	perfectLabelRight.Font = Enum.Font.GothamBlack
-	perfectLabelRight.TextSize = 9
-	perfectLabelRight.TextXAlignment = Enum.TextXAlignment.Right
-	perfectLabelRight.ZIndex = 13
-	perfectLabelRight.Parent = perfectZone
-
-	-- 4. CENTER TARGET LASER HIT LINE (Y = 0.72)
 	local hLine = Instance.new("Frame")
 	hLine.Name = "HitLine"
 	hLine.Size = UDim2.new(1, 0, 0, 3)
-	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE, -1)
-	hLine.BackgroundColor3 = Color3.fromRGB(255, 225, 80)
+	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	hLine.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
 	hLine.BorderSizePixel = 0
 	hLine.ZIndex = 14
 	hLine.Parent = arena
 
-	local hLineStroke = Instance.new("UIStroke")
-	hLineStroke.Color = Color3.fromRGB(255, 245, 160)
-	hLineStroke.Thickness = 1.8
-	hLineStroke.Transparency = 0.2
-	hLineStroke.Parent = hLine
-
-	-- 5. MISS BOUNDARY LINE (Y = 0.86)
-	local missLine = Instance.new("Frame")
-	missLine.Name = "MissLine"
-	missLine.Size = UDim2.new(1, 0, 0, 2)
-	missLine.Position = UDim2.new(0, 0, Config.MISS_LINE, 0)
-	missLine.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
-	missLine.BackgroundTransparency = 0.45
-	missLine.BorderSizePixel = 0
-	missLine.ZIndex = 14
-	missLine.Parent = arena
-
-	local missLabel = Instance.new("TextLabel")
-	missLabel.Name = "MissLineLabel"
-	missLabel.Size = UDim2.new(0, 60, 0, 14)
-	missLabel.Position = UDim2.new(0, 6, 0, 2)
-	missLabel.BackgroundTransparency = 1
-	missLabel.Text = "✕ MISS"
-	missLabel.TextColor3 = Color3.fromRGB(248, 113, 113)
-	missLabel.Font = Enum.Font.GothamBold
-	missLabel.TextSize = 8
-	missLabel.TextXAlignment = Enum.TextXAlignment.Left
-	missLabel.ZIndex = 14
-	missLabel.Parent = missLine
-
-	-- 6. RECEPTOR PADS (4 Columns with keycaps & number labels)
 	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
 	for i = 1, Config.COLUMN_COUNT do
 		local col = arena:FindFirstChild("Column" .. i)
 		if col then
 			local receptor = Instance.new("Frame")
 			receptor.Name = "ReceptorPad"
-			receptor.Size = UDim2.new(0.88, 0, 0.16, 0)
-			receptor.Position = UDim2.new(0.06, 0, Config.HIT_LINE - 0.08, 0)
-			receptor.BackgroundColor3 = Color3.fromRGB(12, 28, 48)
-			receptor.BackgroundTransparency = 0.65
+			receptor.Size = UDim2.new(0.88, 0, Config.TILE_HEIGHT, 0)
+			receptor.Position = UDim2.new(0.06, 0, Config.HIT_LINE, 0)
+			receptor.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
+			receptor.BackgroundTransparency = 0.85
 			receptor.BorderSizePixel = 0
-			receptor.ZIndex = 12
+			receptor.ZIndex = 11
 			receptor.Parent = col
 			Instance.new("UICorner", receptor).CornerRadius = UDim.new(0, 8)
 
 			local rStroke = Instance.new("UIStroke")
 			rStroke.Color = Color3.fromRGB(0, 220, 255)
-			rStroke.Thickness = 1.5
-			rStroke.Transparency = 0.4
+			rStroke.Thickness = 2
+			rStroke.Transparency = 0.3
 			rStroke.Parent = receptor
 
-			-- Center Target Notch Line inside Pad
-			local notch = Instance.new("Frame")
-			notch.Name = "CenterNotch"
-			notch.Size = UDim2.new(1, 0, 0, 2)
-			notch.Position = UDim2.new(0, 0, 0.5, -1)
-			notch.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-			notch.BackgroundTransparency = 0.4
-			notch.BorderSizePixel = 0
-			notch.ZIndex = 13
-			notch.Parent = receptor
-
-			-- Main Letter Key
 			local keyText = Instance.new("TextLabel")
 			keyText.Name = "KeyLabel"
-			keyText.Size = UDim2.new(1, 0, 0.65, 0)
-			keyText.Position = UDim2.new(0, 0, 0, 2)
+			keyText.Size = UDim2.fromScale(1, 1)
 			keyText.BackgroundTransparency = 1
 			keyText.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
 			keyText.TextColor3 = Color3.fromRGB(240, 250, 255)
 			keyText.Font = Enum.Font.GothamBlack
-			keyText.TextSize = 15
-			keyText.ZIndex = 14
+			keyText.TextSize = 16
+			keyText.ZIndex = 12
 			keyText.Parent = receptor
-
-			-- Secondary Number Sub-label
-			local numText = Instance.new("TextLabel")
-			numText.Name = "NumLabel"
-			numText.Size = UDim2.new(1, 0, 0.35, 0)
-			numText.Position = UDim2.new(0, 0, 0.65, -2)
-			numText.BackgroundTransparency = 1
-			numText.Text = "(" .. tostring(i) .. ")"
-			numText.TextColor3 = Color3.fromRGB(148, 163, 184)
-			numText.Font = Enum.Font.GothamBold
-			numText.TextSize = 9
-			numText.ZIndex = 14
-			numText.Parent = receptor
 		end
 	end
 
@@ -611,108 +376,26 @@ function PianoUI.CreateTile(column, y)
 	local parent = columns[column]
 	if not parent then return nil end
 
-	local tile = Instance.new("Frame")
+	local tile = Instance.new("ImageLabel")
 	tile.Name = "Tile"
 	tile.Size = UDim2.new(0.88, 0, Config.TILE_HEIGHT, 0)
 	tile.Position = UDim2.new(0.06, 0, y, 0)
-	tile.BackgroundColor3 = Color3.fromRGB(15, 25, 42)
-	tile.BackgroundTransparency = 0.15
+	tile.BackgroundTransparency = 1
+	tile.Image = Config.TILE_IMAGES[column]
+	tile.ScaleType = Enum.ScaleType.Fit
 	tile.BorderSizePixel = 0
 	tile.ZIndex = 15
 	tile.Parent = parent
-	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 8)
 
-	local tStroke = Instance.new("UIStroke")
-	tStroke.Name = "TileStroke"
-	tStroke.Color = Color3.fromRGB(56, 189, 248)
-	tStroke.Thickness = 1.8
-	tStroke.Transparency = 0.3
-	tStroke.Parent = tile
-
-	local tileImg = Instance.new("ImageLabel")
-	tileImg.Name = "TileImage"
-	tileImg.Size = UDim2.new(0.80, 0, 0.80, 0)
-	tileImg.Position = UDim2.new(0.10, 0, 0.10, 0)
-	tileImg.BackgroundTransparency = 1
-	tileImg.Image = Config.TILE_IMAGES[column]
-	tileImg.ScaleType = Enum.ScaleType.Fit
-	tileImg.BorderSizePixel = 0
-	tileImg.ZIndex = 16
-	tileImg.Parent = tile
-
-	-- Center Hit Line Notch on the Tile
-	local notch = Instance.new("Frame")
-	notch.Name = "CenterNotch"
-	notch.Size = UDim2.new(1, 0, 0, 2)
-	notch.Position = UDim2.new(0, 0, 0.5, -1)
-	notch.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
-	notch.BackgroundTransparency = 0.5
-	notch.BorderSizePixel = 0
-	notch.ZIndex = 17
-	notch.Parent = tile
-
+	local aspect = Instance.new("UIAspectRatioConstraint")
+	aspect.AspectRatio = 1
+	aspect.Parent = tile
 	return tile
 end
 
 function PianoUI.MoveTile(tile, y)
-	if not tile or not tile.Parent then return end
-	tile.Position = UDim2.new(0.06, 0, y, 0)
-
-	-- Real-time Hit Zone Glow Feedback on Tile
-	local tileCenter = y + (Config.TILE_HEIGHT * 0.5)
-	local delta = math.abs(tileCenter - Config.HIT_LINE)
-
-	local stroke = tile:FindFirstChild("TileStroke")
-	local notch = tile:FindFirstChild("CenterNotch")
-
-	if delta <= 0.045 then
-		-- In PERFECT Zone: Radiant Gold!
-		if stroke then
-			stroke.Color = Color3.fromRGB(255, 215, 0)
-			stroke.Thickness = 2.5
-			stroke.Transparency = 0.05
-		end
-		if notch then
-			notch.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-			notch.BackgroundTransparency = 0.1
-		end
-		tile.BackgroundColor3 = Color3.fromRGB(42, 34, 12)
-	elseif delta <= 0.085 then
-		-- In GREAT Zone: Electric Cyan!
-		if stroke then
-			stroke.Color = Color3.fromRGB(56, 189, 248)
-			stroke.Thickness = 2.0
-			stroke.Transparency = 0.2
-		end
-		if notch then
-			notch.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
-			notch.BackgroundTransparency = 0.25
-		end
-		tile.BackgroundColor3 = Color3.fromRGB(12, 28, 42)
-	elseif delta <= 0.18 then
-		-- In GOOD Zone: Emerald Green!
-		if stroke then
-			stroke.Color = Color3.fromRGB(74, 222, 128)
-			stroke.Thickness = 1.6
-			stroke.Transparency = 0.3
-		end
-		if notch then
-			notch.BackgroundColor3 = Color3.fromRGB(74, 222, 128)
-			notch.BackgroundTransparency = 0.4
-		end
-		tile.BackgroundColor3 = Color3.fromRGB(12, 32, 22)
-	else
-		-- Outside: Default Blue
-		if stroke then
-			stroke.Color = Color3.fromRGB(56, 189, 248)
-			stroke.Thickness = 1.5
-			stroke.Transparency = 0.5
-		end
-		if notch then
-			notch.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
-			notch.BackgroundTransparency = 0.6
-		end
-		tile.BackgroundColor3 = Color3.fromRGB(15, 25, 42)
+	if tile and tile.Parent then
+		tile.Position = UDim2.new(0.06, 0, y, 0)
 	end
 end
 
@@ -729,8 +412,8 @@ function PianoUI.TriggerReceptorPress(column, ratingKey)
 	pad.BackgroundTransparency = 0.35
 
 	TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		BackgroundColor3 = Color3.fromRGB(12, 28, 48),
-		BackgroundTransparency = 0.65,
+		BackgroundColor3 = Color3.fromRGB(0, 160, 255),
+		BackgroundTransparency = 0.85,
 	}):Play()
 end
 
@@ -797,23 +480,11 @@ function PianoUI.PlayHitEffect(tile, y, ratingKey, column)
 
 	if tile and tile.Parent then
 		local tween = TweenService:Create(tile, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 1,
+			ImageTransparency = 1,
 			Size = UDim2.new(0.98, 0, Config.TILE_HEIGHT * 1.25, 0),
 			Position = UDim2.new(0.01, 0, y - 0.02, 0),
 		})
 		tween:Play()
-		for _, child in ipairs(tile:GetChildren()) do
-			if child:IsA("ImageLabel") or child:IsA("TextLabel") or child:IsA("Frame") then
-				TweenService:Create(child, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					BackgroundTransparency = 1,
-				}):Play()
-				if child:IsA("ImageLabel") then
-					TweenService:Create(child, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-						ImageTransparency = 1,
-					}):Play()
-				end
-			end
-		end
 		tween.Completed:Once(function()
 			if tile and tile.Parent then tile:Destroy() end
 		end)

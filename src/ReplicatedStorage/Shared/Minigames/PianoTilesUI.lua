@@ -218,82 +218,11 @@ local function buildDynamicGui(playerGui)
 	comboStroke.Transparency = 0.2
 	comboStroke.Parent = combo
 
-	-- Top Hit Zone Legend (Keterangan Posisi Not: PERFECT, GREAT, GOOD)
-	local legendBar = Instance.new("Frame")
-	legendBar.Name = "HitZoneLegend"
-	legendBar.Size = UDim2.new(0.92, 0, 0, 20)
-	legendBar.Position = UDim2.new(0.04, 0, 0, 60)
-	legendBar.BackgroundTransparency = 1
-	legendBar.ZIndex = 25
-	legendBar.Parent = container
-
-	local legendLayout = Instance.new("UIListLayout")
-	legendLayout.FillDirection = Enum.FillDirection.Horizontal
-	legendLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	legendLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	legendLayout.Padding = UDim.new(0, 8)
-	legendLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	legendLayout.Parent = legendBar
-
-	local pTag = Instance.new("TextLabel")
-	pTag.Name = "LegendPerfect"
-	pTag.Size = UDim2.new(0, 105, 0, 18)
-	pTag.BackgroundColor3 = Color3.fromRGB(42, 32, 12)
-	pTag.BackgroundTransparency = 0.25
-	pTag.Text = "⭐ PERFECT: Emas"
-	pTag.TextColor3 = Color3.fromRGB(255, 215, 0)
-	pTag.Font = Enum.Font.GothamBold
-	pTag.TextSize = 9
-	pTag.LayoutOrder = 1
-	pTag.Parent = legendBar
-	Instance.new("UICorner", pTag).CornerRadius = UDim.new(0, 9)
-	local pTagStroke = Instance.new("UIStroke")
-	pTagStroke.Color = Color3.fromRGB(250, 204, 21)
-	pTagStroke.Thickness = 1
-	pTagStroke.Transparency = 0.4
-	pTagStroke.Parent = pTag
-
-	local grTag = Instance.new("TextLabel")
-	grTag.Name = "LegendGreat"
-	grTag.Size = UDim2.new(0, 98, 0, 18)
-	grTag.BackgroundColor3 = Color3.fromRGB(12, 32, 42)
-	grTag.BackgroundTransparency = 0.25
-	grTag.Text = "◆ GREAT: Cyan"
-	grTag.TextColor3 = Color3.fromRGB(56, 189, 248)
-	grTag.Font = Enum.Font.GothamBold
-	grTag.TextSize = 9
-	grTag.LayoutOrder = 2
-	grTag.Parent = legendBar
-	Instance.new("UICorner", grTag).CornerRadius = UDim.new(0, 9)
-	local grTagStroke = Instance.new("UIStroke")
-	grTagStroke.Color = Color3.fromRGB(56, 189, 248)
-	grTagStroke.Thickness = 1
-	grTagStroke.Transparency = 0.4
-	grTagStroke.Parent = grTag
-
-	local gdTag = Instance.new("TextLabel")
-	gdTag.Name = "LegendGood"
-	gdTag.Size = UDim2.new(0, 95, 0, 18)
-	gdTag.BackgroundColor3 = Color3.fromRGB(12, 38, 24)
-	gdTag.BackgroundTransparency = 0.25
-	gdTag.Text = "● GOOD: Hijau"
-	gdTag.TextColor3 = Color3.fromRGB(74, 222, 128)
-	gdTag.Font = Enum.Font.GothamBold
-	gdTag.TextSize = 9
-	gdTag.LayoutOrder = 3
-	gdTag.Parent = legendBar
-	Instance.new("UICorner", gdTag).CornerRadius = UDim.new(0, 9)
-	local gdTagStroke = Instance.new("UIStroke")
-	gdTagStroke.Color = Color3.fromRGB(74, 222, 128)
-	gdTagStroke.Thickness = 1
-	gdTagStroke.Transparency = 0.4
-	gdTagStroke.Parent = gdTag
-
 	-- Arena Frame (Playing Field / Guitar Fretboard Runway)
 	local arena = Instance.new("Frame")
 	arena.Name = "ArenaFrame"
-	arena.Size = UDim2.new(0.92, 0, 0.64, 0)
-	arena.Position = UDim2.new(0.04, 0, 0, 84)
+	arena.Size = UDim2.new(0.92, 0, 0.67, 0)
+	arena.Position = UDim2.new(0.04, 0, 0, 62)
 	arena.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
 	arena.BackgroundTransparency = 0.35
 	arena.BorderSizePixel = 0
@@ -387,158 +316,32 @@ local function buildDynamicGui(playerGui)
 		end
 	end
 
-	-- ============ LAYERED HIT ZONE GUIDES (PERFECT, GREAT, GOOD) ============
+	-- Perfect Zone Glow Band
+	local pZoneBand = Instance.new("Frame")
+	pZoneBand.Name = "PerfectZoneGuide"
+	pZoneBand.Size = UDim2.new(1, 0, Config.TILE_HEIGHT, 0)
+	pZoneBand.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	pZoneBand.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+	pZoneBand.BackgroundTransparency = 0.92
+	pZoneBand.BorderSizePixel = 0
+	pZoneBand.ZIndex = 9
+	pZoneBand.Parent = arena
 
-	-- 1. GOOD HIT ZONE GUIDE (Y: 0.54 to 0.86, Hijau Emerald)
-	local goodZone = Instance.new("Frame")
-	goodZone.Name = "GoodZoneGuide"
-	goodZone.Size = UDim2.new(1, 0, 0.32, 0)
-	goodZone.Position = UDim2.new(0, 0, 0.54, 0)
-	goodZone.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
-	goodZone.BackgroundTransparency = 0.94
-	goodZone.BorderSizePixel = 0
-	goodZone.ZIndex = 8
-	goodZone.Parent = arena
-
-	local goodTopLine = Instance.new("Frame")
-	goodTopLine.Name = "GoodTopLine"
-	goodTopLine.Size = UDim2.new(1, 0, 0, 1)
-	goodTopLine.Position = UDim2.new(0, 0, 0, 0)
-	goodTopLine.BackgroundColor3 = Color3.fromRGB(74, 222, 128)
-	goodTopLine.BackgroundTransparency = 0.65
-	goodTopLine.BorderSizePixel = 0
-	goodTopLine.ZIndex = 9
-	goodTopLine.Parent = goodZone
-
-	local goodLabel = Instance.new("TextLabel")
-	goodLabel.Name = "GoodZoneLabel"
-	goodLabel.Size = UDim2.new(0, 70, 0, 14)
-	goodLabel.Position = UDim2.new(0, 6, 0, 2)
-	goodLabel.BackgroundTransparency = 1
-	goodLabel.Text = "● GOOD"
-	goodLabel.TextColor3 = Color3.fromRGB(74, 222, 128)
-	goodLabel.Font = Enum.Font.GothamBold
-	goodLabel.TextSize = 9
-	goodLabel.TextXAlignment = Enum.TextXAlignment.Left
-	goodLabel.ZIndex = 10
-	goodLabel.Parent = goodZone
-
-	-- 2. GREAT HIT ZONE GUIDE (Y: 0.63 to 0.81, Electric Cyan)
-	local greatZone = Instance.new("Frame")
-	greatZone.Name = "GreatZoneGuide"
-	greatZone.Size = UDim2.new(1, 0, 0.18, 0)
-	greatZone.Position = UDim2.new(0, 0, 0.63, 0)
-	greatZone.BackgroundColor3 = Color3.fromRGB(6, 182, 212)
-	greatZone.BackgroundTransparency = 0.88
-	greatZone.BorderSizePixel = 0
-	greatZone.ZIndex = 9
-	greatZone.Parent = arena
-
-	local greatTopLine = Instance.new("Frame")
-	greatTopLine.Name = "GreatTopLine"
-	greatTopLine.Size = UDim2.new(1, 0, 0, 1)
-	greatTopLine.Position = UDim2.new(0, 0, 0, 0)
-	greatTopLine.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
-	greatTopLine.BackgroundTransparency = 0.50
-	greatTopLine.BorderSizePixel = 0
-	greatTopLine.ZIndex = 10
-	greatTopLine.Parent = greatZone
-
-	local greatLabel = Instance.new("TextLabel")
-	greatLabel.Name = "GreatZoneLabel"
-	greatLabel.Size = UDim2.new(0, 70, 0, 14)
-	greatLabel.Position = UDim2.new(0, 6, 0, 2)
-	greatLabel.BackgroundTransparency = 1
-	greatLabel.Text = "◆ GREAT"
-	greatLabel.TextColor3 = Color3.fromRGB(56, 189, 248)
-	greatLabel.Font = Enum.Font.GothamBold
-	greatLabel.TextSize = 9
-	greatLabel.TextXAlignment = Enum.TextXAlignment.Left
-	greatLabel.ZIndex = 11
-	greatLabel.Parent = greatZone
-
-	-- 3. PERFECT HIT ZONE GUIDE (Y: 0.67 to 0.77, Radiant Gold)
-	local perfectZone = Instance.new("Frame")
-	perfectZone.Name = "PerfectZoneGuide"
-	perfectZone.Size = UDim2.new(1, 0, 0.10, 0)
-	perfectZone.Position = UDim2.new(0, 0, 0.67, 0)
-	perfectZone.BackgroundColor3 = Color3.fromRGB(234, 179, 8)
-	perfectZone.BackgroundTransparency = 0.76
-	perfectZone.BorderSizePixel = 0
-	perfectZone.ZIndex = 11
-	perfectZone.Parent = arena
-
-	local perfectStroke = Instance.new("UIStroke")
-	perfectStroke.Color = Color3.fromRGB(250, 204, 21)
-	perfectStroke.Thickness = 1.2
-	perfectStroke.Transparency = 0.30
-	perfectStroke.Parent = perfectZone
-
-	local perfectLabelLeft = Instance.new("TextLabel")
-	perfectLabelLeft.Name = "PerfectZoneLabelLeft"
-	perfectLabelLeft.Size = UDim2.new(0, 80, 0, 14)
-	perfectLabelLeft.Position = UDim2.new(0, 6, 0.5, -7)
-	perfectLabelLeft.BackgroundTransparency = 1
-	perfectLabelLeft.Text = "★ PERFECT"
-	perfectLabelLeft.TextColor3 = Color3.fromRGB(255, 215, 0)
-	perfectLabelLeft.Font = Enum.Font.GothamBlack
-	perfectLabelLeft.TextSize = 9
-	perfectLabelLeft.TextXAlignment = Enum.TextXAlignment.Left
-	perfectLabelLeft.ZIndex = 13
-	perfectLabelLeft.Parent = perfectZone
-
-	local perfectLabelRight = Instance.new("TextLabel")
-	perfectLabelRight.Name = "PerfectZoneLabelRight"
-	perfectLabelRight.Size = UDim2.new(0, 80, 0, 14)
-	perfectLabelRight.Position = UDim2.new(1, -86, 0.5, -7)
-	perfectLabelRight.BackgroundTransparency = 1
-	perfectLabelRight.Text = "PERFECT ★"
-	perfectLabelRight.TextColor3 = Color3.fromRGB(255, 215, 0)
-	perfectLabelRight.Font = Enum.Font.GothamBlack
-	perfectLabelRight.TextSize = 9
-	perfectLabelRight.TextXAlignment = Enum.TextXAlignment.Right
-	perfectLabelRight.ZIndex = 13
-	perfectLabelRight.Parent = perfectZone
-
-	-- 4. CENTER TARGET LASER HIT LINE (Y = 0.72)
+	-- Judgement Hit Line (Luminous Laser Line)
 	local hLine = Instance.new("Frame")
 	hLine.Name = "HitLine"
 	hLine.Size = UDim2.new(1, 0, 0, 3)
-	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE, -1)
-	hLine.BackgroundColor3 = Color3.fromRGB(255, 225, 80)
+	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	hLine.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
 	hLine.BorderSizePixel = 0
 	hLine.ZIndex = 14
 	hLine.Parent = arena
 
 	local hLineStroke = Instance.new("UIStroke")
-	hLineStroke.Color = Color3.fromRGB(255, 245, 160)
-	hLineStroke.Thickness = 1.8
+	hLineStroke.Color = Color3.fromRGB(160, 245, 255)
+	hLineStroke.Thickness = 2
 	hLineStroke.Transparency = 0.2
 	hLineStroke.Parent = hLine
-
-	-- 5. MISS BOUNDARY LINE (Y = 0.86)
-	local missLine = Instance.new("Frame")
-	missLine.Name = "MissLine"
-	missLine.Size = UDim2.new(1, 0, 0, 2)
-	missLine.Position = UDim2.new(0, 0, Config.MISS_LINE, 0)
-	missLine.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
-	missLine.BackgroundTransparency = 0.45
-	missLine.BorderSizePixel = 0
-	missLine.ZIndex = 14
-	missLine.Parent = arena
-
-	local missLabel = Instance.new("TextLabel")
-	missLabel.Name = "MissLineLabel"
-	missLabel.Size = UDim2.new(0, 60, 0, 14)
-	missLabel.Position = UDim2.new(0, 6, 0, 2)
-	missLabel.BackgroundTransparency = 1
-	missLabel.Text = "✕ MISS"
-	missLabel.TextColor3 = Color3.fromRGB(248, 113, 113)
-	missLabel.Font = Enum.Font.GothamBold
-	missLabel.TextSize = 8
-	missLabel.TextXAlignment = Enum.TextXAlignment.Left
-	missLabel.ZIndex = 14
-	missLabel.Parent = missLine
 
 	-- Perfect Hit Target Receptors with Guitar Pick Styling (FISH-027)
 	for i = 1, Config.COLUMN_COUNT do

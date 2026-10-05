@@ -216,11 +216,9 @@ function PianoSession:_registerHit(entry, y)
 	self.Combo += 1
 	if self.Combo > self.MaxCombo then self.MaxCombo = self.Combo end
 
-	-- Hitung posisi pusat not tile terhadap garis target
-	local tileCenter = entry.y + (Config.TILE_HEIGHT * 0.5)
-	local delta = math.abs(tileCenter - Config.HIT_LINE)
-	local perfectWindow = (Config.HIT_RATINGS and Config.HIT_RATINGS.PERFECT and Config.HIT_RATINGS.PERFECT.window) or 0.045
-	local greatWindow = (Config.HIT_RATINGS and Config.HIT_RATINGS.GREAT and Config.HIT_RATINGS.GREAT.window) or 0.085
+	local delta = math.abs(y - Config.HIT_LINE)
+	local perfectWindow = (Config.HIT_RATINGS and Config.HIT_RATINGS.PERFECT and Config.HIT_RATINGS.PERFECT.window) or 0.05
+	local greatWindow = (Config.HIT_RATINGS and Config.HIT_RATINGS.GREAT and Config.HIT_RATINGS.GREAT.window) or 0.09
 
 	local ratingKey = "GOOD"
 	if delta <= perfectWindow then
@@ -277,8 +275,7 @@ function PianoSession:HandleColumnInput(column)
 	local bestEntry, bestDist = nil, math.huge
 	for _, entry in ipairs(self.Tiles) do
 		if entry.column == column and not entry.hit then
-			local tileCenter = entry.y + (Config.TILE_HEIGHT * 0.5)
-			local dist = math.abs(tileCenter - Config.HIT_LINE)
+			local dist = math.abs(entry.y - Config.HIT_LINE)
 			if dist < bestDist then
 				bestDist = dist
 				bestEntry = entry
@@ -286,15 +283,8 @@ function PianoSession:HandleColumnInput(column)
 		end
 	end
 
-	if bestEntry then
-		local tileCenter = bestEntry.y + (Config.TILE_HEIGHT * 0.5)
-		local delta = math.abs(tileCenter - Config.HIT_LINE)
-		local goodWindow = (Config.HIT_RATINGS and Config.HIT_RATINGS.GOOD and Config.HIT_RATINGS.GOOD.window) or 0.18
-		if delta <= (goodWindow + 0.02) and bestEntry.y <= (Config.MISS_LINE + 0.04) then
-			self:_registerHit(bestEntry, bestEntry.y)
-		else
-			self:_registerMistake(column)
-		end
+	if bestEntry and bestEntry.y >= (Config.HIT_LINE - 0.22) and bestEntry.y <= Config.MISS_LINE then
+		self:_registerHit(bestEntry, bestEntry.y)
 	else
 		self:_registerMistake(column)
 	end
