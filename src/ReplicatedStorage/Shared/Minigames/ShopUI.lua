@@ -602,6 +602,313 @@ local function renderBagTab(parent)
 	end
 end
 
+-- ============ HELPER GET BACKPACK LOOT ============
+local function getLootInBackpack()
+	local lootList = {}
+	local backpack = player:FindFirstChild("Backpack")
+	local char = player.Character
+
+	local function scan(container)
+		if not container then return end
+		for _, item in ipairs(container:GetChildren()) do
+			if item:IsA("Tool") then
+				local isFish = item:GetAttribute("IsFish") == true
+				local isLoot = item:GetAttribute("IsLoot") == true
+				local isRod = item:GetAttribute("IsRod") == true or item.Name:lower():find("rod") or item.Name:lower():find("pancing")
+				if (isFish or isLoot or item:GetAttribute("Coins") ~= nil) and not isRod then
+					table.insert(lootList, item)
+				end
+			end
+		end
+	end
+
+	scan(backpack)
+	scan(char)
+	return lootList
+end
+
+local sellCategoryFilter = "ALL"
+
+-- ============ RENDER INTEGRATED SELL TAB (FISH-026) ============
+local function renderSellTab(parent)
+	local allItems = getLootInBackpack()
+	local totalCoinsUnlocked = 0
+	local totalLocked = 0
+	local filteredItems = {}
+
+	for _, tool in ipairs(allItems) do
+		local isLocked = tool:GetAttribute("IsLocked") == true
+		local itemType = tool:GetAttribute("ItemType") or "FISH"
+		local coins = tonumber(tool:GetAttribute("Coins")) or 15
+
+		if isLocked then
+			totalLocked += 1
+		else
+			totalCoinsUnlocked += coins
+		end
+
+		if sellCategoryFilter == "ALL" or itemType == sellCategoryFilter then
+			table.insert(filteredItems, tool)
+		end
+	end
+
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, 0, 1, 0)
+	container.BackgroundTransparency = 1
+	container.Parent = parent
+
+	-- Top Summary Header Bar
+	local summaryBar = Instance.new("Frame")
+	summaryBar.Size = UDim2.new(1, -10, 0, 48)
+	summaryBar.Position = UDim2.new(0, 0, 0, 0)
+	summaryBar.BackgroundColor3 = Color3.fromRGB(18, 27, 43)
+	summaryBar.BorderSizePixel = 0
+	summaryBar.Parent = container
+	Instance.new("UICorner", summaryBar).CornerRadius = UDim.new(0, 10)
+
+	local sumLayout = Instance.new("UIListLayout")
+	sumLayout.FillDirection = Enum.FillDirection.Horizontal
+	sumLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	sumLayout.Padding = UDim.new(0, 20)
+	sumLayout.Parent = summaryBar
+
+	local sumPadding = Instance.new("UIPadding")
+	sumPadding.PaddingLeft = UDim.new(0, 16)
+	sumPadding.Parent = summaryBar
+
+	local function addSummaryLabel(text, color)
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.new(0, 0, 1, 0)
+		lbl.AutomaticSize = Enum.AutomaticSize.X
+		lbl.BackgroundTransparency = 1
+		lbl.RichText = true
+		lbl.Text = text
+		lbl.TextColor3 = color or Color3.fromRGB(255, 255, 255)
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextSize = 12
+		lbl.Parent = summaryBar
+	end
+
+	addSummaryLabel(string.format("🎒 Total di Tas: <font color=\"#38BDF8\"><b>%d</b></font>", #allItems), Color3.fromRGB(203, 213, 225))
+	addSummaryLabel(string.format("🔒 Terkunci: <font color=\"#F59E0B\"><b>%d</b></font>", totalLocked), Color3.fromRGB(203, 213, 225))
+	addSummaryLabel(string.format("💰 Siap Jual: <font color=\"#4ADE80\"><b>+%d Koin</b></font>", totalCoinsUnlocked), Color3.fromRGB(251, 191, 36))
+
+	-- Filter Tabs Row
+	local filterBar = Instance.new("Frame")
+	filterBar.Size = UDim2.new(1, -10, 0, 32)
+	filterBar.Position = UDim2.new(0, 0, 0, 56)
+	filterBar.BackgroundTransparency = 1
+	filterBar.Parent = container
+
+	local fLayout = Instance.new("UIListLayout")
+	fLayout.FillDirection = Enum.FillDirection.Horizontal
+	fLayout.Padding = UDim.new(0, 8)
+	fLayout.Parent = filterBar
+
+	local FILTERS = {
+		{ id = "ALL", label = "✨ SEMUA" },
+		{ id = "FISH", label = "🐟 IKAN" },
+		{ id = "TREASURE", label = "📦 PETI" },
+		{ id = "ARTIFACT", label = "🔮 RELIK" },
+		{ id = "JUNK", label = "🗑️ SAMPAH" },
+	}
+
+	for _, f in ipairs(FILTERS) do
+		local isSel = (sellCategoryFilter == f.id)
+		local fBtn = Instance.new("TextButton")
+		fBtn.Size = UDim2.new(0, 90, 1, 0)
+		fBtn.BackgroundColor3 = isSel and Color3.fromRGB(2, 132, 199) or Color3.fromRGB(18, 27, 43)
+		fBtn.BorderSizePixel = 0
+		fBtn.Text = f.label
+		fBtn.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(148, 163, 184)
+		fBtn.Font = Enum.Font.GothamBold
+		fBtn.TextSize = 10
+		fBtn.Parent = filterBar
+		Instance.new("UICorner", fBtn).CornerRadius = UDim.new(0, 6)
+
+		fBtn.MouseButton1Click:Connect(function()
+			playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+			sellCategoryFilter = f.id
+			ShopUI.RenderContent()
+		end)
+	end
+
+	-- Items Scroll Frame
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = UDim2.new(1, -10, 1, -150)
+	scroll.Position = UDim2.new(0, 0, 0, 96)
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 6
+	scroll.ScrollBarImageColor3 = Color3.fromRGB(2, 132, 199)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.Parent = container
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = scroll
+
+	if #filteredItems == 0 then
+		local emptyLabel = Instance.new("TextLabel")
+		emptyLabel.Size = UDim2.new(1, 0, 0, 100)
+		emptyLabel.BackgroundTransparency = 1
+		emptyLabel.Text = "🍃 Tidak ada hasil tangkapan di tas pada kategori ini."
+		emptyLabel.TextColor3 = Color3.fromRGB(148, 163, 184)
+		emptyLabel.Font = Enum.Font.GothamMedium
+		emptyLabel.TextSize = 13
+		emptyLabel.Parent = scroll
+	else
+		for idx, tool in ipairs(filteredItems) do
+			local isLocked = tool:GetAttribute("IsLocked") == true
+			local name = tool:GetAttribute("FishName") or tool.Name
+			local r = tool:GetAttribute("Rarity") or "COMMON"
+			local stars = tool:GetAttribute("Stars") or "⭐"
+			local weight = tonumber(tool:GetAttribute("Weight")) or 1.0
+			local coins = tonumber(tool:GetAttribute("Coins")) or 15
+			local grade = tool:GetAttribute("Grade") or "A"
+			local badge = tool:GetAttribute("CategoryBadge") or "🐟 IKAN"
+			local isMutated = tool:GetAttribute("IsMutated") == true
+
+			local card = Instance.new("Frame")
+			card.Name = "ItemCard_" .. idx
+			card.Size = UDim2.new(1, -6, 0, 68)
+			card.BackgroundColor3 = isLocked and Color3.fromRGB(16, 22, 34) or Color3.fromRGB(18, 27, 43)
+			card.BorderSizePixel = 0
+			card.LayoutOrder = idx
+			card.Parent = scroll
+			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+
+			local cStroke = Instance.new("UIStroke")
+			cStroke.Color = isLocked and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(30, 45, 68)
+			cStroke.Thickness = isLocked and 1.5 or 1
+			cStroke.Transparency = isLocked and 0.3 or 0.7
+			cStroke.Parent = card
+
+			-- Icon
+			local iconLabel = Instance.new("TextLabel")
+			iconLabel.Size = UDim2.new(0, 48, 0, 48)
+			iconLabel.Position = UDim2.new(0, 10, 0.5, -24)
+			iconLabel.BackgroundColor3 = Color3.fromRGB(10, 17, 29)
+			iconLabel.BorderSizePixel = 0
+			iconLabel.Text = badge:find("PETI") and "📦" or (badge:find("RELIK") and "🔮" or (badge:find("SAMPAH") and "🗑️" or "🐟"))
+			iconLabel.Font = Enum.Font.GothamBlack
+			iconLabel.TextSize = 22
+			iconLabel.Parent = card
+			Instance.new("UICorner", iconLabel).CornerRadius = UDim.new(0, 8)
+
+			-- Name & Details
+			local nameLabel = Instance.new("TextLabel")
+			nameLabel.Size = UDim2.new(0.5, 0, 0, 18)
+			nameLabel.Position = UDim2.new(0, 68, 0, 12)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = string.format("%s %s %s", name, isMutated and "🌠" or "", stars)
+			nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+			nameLabel.Font = Enum.Font.GothamBold
+			nameLabel.TextSize = 13
+			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.Parent = card
+
+			local detailsLabel = Instance.new("TextLabel")
+			detailsLabel.Size = UDim2.new(0.5, 0, 0, 16)
+			detailsLabel.Position = UDim2.new(0, 68, 0, 36)
+			detailsLabel.BackgroundTransparency = 1
+			detailsLabel.Text = string.format("⚖️ %.1f Kg  •  Grade: %s  •  💰 Nilai: %d Koin", weight, grade, coins)
+			detailsLabel.TextColor3 = Color3.fromRGB(148, 163, 184)
+			detailsLabel.Font = Enum.Font.GothamMedium
+			detailsLabel.TextSize = 10
+			detailsLabel.TextXAlignment = Enum.TextXAlignment.Left
+			detailsLabel.Parent = card
+
+			-- Lock Button
+			local lockBtn = Instance.new("TextButton")
+			lockBtn.Size = UDim2.new(0, 36, 0, 36)
+			lockBtn.Position = UDim2.new(1, -156, 0.5, -18)
+			lockBtn.BackgroundColor3 = isLocked and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(25, 36, 56)
+			lockBtn.BorderSizePixel = 0
+			lockBtn.Text = isLocked and "🔒" or "🔓"
+			lockBtn.TextColor3 = isLocked and Color3.fromRGB(15, 23, 42) or Color3.fromRGB(203, 213, 225)
+			lockBtn.Font = Enum.Font.GothamBlack
+			lockBtn.TextSize = 14
+			lockBtn.Parent = card
+			Instance.new("UICorner", lockBtn).CornerRadius = UDim.new(0, 8)
+
+			lockBtn.MouseButton1Click:Connect(function()
+				playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.5)
+				RemoteContract.Client.ToggleLockItem(tool)
+				task.delay(0.15, function()
+					ShopUI.RenderContent()
+				end)
+			end)
+
+			-- Sell Single Button
+			local sellSingleBtn = Instance.new("TextButton")
+			sellSingleBtn.Size = UDim2.new(0, 106, 0, 36)
+			sellSingleBtn.Position = UDim2.new(1, -114, 0.5, -18)
+			sellSingleBtn.BorderSizePixel = 0
+			sellSingleBtn.Font = Enum.Font.GothamBlack
+			sellSingleBtn.TextSize = 11
+			sellSingleBtn.Parent = card
+			Instance.new("UICorner", sellSingleBtn).CornerRadius = UDim.new(0, 8)
+
+			if isLocked then
+				sellSingleBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 55)
+				sellSingleBtn.Text = "🔒 TERKUNCI"
+				sellSingleBtn.TextColor3 = Color3.fromRGB(148, 163, 184)
+			else
+				sellSingleBtn.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+				sellSingleBtn.Text = string.format("💰 JUAL (+%d)", coins)
+				sellSingleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+				sellSingleBtn.MouseButton1Click:Connect(function()
+					playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.4)
+					RemoteContract.Client.SellFish(tool)
+					task.delay(0.15, function()
+						ShopUI.RenderContent()
+					end)
+				end)
+			end
+		end
+	end
+
+	-- Bottom Action Bar: Sell All Unlocked
+	local bottomSellBar = Instance.new("Frame")
+	bottomSellBar.Size = UDim2.new(1, -10, 0, 46)
+	bottomSellBar.Position = UDim2.new(0, 0, 1, -46)
+	bottomSellBar.BackgroundTransparency = 1
+	bottomSellBar.Parent = container
+
+	local sellAllBtn = Instance.new("TextButton")
+	sellAllBtn.Size = UDim2.new(1, 0, 1, 0)
+	sellAllBtn.BorderSizePixel = 0
+	sellAllBtn.Font = Enum.Font.GothamBlack
+	sellAllBtn.TextSize = 13
+	sellAllBtn.Parent = bottomSellBar
+	Instance.new("UICorner", sellAllBtn).CornerRadius = UDim.new(0, 10)
+
+	if totalCoinsUnlocked > 0 then
+		local catName = sellCategoryFilter == "ALL" and "SEMUA TANGKAPAN" or ("KATEGORI " .. sellCategoryFilter)
+		sellAllBtn.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+		sellAllBtn.Text = string.format("💰 JUAL %s TERBUKA (+%d KOIN)", catName, totalCoinsUnlocked)
+		sellAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		sellAllBtn.MouseButton1Click:Connect(function()
+			playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 1.5)
+			if sellCategoryFilter == "ALL" then
+				RemoteContract.Client.SellAllFish()
+			else
+				RemoteContract.Client.SellCategory(sellCategoryFilter)
+			end
+			task.delay(0.2, function()
+				ShopUI.RenderContent()
+			end)
+		end)
+	else
+		sellAllBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 55)
+		sellAllBtn.Text = (#allItems > 0 and totalLocked > 0) and "🔒 SEMUA ITEM TERKUNCI (0 KOIN)" or "💰 TIDAK ADA ITEM UNTUK DIJUAL (0 KOIN)"
+		sellAllBtn.TextColor3 = Color3.fromRGB(148, 163, 184)
+	end
+end
+
 -- ============ RENDER TAB CONTENT ============
 function ShopUI.RenderContent()
 	if not contentContainer then return end
@@ -628,6 +935,8 @@ function ShopUI.RenderContent()
 		renderBaitsTab(contentContainer)
 	elseif currentTab == "BAG" then
 		renderBagTab(contentContainer)
+	elseif currentTab == "SELL" then
+		renderSellTab(contentContainer)
 	end
 end
 
@@ -786,20 +1095,21 @@ function ShopUI.Show(targetGui, catalogData)
 		{ id = "RODS", label = "🎣 Joran Pancing" },
 		{ id = "BAITS", label = "🪱 Umpan & Pakan" },
 		{ id = "BAG", label = "🎒 Perluasan Tas" },
+		{ id = "SELL", label = "💰 Jual Tangkapan" },
 	}
 
 	tabButtons = {}
 	for idx, t in ipairs(TABS) do
 		local tBtn = Instance.new("TextButton")
 		tBtn.Name = "Tab_" .. t.id
-		tBtn.Size = UDim2.new(0, 160, 1, 0)
+		tBtn.Size = UDim2.new(0, 138, 1, 0)
 		tBtn.LayoutOrder = idx
 		tBtn.BackgroundColor3 = Color3.fromRGB(19, 29, 46)
 		tBtn.BorderSizePixel = 0
 		tBtn.Text = t.label
 		tBtn.TextColor3 = Color3.fromRGB(203, 213, 225)
 		tBtn.Font = Enum.Font.GothamBold
-		tBtn.TextSize = 12
+		tBtn.TextSize = 11
 		tBtn.ZIndex = 43
 		tBtn.Parent = tabContainer
 		Instance.new("UICorner", tBtn).CornerRadius = UDim.new(0, 8)

@@ -34,6 +34,7 @@ local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("Pi
 local FishingResultUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishingResultUI"))
 local FishDexUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishDexUI"))
 local ShopUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ShopUI"))
+local EconomyHUD = require(Shared:WaitForChild("Minigames"):WaitForChild("EconomyHUD"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
@@ -58,6 +59,9 @@ gui.Name = "FishingGui"
 gui.ResetOnSpawn = false
 gui.Enabled = true
 gui.Parent = pGui or workspace
+
+-- Inisialisasi Top Economy & Currency HUD
+EconomyHUD.Create(gui)
 
 -- ============ TOAST NOTIFICATION & REVEAL POPUP ============
 local statusFrame = Instance.new("Frame")
@@ -1428,6 +1432,8 @@ local function updateInventoryUI()
 			invSellAllBtn.AutoButtonColor = false
 		end
 	end
+
+	EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 end
 
 local function toggleInventory(forcedState)
@@ -2139,28 +2145,47 @@ if remote then
 
 			updateInventoryUI()
 			updatePityUI()
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.FISH_SOLD then
 			local fishName = arg1 or "Ikan"
 			local coinsGained = tonumber(arg2) or 0
 			local currentCoins = tonumber(arg3) or 0
 
+			if currentCoins > 0 then
+				lastPlayerData.coins = currentCoins
+			else
+				lastPlayerData.coins = (lastPlayerData.coins or 0) + coinsGained
+			end
+
 			showMessage(string.format("💰 Berhasil menjual %s seharga +%d Koin!", fishName, coinsGained), Color3.fromRGB(50, 255, 130), 3.5)
 			spawnFloatingCoinEffect(coinsGained, "Terjual: " .. fishName)
+			EconomyHUD.ShowTransactionNotification("💰 IKAN TERJUAL", string.format("+%d Koin • %s", coinsGained, fishName), true)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
 			updateInventoryUI()
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.ALL_FISH_SOLD then
 			local count = tonumber(arg1) or 0
 			local totalCoins = tonumber(arg2) or 0
 			local currentCoins = tonumber(arg3) or 0
 
+			if currentCoins > 0 then
+				lastPlayerData.coins = currentCoins
+			else
+				lastPlayerData.coins = (lastPlayerData.coins or 0) + totalCoins
+			end
+
 			showMessage(string.format("💰 Berhasil menjual %d Ikan seharga total +%d Koin!", count, totalCoins), Color3.fromRGB(50, 255, 130), 4.0)
 			spawnFloatingCoinEffect(totalCoins, string.format("Jual Massal %d Tangkapan", count))
+			EconomyHUD.ShowTransactionNotification("💰 JUAL MASSAL", string.format("+%d Koin (%d Tangkapan)", totalCoins, count), true)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
 			updateInventoryUI()
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.LEVEL_UP then
 			local newLevel = arg1 or 2
+			lastPlayerData.level = newLevel
 			showMessage("⭐ LEVEL UP! Selamat, kamu sekarang Level " .. newLevel .. "! ⭐", Color3.fromRGB(255, 215, 0), 4.5)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.PLAYER_DATA_UPDATE then
 			local pData = arg1 or {}
 			local pityState = arg2 or pData.pity or {}
@@ -2170,9 +2195,14 @@ if remote then
 				FishDexUI.UpdateJournalData(pData.journal)
 			end
 			updatePityUI()
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.SHOP_CATALOG_DATA then
 			local catalog = arg1
 			ShopUI.UpdateCatalogData(catalog)
+			if catalog and catalog.coins then
+				lastPlayerData.coins = catalog.coins
+				EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
+			end
 			if catalog and catalog.openModal and not ShopUI.IsOpen() then
 				ShopUI.Show(gui, catalog)
 			end
@@ -2181,8 +2211,13 @@ if remote then
 			local itemId = arg2
 			local details = arg3
 			local newCoins = arg4
+			if newCoins then
+				lastPlayerData.coins = newCoins
+			end
 			showMessage(string.format("🎉 Transaksi Berhasil: %s!", tostring(details or itemId)), Color3.fromRGB(50, 255, 130), 3.5)
+			EconomyHUD.ShowTransactionNotification("🛍️ TRANSAKSI BERHASIL", tostring(details or itemId), false)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			RemoteContract.Client.GetShopCatalog()
 		elseif action == RemoteContract.S2C.SHOP_TRANSACTION_FAILED then
 			showMessage("❌ " .. tostring(arg1 or "Transaksi gagal"), Color3.fromRGB(255, 100, 100), 3.5)
@@ -2192,23 +2227,32 @@ if remote then
 			local rodData = arg2
 			local rodName = (rodData and rodData.name) or rodId or "Joran"
 			local luckVal = (rodData and rodData.luckBonus) or 5
+			lastPlayerData.equippedRod = rodId
 			showMessage(string.format("🎣 Berhasil memasang %s (+%d Luck)!", rodName, luckVal), Color3.fromRGB(0, 230, 255), 3.5)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.5)
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			RemoteContract.Client.GetShopCatalog()
 		elseif action == RemoteContract.S2C.BAIT_UPDATED then
 			local eqBait = arg1
 			local baits = arg2
+			lastPlayerData.equippedBait = eqBait
+			lastPlayerData.baits = baits
 			if eqBait and eqBait ~= "" and eqBait ~= "NONE" then
 				local bData = EconomyConfig.GetBait(eqBait)
 				showMessage(string.format("🪱 Umpan terpasang: %s (+%d Luck)", bData and bData.name or eqBait, bData and bData.luckBonus or 0), Color3.fromRGB(74, 222, 128), 2.5)
 			end
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			RemoteContract.Client.GetShopCatalog()
 		elseif action == RemoteContract.S2C.BAG_UPGRADED then
 			local newTier = arg1
 			local totalSlots = arg2
 			local newCoins = arg3
+			if newCoins then lastPlayerData.coins = newCoins end
+			lastPlayerData.bagUpgradeTier = newTier
+			lastPlayerData.maxInventorySlots = totalSlots
 			showMessage(string.format("🎒 Kapasitas tas berhasil diperluas menjadi %d Slot (Tier %d)!", totalSlots, newTier), Color3.fromRGB(255, 215, 0), 4.0)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			RemoteContract.Client.GetShopCatalog()
 		elseif action == RemoteContract.S2C.NOTIFICATION then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
