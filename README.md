@@ -47,6 +47,3 @@ FishTune-Roblox/
 ```
 
 ---
-
-## 🚀 Lisensi & Kontributor
-Dibuat untuk project Roblox **FishTune** oleh Egi Danuajisantoso.
