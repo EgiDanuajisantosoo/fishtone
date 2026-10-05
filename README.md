@@ -1,71 +1,165 @@
-# 🎣 FishTune - Roblox Piano Tiles Fishing System
+# 🎣 FISH!TUNE — Roblox Rhythm Fishing System
 
-Mekanik memancing inovatif untuk Roblox dengan integrasi mini-game **Piano Tiles** berlatar belakang semi-transparan (*glassmorphism*), melodi harmonis seirama dengan ketukan nada, sistem inventaris alat pancing (*FishingRod Tool*), animasi melempar kail, efek lompatan ikan 3D saat menyambar, serta mekanisme anti-gerak karakter saat menggunakan keyboard.
-
----
-
-## 🌟 Fitur Utama
-
-1. **Joran Pancing di Inventory (`FishingRod`)**:
-   - Terdaftar sebagai item `Tool` di `StarterPack` dan `ServerStorage`.
-   - Tersedia model `FishingRodPickup` di dekat spot memancing dengan `ProximityPrompt`.
-   - Pengecekan otomatis kepemilikan alat pancing sebelum memancing di Danau.
-
-2. **Animasi & Efek Visual Imersif**:
-   - **Animasi Melempar Kail (*Casting*)**: Karakter berputar menghadap danau, mengayunkan joran ke belakang lalu melempar ke depan disertai partikel cipratan air (*water splash*).
-   - **Animasi Ikan Menyambar (*Strike*)**: Indikator `[ ! ]`, cipratan air, dan **ikan 3D melompat melengkung (*parabolic arc*)** keluar dari air.
-
-3. **Mini-Game Piano Tiles Glassmorphism & Melodi Harmonis**:
-   - Desain semi-transparan (*frosted glass*) sehingga dunia 3D tetap terlihat di belakang tile.
-   - Menggunakan tombol **[D] [F] [J] [K]** atau sentuhan/klik layar.
-   - Bank melodi harmonis (*Canon in D, Beethoven's Ode to Joy, River Flow, Für Elise*) dengan tuning semitone akurat.
-
-4. **Sistem Anti-Gerak Karakter**:
-   - Menggunakan `ContextActionService` berprioritas tinggi dengan `ContextActionResult.Sink` agar tombol **[D]** (dan WASD) tidak menggerakkan karakter saat bermain.
-   - Mengunci `Humanoid.WalkSpeed` & `JumpPower` selama memancing, dan mengembalikannya setelah selesai.
-
-5. **Mekanisme Hasil (Win / Fail)**:
-   - **Gagal**: Notifikasi `Ikan terlepas!`, suara gagal, tidak ada penambahan skor di leaderstats.
-   - **Berhasil**: Efek jingle kemenangan, **ikan 3D melompat langsung ke tangan player**, server memvalidasi dan menambah **+1 Ikan** di `leaderstats`.
+**FISH!TUNE** adalah game pancing ritme inovatif di Roblox yang menggabungkan mekanisme memancing imersif dengan gameplay instrumen musik (**Piano**, **Gitar**, dan **Drum**) berbalut estetika antarmuka *Glassmorphism*.
 
 ---
 
-## 📁 Struktur Direktori (Knit-Style MVC / Rojo Layout)
+## 📖 DAFTAR ISI
+1. [Panduan Setup Roblox Studio (NPC Toko & Pedagang Ikan)](#-1-panduan-setup-roblox-studio)
+2. [Panduan Mengganti Joran (Switch Rods)](#-2-panduan-mengganti-joran-switch-rods)
+3. [Daftar Joran & Mekanisme Instrumen (Piano, Guitar, Drum)](#-3-daftar-joran--mekanisme-instrumen)
+4. [Daftar Tombol & Hotkey Lengkap](#-4-daftar-tombol--hotkey-lengkap)
+5. [Mode Testing di Roblox Studio](#-5-mode-testing-di-roblox-studio)
+6. [Struktur Folder & Arsitektur](#-6-struktur-folder--arsitektur)
+
+---
+
+## 🛠️ 1. Panduan Setup Roblox Studio
+
+Semua skrip server (`FishingServer.server.lua`) telah dilengkapi dengan **Global ProximityPrompt Listener**. Anda **TIDAK PERLU** menulis skrip baru di dalam NPC atau Part. Cukup buat Model / Part di Workspace Roblox Studio dan pasang `ProximityPrompt` sesuai panduan di bawah ini:
+
+### A. Setup NPC / Stand Toko Peralatan (Joran, Umpan, Tas)
+
+```mermaid
+graph LR
+    A["Workspace"] --> B["Buat Part / Model Toko"]
+    B --> C["Tambahkan ProximityPrompt"]
+    C --> D["Ubah Name: 'ShopPrompt' / ActionText: 'Beli'"]
+    D --> E["Tekan E di Game -> Toko Otomatis Terbuka!"]
+```
+
+1. Di Roblox Studio, letakkan Part / Model NPC untuk Toko Peralatan di pulau/pantai.
+2. Klik kanan pada Part / Model tersebut → **Insert Object** → pilih **`ProximityPrompt`**.
+3. Di panel **Properties**, atur nilai berikut:
+   - **Name**: `ShopPrompt` *(atau `TokoPrompt`)*
+   - **ActionText**: `Buka Toko` *(atau `Beli`, `Shop`, `Toko`)*
+   - **ObjectText**: `Toko Samudra`
+   - **HoldDuration**: `0.5` *(atau `0` untuk instan)*
+   - **MaxActivationDistance**: `10`
+   - **RequiresLineOfSight**: `false` *(opsional, agar mudah diakses)*
+
+---
+
+### B. Setup NPC / Lapak Pedagang Ikan (Merchant Jual Ikan)
+
+1. Letakkan Part / Model NPC Pedagang Ikan di dekat dermaga / pasar.
+2. Klik kanan pada Part / Model tersebut → **Insert Object** → pilih **`ProximityPrompt`**.
+3. Di panel **Properties**, atur nilai berikut:
+   - **Name**: `SellPrompt` *(atau `MerchantPrompt`)*
+   - **ActionText**: `Jual Semua Ikan` *(atau `Jual Ikan`, `Sell All`)*
+   - **ObjectText**: `Pedagang Ikan`
+   - **HoldDuration**: `0.5`
+   - **MaxActivationDistance**: `10`
+
+> 💡 **Info Otomatis**: Ketika pemain memicu prompt pedagang ikan, seluruh ikan di tas pemain akan langsung terjual dengan kalkulasi harga bobot + mutasi, koin pemain bertambah, dan notifikasi perolehan koin muncul di layar.
+
+---
+
+## 🎣 2. Panduan Mengganti Joran (Switch Rods)
+
+Di FISH!TUNE, **joran yang Anda gunakan menentukan jenis instrumen & mekanisme minigame** yang akan dimainkan saat ikan menyambar (*strike*).
+
+### Langkah Mengganti Joran:
+1. Tekan tombol **`[K]`** pada keyboard atau klik tombol HUD **`[ 🛍️ TOKO ]`** di layar.
+2. Klik tab **`[ 🎣 Joran Pancing ]`**.
+3. Cari joran yang ingin Anda gunakan:
+   - Jika joran sudah dimiliki: Klik tombol biru **`[ 🎣 GUNAKAN ]`**.
+   - Tombol akan berubah menjadi hijau **`[ ✅ DIGUNAKAN ]`**.
+   - Jika joran belum dimiliki: Klik tombol kuning **`[ 💰 BELI ]`** (otomatis terbeli jika koin & level mencukupi).
+4. Tutup jendela Toko dengan tombol **`[ ✕ ]`** di pojok kanan atas.
+5. Joran baru Anda kini aktif dan siap digunakan untuk memancing!
+
+---
+
+## 🎶 3. Daftar Joran & Mekanisme Instrumen
+
+Setiap joran memiliki statistik Luck, Kekuatan Lemparan, serta **Badge Instrumen** khusus:
+
+| Ikon & Nama Joran | Badge Instrumen | Mekanisme Minigame Irama | Kontrol / Keybind |
+| :--- | :--- | :--- | :--- |
+| 🎣 **Starter Bamboo Rod** | 🎹 `PIANO` | **Piano Tiles Precision (4-Lane)**<br>Not balok jatuh ke bawah melintasi garis target presisi. Cocok untuk pemula. | **`1`**, **`2`**, **`3`**, **`4`** atau **`A`**, **`S`**, **`K`**, **`L`** |
+| 🎣 **Harmonic Tuning Rod** | 🎹 `PIANO` | **Grand Piano Melodic Tiles**<br>Tempo lebih dinamis dengan harmoni melodi klasik. | **`1`**, **`2`**, **`3`**, **`4`** atau **`A`**, **`S`**, **`K`**, **`L`** |
+| 🎣 **Acoustic Bamboo Rod** | 🎸 `GUITAR` | **Guitar Fretboard Pattern**<br>Not melodi mengalir horizontal di atas senar bergetar (*vibrating strings*). | **`A`**, **`S`**, **`D`**, **`J`**, **`K`**, **`L`** |
+| 🎣 **Carbon Overdrive Rod** | 🎸 `GUITAR` | **Electric Guitar Rock Riff**<br>Pola petikan senar elektrik cepat dengan efek distorsi audio visual. | **`A`**, **`S`**, **`D`**, **`J`**, **`K`**, **`L`** |
+| 🎣 **Abyssal Trident Rod** | 🎸 `GUITAR` | **Abyssal Heavy Metal Solo**<br>Pola riff cepat untuk memburu ikan langka kedalaman samudra. | **`A`**, **`S`**, **`D`**, **`J`**, **`K`**, **`L`** |
+| 🎣 **Celestial Melody Rod** | 🥁 `DRUM` | **Drum Concentric Beat Timing**<br>Lingkaran gelombang ketukan berdenyut menyatu ke pusat target pad drum. | **`Spasi`**, **`E`**, atau **`Q`** tepat saat lingkaran menyatu |
+
+---
+
+## 🎮 4. Daftar Tombol & Hotkey Lengkap
+
+| Tombol / Input | Aksi / Fungsi |
+| :--- | :--- |
+| **`K`** | Membuka / Menutup **Toko Samudra** (Joran, Umpan, Perluasan Tas, Jual Ikan) |
+| **`B`** atau **`I`** | Membuka / Menutup **Tas Inventaris** |
+| **`J`** | Membuka / Menutup **FishDex (Ensiklopedia Ikan & Mutasi)** |
+| **`E`** atau **Klik Kiri** | Melempar Kail (*Casting*) / Interaksi ProximityPrompt / Pukul Beat Minigame |
+| **`1, 2, 3, 4`** / **`A, S, K, L`** | Memainkan tuts **Piano Tiles** |
+| **`A, S, D, J, K, L`** | Memainkan senar **Gitar Fretboard** |
+| **`Spasi`** / **`Q`** / **`E`** | Memukul pad **Drum Beats** |
+
+---
+
+## 🧪 5. Mode Testing di Roblox Studio
+
+Untuk mempermudah pengujian mekanik tanpa harus grinding dari awal, sistem mendeteksi saat dijalankan di **Roblox Studio** dan otomatis memberikan:
+- 💰 **50.000 Koin Saldo Awal**
+- ⭐ **Level 20 Karakter**
+- 🎣 **Semua Joran Terbuka (Unlocked)**: Siap diganti kapan saja via Toko `[K]`.
+- 🪱 **20x Seluruh Jenis Umpan**: Standard Worm, Golden Larva, Magnet Shrimp, dan Melody Jelly.
+
+### Cara Cepat Mengetes Ketiga Instrumen:
+1. Jalankan game di Roblox Studio (tekan **Play / F5**).
+2. Tekan **`[K]`** untuk membuka Toko.
+3. Pilih **StarterRod** (Piano) → Lempar kail ke air → Mainkan Piano Tiles.
+4. Buka Toko lagi **`[K]`** → Pilih **BambooRod** (Gitar) → Lempar kail → Rasakan petikan senar gitar.
+5. Buka Toko lagi **`[K]`** → Pilih **CelestialMelodyRod** (Drum) → Lempar kail → Rasakan ketukan drum beat!
+
+---
+
+## 📁 6. Struktur Folder & Arsitektur
 
 ```
 FishTune-Roblox/
 ├── default.project.json
-├── .gitignore
 ├── README.md
 └── src/
     ├── ReplicatedStorage/
     │   └── Shared/
     │       ├── Config/
-    │       │   ├── PianoTilesConfig.lua         -- Konfigurasi terpusat & visual balance
-    │       │   ├── PlayerDataSchema.lua         -- Schema, reconciler, validator & migrations (FISH-005)
-    │       │   └── ZoneConfig.lua               -- Zona dunia, bioma & persyaratan level (FISH-006)
+    │       │   ├── EconomyConfig.lua            -- Katalog joran, umpan & tier tas
+    │       │   ├── PianoTilesConfig.lua         -- Konfigurasi not & visual irama
+    │       │   ├── PlayerDataSchema.lua         -- Schema, rekonsiliasi & migrasi data
+    │       │   └── ZoneConfig.lua               -- Zona bioma & batasan level
+    │       ├── Definitions/
+    │       │   └── InstrumentDefinitions.lua    -- Single Source of Truth mapping Joran -> Instrumen (Piano/Guitar/Drum)
     │       ├── Minigames/
-    │       │   ├── PianoTilesGame.lua           -- Facade & controller gameplay Piano Tiles
-    │       │   ├── PianoTilesUI.lua             -- View / Glassmorphism UI manager
-    │       │   └── RhythmSession.lua            -- Isolated OOP Rhythm session engine (FISH-012)
+    │       │   ├── Rhythm/                      -- Modular Rhythm Router & Engines
+    │       │   │   ├── RhythmController.lua     -- Router sentral instrumen
+    │       │   │   ├── Piano/                   -- Controller, Session, UI Piano Tiles
+    │       │   │   ├── Guitar/                  -- Controller, Session, UI Guitar Fretboard
+    │       │   │   └── Drum/                    -- Controller, Session, UI Drum Beat
+    │       │   ├── FishDexUI.lua                -- UI Jurnal ensiklopedia ikan
+    │       │   ├── InventoryUI.lua              -- UI Tas & slot tangkapan
+    │       │   └── ShopUI.lua                   -- UI Toko Samudra & upgrade joran
     │       ├── Network/
-    │       │   └── RemoteContract.lua           -- Single Source of Truth protokol jaringan (FISH-003)
+    │       │   └── RemoteContract.lua           -- Kontrak protokol jaringan RemoteEvent
     │       └── Systems/
-    │           ├── FishingRaritySystem.lua      -- Balancing, XP, Pity & Rarity formula
-    │           ├── FishingStateMachine.lua      -- State Machine siklus hidup pancing (FISH-008)
-    │           └── PerformanceCalculator.lua    -- Kalkulator akurasi, rating grade & pengganda hadiah (FISH-013)
+    │           ├── FishingRaritySystem.lua      -- Formula Pity, Level & Bobot Ikan
+    │           └── FishingStateMachine.lua      -- State Machine siklus memancing
     ├── ServerScriptService/
     │   └── Services/
-    │       ├── FishingServer.server.lua         -- Server-authoritative session, ProximityPrompt & economy service
-    │       ├── FishingSessionService.lua        -- Manajemen sesi pancing terotentikasi & anti-exploit (FISH-009)
-    │       └── PlayerDataService.lua            -- DataStore persistence & profile service (FISH-004)
+    │       ├── EconomyService.lua               -- Transaksi joran, umpan, tas & jual ikan
+    │       ├── FishingServer.server.lua         -- Server listener & Global ProximityPrompt handler
+    │       ├── FishingSessionService.lua        -- Validasi sesi memancing anti-exploit
+    │       └── PlayerDataService.lua            -- DataStore persistence & Studio testing helper
     └── StarterPlayerScripts/
         └── Controllers/
-            ├── FishingClient.client.lua         -- Client controller, casting, strike & rhythm input
-            └── ZoneController.client.lua        -- Deteksi zona & banner imersif (FISH-006)
+            ├── FishingClient.client.lua         -- Controller utama client, casting & input
+            └── ZoneController.client.lua        -- Deteksi zona & banner bioma
 ```
 
 ---
 
-## 🚀 Lisensi & Kontributor
-Dibuat untuk project Roblox **FishTune** oleh Egi Danuajisantoso.
+## 📜 Lisensi & Pengembang
+Dibuat untuk project Roblox **FISH!TUNE** oleh Egi Danuajisantoso.
