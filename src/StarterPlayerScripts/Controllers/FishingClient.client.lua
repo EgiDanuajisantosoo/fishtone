@@ -30,7 +30,8 @@ end
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local remote = RemoteContract.GetRemote()
-local PianoTilesGame = require(Shared:WaitForChild("Minigames"):WaitForChild("PianoTilesGame"))
+local RhythmController = require(Shared:WaitForChild("Minigames"):WaitForChild("Rhythm"):WaitForChild("RhythmController"))
+local PianoTilesGame = RhythmController
 local FishingResultUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishingResultUI"))
 local FishDexUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishDexUI"))
 local ShopUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ShopUI"))
@@ -1130,7 +1131,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 	end
 
 	local currentRod = (lastPlayerData and lastPlayerData.equippedRod) or "StarterRod"
-	showMessage("🎸 IKAN MENYAMBAR! Mainkan Irama [A, W, S, D]!", Color3.fromRGB(255, 220, 50), 3.5)
+	showMessage("🎵 IKAN MENYAMBAR! Mainkan Irama Instrumen [A, W, S, D]!", Color3.fromRGB(255, 220, 50), 3.5)
 	AnimSystem.SetPhase("Reeling")
 
 	fsm:Transition(FishingStateMachine.States.MINIGAME, { sessionId = sessionId })
@@ -1138,7 +1139,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-	PianoTilesGame.Start({
+	RhythmController.Start({
 		castQuality = castQuality,
 		tier = rarity,
 		rodId = currentRod,
