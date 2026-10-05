@@ -241,6 +241,23 @@ function PlayerDataService.LoadData(player)
 		else
 			print(string.format("[PlayerDataService] Data baru dibuat untuk %s", player.Name))
 		end
+	-- Studio Testing Helper: Berikan saldo koin & joran jika sedang testing di Studio
+	if RunService:IsStudio() then
+		profile.coins = math.max(profile.coins or 0, 50000)
+		profile.level = math.max(profile.level or 1, 20)
+		profile.unlockedRods = {
+			"StarterRod",
+			"BambooRod",
+			"CarbonFiberRod",
+			"HarmonicTuningRod",
+			"AbyssalTridentRod",
+			"CelestialMelodyRod",
+		}
+		profile.baits = profile.baits or {}
+		profile.baits.StandardWorm = math.max(profile.baits.StandardWorm or 0, 20)
+		profile.baits.GoldenLarva = math.max(profile.baits.GoldenLarva or 0, 20)
+		profile.baits.MagnetShrimp = math.max(profile.baits.MagnetShrimp or 0, 20)
+		profile.baits.MelodyJelly = math.max(profile.baits.MelodyJelly or 0, 20)
 	end
 
 	profiles[userId] = profile

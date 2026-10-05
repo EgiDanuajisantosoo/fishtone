@@ -110,10 +110,32 @@ end
 
 -- ============ RENDER RODS TAB ============
 local function renderRodsTab(parent)
-	local rods = (cachedCatalog and cachedCatalog.rods) or {}
+	local rods = (cachedCatalog and cachedCatalog.rods)
 	local pCoins = cachedCatalog and cachedCatalog.coins or 0
 	local pLevel = cachedCatalog and cachedCatalog.level or 1
 	local equippedRod = cachedCatalog and cachedCatalog.equippedRod or "StarterRod"
+
+	-- Fallback jika catalog dari remote belum sampai
+	if not rods or #rods == 0 then
+		rods = {}
+		for _, r in ipairs(EconomyConfig.RODS) do
+			table.insert(rods, {
+				id = r.id,
+				name = r.name,
+				levelReq = r.levelReq,
+				price = r.price,
+				luckBonus = r.luckBonus,
+				castPowerMultiplier = r.castPowerMultiplier,
+				reelSpeedMultiplier = r.reelSpeedMultiplier,
+				description = r.description,
+				tier = r.tier,
+				badge = r.badge,
+				isOwned = (r.id == "StarterRod"),
+				isEquipped = (r.id == equippedRod),
+				canBuy = (pCoins >= r.price) and (pLevel >= r.levelReq),
+			})
+		end
+	end
 
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Size = UDim2.new(1, 0, 1, 0)
@@ -273,9 +295,29 @@ end
 
 -- ============ RENDER BAITS TAB ============
 local function renderBaitsTab(parent)
-	local baits = (cachedCatalog and cachedCatalog.baits) or {}
+	local baits = (cachedCatalog and cachedCatalog.baits)
 	local pCoins = cachedCatalog and cachedCatalog.coins or 0
 	local equippedBait = cachedCatalog and cachedCatalog.equippedBait
+
+	-- Fallback jika catalog dari remote belum sampai
+	if not baits or #baits == 0 then
+		baits = {}
+		for _, b in ipairs(EconomyConfig.BAITS) do
+			table.insert(baits, {
+				id = b.id,
+				name = b.name,
+				icon = b.icon,
+				priceSingle = b.priceSingle,
+				packQuantity = b.packQuantity,
+				pricePack = b.pricePack,
+				luckBonus = b.luckBonus,
+				description = b.description,
+				badge = b.badge,
+				stock = 0,
+				isEquipped = false,
+			})
+		end
+	end
 
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Size = UDim2.new(1, 0, 1, 0)
