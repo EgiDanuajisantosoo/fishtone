@@ -281,7 +281,11 @@ function DrumUI.Create()
 	local playerGui = getPlayerGui()
 	if not playerGui then return false end
 
-	gui = playerGui:FindFirstChild("DrumRhythmGui") or buildDynamicGui(playerGui)
+	local existing = playerGui:FindFirstChild("DrumRhythmGui")
+	if existing then
+		existing:Destroy()
+	end
+	gui = buildDynamicGui(playerGui)
 	if not gui then return false end
 
 	arenaContainer = gui:FindFirstChild("ArenaContainer")

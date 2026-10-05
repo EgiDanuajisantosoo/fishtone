@@ -195,6 +195,10 @@ local function buildDynamicGui(playerGui)
 			receptor.Parent = col
 			Instance.new("UICorner", receptor).CornerRadius = UDim.new(0, 8)
 
+			local rAspect = Instance.new("UIAspectRatioConstraint")
+			rAspect.AspectRatio = 1
+			rAspect.Parent = receptor
+
 			local rStroke = Instance.new("UIStroke")
 			rStroke.Color = Color3.fromRGB(0, 220, 255)
 			rStroke.Thickness = 2
@@ -211,6 +215,12 @@ local function buildDynamicGui(playerGui)
 			keyText.TextSize = 16
 			keyText.ZIndex = 12
 			keyText.Parent = receptor
+
+			local ktStroke = Instance.new("UIStroke")
+			ktStroke.Color = Color3.fromRGB(0, 0, 0)
+			ktStroke.Thickness = 2
+			ktStroke.Transparency = 0.2
+			ktStroke.Parent = keyText
 		end
 	end
 
@@ -296,7 +306,11 @@ function PianoUI.Create()
 	local playerGui = getPlayerGui()
 	if not playerGui then return false end
 
-	gui = playerGui:FindFirstChild("PianoTilesGui") or buildDynamicGui(playerGui)
+	local existing = playerGui:FindFirstChild("PianoTilesGui")
+	if existing then
+		existing:Destroy()
+	end
+	gui = buildDynamicGui(playerGui)
 	if not gui then return false end
 
 	arenaContainer = gui:FindFirstChild("ArenaContainer")

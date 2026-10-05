@@ -304,7 +304,11 @@ function GuitarUI.Create()
 	local playerGui = getPlayerGui()
 	if not playerGui then return false end
 
-	gui = playerGui:FindFirstChild("GuitarRhythmGui") or buildDynamicGui(playerGui)
+	local existing = playerGui:FindFirstChild("GuitarRhythmGui")
+	if existing then
+		existing:Destroy()
+	end
+	gui = buildDynamicGui(playerGui)
 	if not gui then return false end
 
 	arenaContainer = gui:FindFirstChild("ArenaContainer")

@@ -407,11 +407,11 @@ function PianoTilesUI.Create()
 		return false
 	end
 
-	-- Cari GUI yang sudah ada atau buat secara dinamis
-	gui = playerGui:FindFirstChild("PianoTilesGui")
-	if not gui then
-		gui = buildDynamicGui(playerGui)
+	local existing = playerGui:FindFirstChild("PianoTilesGui")
+	if existing then
+		existing:Destroy()
 	end
+	gui = buildDynamicGui(playerGui)
 
 	if not gui then
 		warn("[PianoTilesUI] Gagal menginisialisasi PianoTilesGui.")
