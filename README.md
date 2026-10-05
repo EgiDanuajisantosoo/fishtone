@@ -175,5 +175,3 @@ FishTune-Roblox/
 
 ---
 
-## 📜 Lisensi & Pengembang
-Dibuat untuk project Roblox **FISH!TUNE** oleh Egi Danuajisantoso.
