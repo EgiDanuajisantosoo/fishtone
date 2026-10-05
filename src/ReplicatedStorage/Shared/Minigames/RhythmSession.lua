@@ -1,11 +1,11 @@
 --[[
 	RhythmSession (ModuleScript)
-	FISH!TUNE — Isolated Rhythm Minigame Session Engine (FISH-012)
+	FISH!TUNE — Isolated Guitar Rhythm Minigame Session Engine (FISH-027)
 
-	Class Berorientasi Objek untuk Mengelola Satu Sesi Permainan Rhythm Piano Tiles:
+	Class Berorientasi Objek untuk Mengelola Satu Sesi Permainan Guitar / Piano Rhythm:
 	1. State Enkapsulasi Mandiri (Bebas dari efek samping singleton / memory leak).
-	2. Sistem Penilaian Multi-Tingkat (Perfect / Great / Good Hit Windows).
-	3. Mesin Audio Harmonis & Melodi Semitone Progresif.
+	2. Guitar Sound Engine & Harmonic Pluck Synthesizer (Akustik, Elektrik, Abyssal Rock, Piano).
+	3. Sistem Penilaian Multi-Tingkat (Perfect / Great / Good Hit Windows & Fretboard Strings).
 	4. Kalkulasi Metrik Kinerja Presisi (Akurasi, Combo Maksimal, Skor, Waktu Sesi).
 	5. Pembersihan Resource Otomatis (Unbind, Disconnect, Clear Tiles).
 ]]
@@ -25,26 +25,50 @@ local PianoTilesUI = require(script.Parent:WaitForChild("PianoTilesUI"))
 local RhythmSession = {}
 RhythmSession.__index = RhythmSession
 
--- ============ AUDIO SYNTHESIS ============
-local function playPianoNote(semitone)
+-- ============ INSTRUMENT SOUND & GUITAR AUDIO SYNTHESIS ============
+local function playInstrumentNote(semitone, instrument)
 	semitone = semitone or 0
+	instrument = instrument or Config.INSTRUMENTS.ACOUSTIC_GUITAR
+
+	local basePitch = instrument.basePitch or 1.0
+	local volume = instrument.volume or 0.85
+	local soundId = instrument.soundId or "rbxasset://sounds/electronicpingshort.wav"
+
 	local sound = Instance.new("Sound")
-	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
-	sound.Volume = 0.85
-	sound.PlaybackSpeed = 0.85 * (2 ^ (semitone / 12))
+	sound.SoundId = soundId
+	sound.Volume = volume
+	-- Hitung pergeseran semitone (Equal Temperament 2 ^ (n / 12))
+	sound.PlaybackSpeed = basePitch * (2 ^ (semitone / 12))
 	sound.Parent = SoundService
 	sound:Play()
+
+	-- Harmonik petikan senar sekunder untuk gitar
+	if instrument.pluckVibration then
+		local harmonic = Instance.new("Sound")
+		harmonic.SoundId = soundId
+		harmonic.Volume = volume * 0.35
+		harmonic.PlaybackSpeed = basePitch * (2 ^ ((semitone + 12) / 12))
+		harmonic.Parent = SoundService
+		harmonic:Play()
+
+		task.delay(0.8, function()
+			if harmonic then harmonic:Destroy() end
+		end)
+	end
 
 	task.delay(1.2, function()
 		if sound then sound:Destroy() end
 	end)
 end
 
-local function playMissSound()
+local function playMissSound(instrument)
+	instrument = instrument or Config.INSTRUMENTS.ACOUSTIC_GUITAR
+	local missSoundId = instrument.missSound or "rbxasset://sounds/splat.wav"
+
 	local sound = Instance.new("Sound")
-	sound.SoundId = "rbxasset://sounds/splat.wav"
+	sound.SoundId = missSoundId
 	sound.Volume = 0.8
-	sound.PlaybackSpeed = 0.65
+	sound.PlaybackSpeed = (instrument.basePitch or 1.0) * 0.7
 	sound.Parent = SoundService
 	sound:Play()
 
@@ -61,9 +85,25 @@ function RhythmSession.new(options)
 	local castKey = tostring(options.castQuality or "GOOD"):upper()
 	local tierKey = tostring(options.tier or "COMMON"):upper()
 
+	-- Instrument selection based on Rod / Instrument ID (FISH-027)
+	local rodId = options.rodId or "StarterRod"
+	self.Instrument = options.instrument or (options.instrumentId and Config.GetInstrument(options.instrumentId)) or Config.GetInstrumentForRod(rodId)
+
 	self.Tier = FishingRaritySystem.GetTierData(tierKey)
 	self.CastBonus = Config.CAST_BONUSES[castKey] or Config.CAST_BONUSES.GOOD
-	self.Melody = Config.MELODIES[math.random(1, #Config.MELODIES)]
+	
+	-- Filter repertoire melodi sesuai instrumen atau fallback
+	local matchingMelodies = {}
+	for _, mel in ipairs(Config.MELODIES) do
+		if mel.instrument == self.Instrument.id then
+			table.insert(matchingMelodies, mel)
+		end
+	end
+	if #matchingMelodies > 0 then
+		self.Melody = matchingMelodies[math.random(1, #matchingMelodies)]
+	else
+		self.Melody = Config.MELODIES[math.random(1, #Config.MELODIES)]
+	end
 
 	self.TargetNotes = self.Tier.targetNotes or 30
 	local startRatio = self.CastBonus.startRatio or 0.10
@@ -141,7 +181,7 @@ function RhythmSession:Start(onWin, onLose)
 	self.State = "PLAYING"
 	self.StartTime = os.clock()
 
-	PianoTilesUI.UpdateHeader(self.CastBonus.label, self.CastBonus.color, self.Melody.name)
+	PianoTilesUI.UpdateHeader(self.CastBonus.label, self.CastBonus.color, self.Melody.name, self.Instrument)
 	PianoTilesUI.HideResult()
 	PianoTilesUI.SetEnabled(true)
 	PianoTilesUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes)
@@ -163,7 +203,7 @@ function RhythmSession:EndSession(won, message)
 
 	PianoTilesUI.ShowResult(won, message or (won and "BERHASIL DITANGKAP!" or "IKAN TERLEPAS!"), metrics)
 	if not won then
-		playMissSound()
+		playMissSound(self.Instrument)
 	end
 
 	local callback = won and self.OnWin or self.OnLose
@@ -257,7 +297,7 @@ function RhythmSession:_registerHit(entry, y)
 	entry.hit = true
 
 	local note = self.Melody.notes[entry.noteIndex] or 0
-	playPianoNote(note)
+	playInstrumentNote(note, self.Instrument)
 
 	self.Score += 1
 	self.Combo += 1
@@ -282,7 +322,7 @@ function RhythmSession:_registerHit(entry, y)
 		self.GoodHits += 1
 	end
 
-	PianoTilesUI.PlayHitEffect(entry.frame, y, ratingKey, entry.column)
+	PianoTilesUI.PlayHitEffect(entry.frame, y, ratingKey, entry.column, self.Instrument)
 
 	self.CurrentNotes = math.clamp(self.CurrentNotes + 1, 0, self.TargetNotes)
 	self.Progress = math.clamp(self.CurrentNotes / self.TargetNotes, 0, 1)
@@ -299,7 +339,7 @@ function RhythmSession:_registerMistake(column)
 
 	self.Combo = 0
 	self.Mistakes += 1
-	playMissSound()
+	playMissSound(self.Instrument)
 
 	self.CurrentNotes = math.clamp(self.CurrentNotes - self.PenaltyNotes, 0, self.TargetNotes)
 	self.Progress = math.clamp(self.CurrentNotes / self.TargetNotes, 0, 1)
@@ -446,3 +486,4 @@ function RhythmSession:_unbindInput()
 end
 
 return RhythmSession
+

@@ -1,14 +1,17 @@
 --[[
     PianoTilesUI
-    FISH!TUNE — High-Contrast Modern Rhythm Minigame UI & Visual Hit Feedback (FISH-013)
+    FISH!TUNE — Guitar Fretboard Runway, Vibrating Strings & Instrument Sound Engine (FISH-027)
 
-    Fitur Visual:
-    1. Target Hit Receptors (Kotak target posisi PERFECT pada setiap kolom dengan keybind [A][W][S][D]).
-    2. Luminous Judgement Line & Perfect Hit Zone (Garis neon laser penanda timing presisi).
-    3. High-Contrast Badges & Pill Headers (Pill melodi, cast quality, dan combo counter).
-    4. Animated Judgement Popups (★ PERFECT ★, ◆ GREAT ◆, ● GOOD ●, ✕ MISS ✕).
-    5. Tactile Receptor Press Animation (Receptor pad menyala & membal saat ditekan).
-    6. Modern Glassmorphism Result Card dengan Grade Badge, Akurasi Live & Multiplier.
+    Fitur Visual & Fretboard:
+    1. Guitar Fretboard Runway & Neon Vibrating Strings:
+       - 4 Senar neon vertikal dinamis (E-A-D-G / B-E-A-D / 1-2-3-4) dengan animasi getaran senar saat dipetik.
+       - Fret wire markers horizontal & pearl inlay position dots.
+    2. Dynamic Instrument Theming & Badges:
+       - Mendukung tema visual Gitar Akustik, Gitar Elektrik, Abyssal Rock Metal, dan Piano Klasik.
+       - Pill header badge instrumen interaktif dengan icon & warna rod yang digunakan.
+    3. Target Hit Receptors dengan keybind & notasi senar gitar.
+    4. Judgement Popups (PERFECT / GREAT / GOOD / MISS) & Ripple Shockwaves.
+    5. Modern Glassmorphism Result Card dengan Grade Badge, Akurasi Live & Multiplier.
 ]]
 
 local Players = game:GetService("Players")
@@ -35,6 +38,8 @@ local arenaFrame
 
 local castBonusLabel
 local songLabel
+local instrumentBadgeLabel
+local instrumentPill
 local comboLabel
 local centerJudgementLabel
 local hitLine
@@ -57,6 +62,10 @@ local columns = {}
 local columnFlashes = {}
 local receptorPads = {}
 local receptorLabels = {}
+local receptorStringLabels = {}
+local stringLines = {}
+local fretWires = {}
+local fretInlays = {}
 
 --==================================================
 -- PLAYER GUI
@@ -87,8 +96,8 @@ local function buildDynamicGui(playerGui)
 	-- Arena Container (Main Window)
 	local container = Instance.new("Frame")
 	container.Name = "ArenaContainer"
-	container.Size = UDim2.new(0, 370, 0, 520)
-	container.Position = UDim2.new(0.5, -185, 0.5, -260)
+	container.Size = UDim2.new(0, 380, 0, 530)
+	container.Position = UDim2.new(0.5, -190, 0.5, -265)
 	container.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
 	container.BackgroundTransparency = 0.12
 	container.BorderSizePixel = 0
@@ -104,15 +113,15 @@ local function buildDynamicGui(playerGui)
 	-- Header Area
 	local header = Instance.new("Frame")
 	header.Name = "Header"
-	header.Size = UDim2.new(1, 0, 0, 58)
+	header.Size = UDim2.new(1, 0, 0, 60)
 	header.BackgroundTransparency = 1
 	header.Parent = container
 
-	-- Cast Bonus Pill Badge
+	-- 1. Cast Bonus Pill Badge
 	local castPill = Instance.new("Frame")
 	castPill.Name = "CastPill"
-	castPill.Size = UDim2.new(0.44, 0, 0, 26)
-	castPill.Position = UDim2.new(0.04, 0, 0, 6)
+	castPill.Size = UDim2.new(0.30, 0, 0, 26)
+	castPill.Position = UDim2.new(0.03, 0, 0, 6)
 	castPill.BackgroundColor3 = Color3.fromRGB(20, 36, 45)
 	castPill.BackgroundTransparency = 0.2
 	castPill.BorderSizePixel = 0
@@ -129,17 +138,44 @@ local function buildDynamicGui(playerGui)
 	castBonus.Name = "CastBonusLabel"
 	castBonus.Size = UDim2.fromScale(1, 1)
 	castBonus.BackgroundTransparency = 1
-	castBonus.Text = "✨ PERFECT CAST"
+	castBonus.Text = "✨ PERFECT"
 	castBonus.TextColor3 = Color3.fromRGB(60, 255, 150)
 	castBonus.Font = Enum.Font.GothamBlack
-	castBonus.TextSize = 12
+	castBonus.TextSize = 11
 	castBonus.Parent = castPill
 
-	-- Song Info Pill Badge
+	-- 2. Instrument Mode Pill Badge (FISH-027)
+	local instPill = Instance.new("Frame")
+	instPill.Name = "InstrumentPill"
+	instPill.Size = UDim2.new(0.32, 0, 0, 26)
+	instPill.Position = UDim2.new(0.34, 0, 0, 6)
+	instPill.BackgroundColor3 = Color3.fromRGB(28, 20, 38)
+	instPill.BackgroundTransparency = 0.2
+	instPill.BorderSizePixel = 0
+	instPill.Parent = header
+	Instance.new("UICorner", instPill).CornerRadius = UDim.new(0, 13)
+
+	local instStroke = Instance.new("UIStroke")
+	instStroke.Color = Color3.fromRGB(245, 158, 11)
+	instStroke.Thickness = 1.5
+	instStroke.Transparency = 0.3
+	instStroke.Parent = instPill
+
+	local instBadge = Instance.new("TextLabel")
+	instBadge.Name = "InstrumentBadgeLabel"
+	instBadge.Size = UDim2.fromScale(1, 1)
+	instBadge.BackgroundTransparency = 1
+	instBadge.Text = "🎸 AKUSTIK"
+	instBadge.TextColor3 = Color3.fromRGB(250, 204, 21)
+	instBadge.Font = Enum.Font.GothamBlack
+	instBadge.TextSize = 11
+	instBadge.Parent = instPill
+
+	-- 3. Song Info Pill Badge
 	local songPill = Instance.new("Frame")
 	songPill.Name = "SongPill"
-	songPill.Size = UDim2.new(0.44, 0, 0, 26)
-	songPill.Position = UDim2.new(0.52, 0, 0, 6)
+	songPill.Size = UDim2.new(0.30, 0, 0, 26)
+	songPill.Position = UDim2.new(0.67, 0, 0, 6)
 	songPill.BackgroundColor3 = Color3.fromRGB(18, 28, 48)
 	songPill.BackgroundTransparency = 0.2
 	songPill.BorderSizePixel = 0
@@ -156,17 +192,18 @@ local function buildDynamicGui(playerGui)
 	song.Name = "SongLabel"
 	song.Size = UDim2.fromScale(1, 1)
 	song.BackgroundTransparency = 1
-	song.Text = "🎵 Canon in D"
+	song.Text = "🎵 Melodi"
 	song.TextColor3 = Color3.fromRGB(210, 240, 255)
 	song.Font = Enum.Font.GothamBold
-	song.TextSize = 12
+	song.TextSize = 11
+	song.TextTruncate = Enum.TextTruncate.AtEnd
 	song.Parent = songPill
 
 	-- Combo Banner
 	local combo = Instance.new("TextLabel")
 	combo.Name = "ComboLabel"
 	combo.Size = UDim2.new(1, 0, 0, 22)
-	combo.Position = UDim2.new(0, 0, 0, 34)
+	combo.Position = UDim2.new(0, 0, 0, 36)
 	combo.BackgroundTransparency = 1
 	combo.Text = "COMBO x0"
 	combo.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -181,12 +218,12 @@ local function buildDynamicGui(playerGui)
 	comboStroke.Transparency = 0.2
 	comboStroke.Parent = combo
 
-	-- Arena Frame (Playing Field)
+	-- Arena Frame (Playing Field / Guitar Fretboard Runway)
 	local arena = Instance.new("Frame")
 	arena.Name = "ArenaFrame"
 	arena.Size = UDim2.new(0.92, 0, 0.67, 0)
-	arena.Position = UDim2.new(0.04, 0, 0, 60)
-	arena.BackgroundColor3 = Color3.fromRGB(8, 12, 20)
+	arena.Position = UDim2.new(0.04, 0, 0, 62)
+	arena.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
 	arena.BackgroundTransparency = 0.35
 	arena.BorderSizePixel = 0
 	arena.ClipsDescendants = true
@@ -199,7 +236,45 @@ local function buildDynamicGui(playerGui)
 	arenaStroke.Transparency = 0.5
 	arenaStroke.Parent = arena
 
-	-- 4 Columns & Dividers
+	-- Horizontal Fret Wires (FISH-027 Fretboard aesthetic)
+	local fretYPositions = { 0.18, 0.36, 0.54, 0.72 }
+	for idx, fY in ipairs(fretYPositions) do
+		local fretWire = Instance.new("Frame")
+		fretWire.Name = "FretWire" .. idx
+		fretWire.Size = UDim2.new(1, 0, 0, 1)
+		fretWire.Position = UDim2.new(0, 0, fY, 0)
+		fretWire.BackgroundColor3 = Color3.fromRGB(180, 140, 90)
+		fretWire.BackgroundTransparency = 0.60
+		fretWire.BorderSizePixel = 0
+		fretWire.ZIndex = 5
+		fretWire.Parent = arena
+	end
+
+	-- Pearl Inlay Position Markers (Fret Inlays at Fret 2 and Fret 3)
+	local inlayY = { 0.27, 0.45 }
+	for idx, inY in ipairs(inlayY) do
+		local dot = Instance.new("Frame")
+		dot.Name = "FretInlay" .. idx
+		dot.Size = UDim2.new(0, 8, 0, 8)
+		dot.Position = UDim2.new(0.5, -4, inY, -4)
+		dot.BackgroundColor3 = Color3.fromRGB(240, 240, 255)
+		dot.BackgroundTransparency = 0.75
+		dot.BorderSizePixel = 0
+		dot.ZIndex = 5
+		dot.Parent = arena
+		Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+	end
+
+	-- 4 Columns, Vibrating String Lines & Dividers
+	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
+	local defaultStringColors = {
+		Color3.fromRGB(245, 158, 11),
+		Color3.fromRGB(56, 189, 248),
+		Color3.fromRGB(74, 222, 128),
+		Color3.fromRGB(244, 63, 94),
+	}
+	local defaultStringNames = { "E", "A", "D", "G" }
+
 	for i = 1, Config.COLUMN_COUNT do
 		local col = Instance.new("Frame")
 		col.Name = "Column" .. i
@@ -209,6 +284,23 @@ local function buildDynamicGui(playerGui)
 		col.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		col.BorderSizePixel = 0
 		col.Parent = arena
+
+		-- Guitar String Line (FISH-027 Vibrating Neon String)
+		local strLine = Instance.new("Frame")
+		strLine.Name = "StringLine"
+		strLine.Size = UDim2.new(0, 2, 1, 0)
+		strLine.Position = UDim2.new(0.5, -1, 0, 0)
+		strLine.BackgroundColor3 = defaultStringColors[i] or Color3.fromRGB(245, 158, 11)
+		strLine.BackgroundTransparency = 0.40
+		strLine.BorderSizePixel = 0
+		strLine.ZIndex = 6
+		strLine.Parent = col
+
+		local strGlow = Instance.new("UIStroke")
+		strGlow.Color = defaultStringColors[i] or Color3.fromRGB(253, 230, 138)
+		strGlow.Thickness = 1.0
+		strGlow.Transparency = 0.5
+		strGlow.Parent = strLine
 
 		-- Vertical Lane Divider
 		if i < Config.COLUMN_COUNT then
@@ -251,8 +343,7 @@ local function buildDynamicGui(playerGui)
 	hLineStroke.Transparency = 0.2
 	hLineStroke.Parent = hLine
 
-	-- Perfect Hit Target Receptors (One box in each column)
-	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
+	-- Perfect Hit Target Receptors with Guitar Pick Styling (FISH-027)
 	for i = 1, Config.COLUMN_COUNT do
 		local col = arena:FindFirstChild("Column" .. i)
 		if col then
@@ -272,19 +363,21 @@ local function buildDynamicGui(playerGui)
 			rAspect.Parent = receptor
 
 			local rStroke = Instance.new("UIStroke")
-			rStroke.Color = Color3.fromRGB(0, 220, 255)
+			rStroke.Color = defaultStringColors[i] or Color3.fromRGB(0, 220, 255)
 			rStroke.Thickness = 2
 			rStroke.Transparency = 0.3
 			rStroke.Parent = receptor
 
+			-- Key Label [A]
 			local keyText = Instance.new("TextLabel")
 			keyText.Name = "KeyLabel"
-			keyText.Size = UDim2.fromScale(1, 1)
+			keyText.Size = UDim2.new(1, 0, 0.65, 0)
+			keyText.Position = UDim2.new(0, 0, 0, 0)
 			keyText.BackgroundTransparency = 1
 			keyText.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
 			keyText.TextColor3 = Color3.fromRGB(240, 250, 255)
 			keyText.Font = Enum.Font.GothamBlack
-			keyText.TextSize = 16
+			keyText.TextSize = 15
 			keyText.ZIndex = 12
 			keyText.Parent = receptor
 
@@ -293,10 +386,23 @@ local function buildDynamicGui(playerGui)
 			ktStroke.Thickness = 2
 			ktStroke.Transparency = 0.2
 			ktStroke.Parent = keyText
+
+			-- String Notation Sub-label (E / Senar 1)
+			local strLabel = Instance.new("TextLabel")
+			strLabel.Name = "StringLabel"
+			strLabel.Size = UDim2.new(1, 0, 0.35, 0)
+			strLabel.Position = UDim2.new(0, 0, 0.65, 0)
+			strLabel.BackgroundTransparency = 1
+			strLabel.Text = defaultStringNames[i] or tostring(i)
+			strLabel.TextColor3 = defaultStringColors[i] or Color3.fromRGB(250, 204, 21)
+			strLabel.Font = Enum.Font.GothamBold
+			strLabel.TextSize = 10
+			strLabel.ZIndex = 12
+			strLabel.Parent = receptor
 		end
 	end
 
-	-- Center Judgement Feedback Label (Large animated banner in middle arena)
+	-- Center Judgement Feedback Label
 	local centerJudge = Instance.new("TextLabel")
 	centerJudge.Name = "CenterJudgementLabel"
 	centerJudge.Size = UDim2.new(0.9, 0, 0, 38)
@@ -459,12 +565,32 @@ function PianoTilesUI.Create()
 	end
 
 	--==================================================
-	-- COLUMNS, FLASHES & RECEPTOR PADS
+	-- FRET WIRES & INLAYS
+	--==================================================
+	table.clear(fretWires)
+	table.clear(fretInlays)
+	for i = 1, 4 do
+		local fw = arenaFrame:FindFirstChild("FretWire" .. i)
+		if fw then
+			table.insert(fretWires, fw)
+		end
+	end
+	for i = 1, 2 do
+		local inDot = arenaFrame:FindFirstChild("FretInlay" .. i)
+		if inDot then
+			table.insert(fretInlays, inDot)
+		end
+	end
+
+	--==================================================
+	-- COLUMNS, STRINGS, FLASHES & RECEPTOR PADS
 	--==================================================
 	table.clear(columns)
 	table.clear(columnFlashes)
 	table.clear(receptorPads)
 	table.clear(receptorLabels)
+	table.clear(receptorStringLabels)
+	table.clear(stringLines)
 
 	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
 
@@ -477,7 +603,22 @@ function PianoTilesUI.Create()
 
 		columns[i] = column
 
-		-- Flash Frame (mendukung warna Gold, Cyan, Green, Red)
+		-- String Line (FISH-027 Guitar String)
+		local strLine = column:FindFirstChild("StringLine")
+		if not strLine then
+			strLine = Instance.new("Frame")
+			strLine.Name = "StringLine"
+			strLine.Size = UDim2.new(0, 2, 1, 0)
+			strLine.Position = UDim2.new(0.5, -1, 0, 0)
+			strLine.BackgroundColor3 = Color3.fromRGB(245, 158, 11)
+			strLine.BackgroundTransparency = 0.40
+			strLine.BorderSizePixel = 0
+			strLine.ZIndex = 6
+			strLine.Parent = column
+		end
+		stringLines[i] = strLine
+
+		-- Flash Frame
 		local flash = column:FindFirstChild("ColumnFlash") or column:FindFirstChild("MissFlash")
 		if not flash then
 			flash = Instance.new("Frame")
@@ -492,7 +633,7 @@ function PianoTilesUI.Create()
 		end
 		columnFlashes[i] = flash
 
-		-- Receptor Pad (Target Box Tempat Tile Pas Pada Garis PERFECT)
+		-- Receptor Pad
 		local receptor = column:FindFirstChild("ReceptorPad")
 		if not receptor then
 			receptor = Instance.new("Frame")
@@ -518,12 +659,13 @@ function PianoTilesUI.Create()
 
 			local keyText = Instance.new("TextLabel")
 			keyText.Name = "KeyLabel"
-			keyText.Size = UDim2.fromScale(1, 1)
+			keyText.Size = UDim2.new(1, 0, 0.65, 0)
+			keyText.Position = UDim2.new(0, 0, 0, 0)
 			keyText.BackgroundTransparency = 1
 			keyText.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
 			keyText.TextColor3 = Color3.fromRGB(240, 250, 255)
 			keyText.Font = Enum.Font.GothamBlack
-			keyText.TextSize = 16
+			keyText.TextSize = 15
 			keyText.ZIndex = 12
 			keyText.Parent = receptor
 
@@ -532,10 +674,23 @@ function PianoTilesUI.Create()
 			ktStroke.Thickness = 2
 			ktStroke.Transparency = 0.2
 			ktStroke.Parent = keyText
+
+			local strLabel = Instance.new("TextLabel")
+			strLabel.Name = "StringLabel"
+			strLabel.Size = UDim2.new(1, 0, 0.35, 0)
+			strLabel.Position = UDim2.new(0, 0, 0.65, 0)
+			strLabel.BackgroundTransparency = 1
+			strLabel.Text = tostring(i)
+			strLabel.TextColor3 = Color3.fromRGB(250, 204, 21)
+			strLabel.Font = Enum.Font.GothamBold
+			strLabel.TextSize = 10
+			strLabel.ZIndex = 12
+			strLabel.Parent = receptor
 		end
 
 		receptorPads[i] = receptor
 		receptorLabels[i] = receptor:FindFirstChild("KeyLabel")
+		receptorStringLabels[i] = receptor:FindFirstChild("StringLabel")
 	end
 
 	--==================================================
@@ -546,6 +701,8 @@ function PianoTilesUI.Create()
 		castBonusLabel = header:FindFirstChild("CastBonusLabel", true)
 		songLabel = header:FindFirstChild("SongLabel", true)
 		comboLabel = header:FindFirstChild("ComboLabel", true)
+		instrumentPill = header:FindFirstChild("InstrumentPill")
+		instrumentBadgeLabel = header:FindFirstChild("InstrumentBadgeLabel", true)
 	end
 
 	--==================================================
@@ -608,6 +765,10 @@ function PianoTilesUI.GetColumns()
 	return columns
 end
 
+function PianoTilesUI.GetStringLines()
+	return stringLines
+end
+
 function PianoTilesUI.GetReceptorPads()
 	return receptorPads
 end
@@ -617,6 +778,7 @@ function PianoTilesUI.GetHeaderElements()
 		castBonusLabel = castBonusLabel,
 		songLabel = songLabel,
 		comboLabel = comboLabel,
+		instrumentBadgeLabel = instrumentBadgeLabel,
 	}
 end
 
@@ -634,6 +796,122 @@ function PianoTilesUI.GetResultElements()
 		overlay = resultOverlay,
 		label = resultLabel,
 	}
+end
+
+--==================================================
+-- INSTRUMENT THEME ENGINE (FISH-027)
+--==================================================
+
+function PianoTilesUI.ApplyInstrumentTheme(instrument)
+	if not instrument then return end
+
+	-- 1. Update Header Instrument Badge
+	if instrumentBadgeLabel then
+		instrumentBadgeLabel.Text = tostring(instrument.badge or instrument.name or "GITAR")
+		instrumentBadgeLabel.TextColor3 = instrument.headerColor or Color3.fromRGB(250, 204, 21)
+	end
+
+	if instrumentPill then
+		local pillStroke = instrumentPill:FindFirstChildOfClass("UIStroke")
+		if pillStroke then
+			pillStroke.Color = instrument.headerColor or Color3.fromRGB(245, 158, 11)
+		end
+	end
+
+	-- 2. Update Arena Background & Fret Wires
+	if arenaFrame then
+		if instrument.fretboardColor then
+			arenaFrame.BackgroundColor3 = instrument.fretboardColor
+		end
+		for _, fw in ipairs(fretWires) do
+			if fw and instrument.fretWireColor then
+				fw.BackgroundColor3 = instrument.fretWireColor
+			end
+		end
+	end
+
+	-- 3. Update Strings, Receptors & Notations
+	local strColors = instrument.stringColors or {}
+	local strGlows = instrument.stringGlows or {}
+	local strNames = instrument.stringNames or { "1", "2", "3", "4" }
+	local keyLabels = instrument.keyLabels or Config.KEY_LABELS or { "A", "W", "S", "D" }
+
+	for i = 1, Config.COLUMN_COUNT do
+		local str = stringLines[i]
+		if str then
+			local sColor = strColors[i] or Color3.fromRGB(245, 158, 11)
+			str.BackgroundColor3 = sColor
+			local sGlow = str:FindFirstChildOfClass("UIStroke")
+			if sGlow then
+				sGlow.Color = strGlows[i] or sColor
+			end
+		end
+
+		local receptor = receptorPads[i]
+		if receptor then
+			local rStroke = receptor:FindFirstChildOfClass("UIStroke")
+			if rStroke then
+				rStroke.Color = strColors[i] or Color3.fromRGB(0, 220, 255)
+			end
+		end
+
+		local kLabel = receptorLabels[i]
+		if kLabel then
+			kLabel.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
+		end
+
+		local sLabel = receptorStringLabels[i]
+		if sLabel then
+			sLabel.Text = strNames[i] or tostring(i)
+			sLabel.TextColor3 = strColors[i] or Color3.fromRGB(250, 204, 21)
+		end
+	end
+end
+
+--==================================================
+-- VIBRATING STRING PLUCK EFFECT (FISH-027)
+--==================================================
+
+function PianoTilesUI.PlayStringVibration(columnIndex, instrument)
+	local str = stringLines[columnIndex]
+	if not str or not str.Parent then return end
+
+	local origSize = UDim2.new(0, 2, 1, 0)
+	local origPos = UDim2.new(0.5, -1, 0, 0)
+	local pluckSize = UDim2.new(0, 6, 1, 0)
+	local pluckPos = UDim2.new(0.5, -3, 0, 0)
+
+	str.Size = pluckSize
+	str.Position = pluckPos
+	str.BackgroundTransparency = 0.05
+
+	local strGlow = str:FindFirstChildOfClass("UIStroke")
+	if strGlow then
+		strGlow.Thickness = 2.5
+		strGlow.Transparency = 0.1
+	end
+
+	local tween = TweenService:Create(
+		str,
+		TweenInfo.new(0.24, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+		{
+			Size = origSize,
+			Position = origPos,
+			BackgroundTransparency = 0.40,
+		}
+	)
+	tween:Play()
+
+	if strGlow then
+		TweenService:Create(
+			strGlow,
+			TweenInfo.new(0.24, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+			{
+				Thickness = 1.0,
+				Transparency = 0.5,
+			}
+		):Play()
+	end
 end
 
 --==================================================
@@ -918,17 +1196,18 @@ function PianoTilesUI.ShowHitRating(ratingKey, column, y)
 end
 
 --==================================================
--- HIT EFFECT (TILE + RATING + FLASH)
+-- HIT EFFECT (TILE + RATING + FLASH + STRING VIBRATION)
 --==================================================
 
-function PianoTilesUI.PlayHitEffect(tile, y, ratingKey, column)
+function PianoTilesUI.PlayHitEffect(tile, y, ratingKey, column, instrument)
 	ratingKey = ratingKey or "GOOD"
 	column = column or (tile and tile.Parent and tonumber(string.match(tile.Parent.Name, "%d+")))
 
-	-- Trigger Receptor Pad feedback, Rating Popup & Column Flash
+	-- Trigger Receptor Pad feedback, Rating Popup, Column Flash & String Pluck Vibration
 	if column then
 		PianoTilesUI.TriggerReceptorPress(column, ratingKey)
 		PianoTilesUI.FlashColumn(column, ratingKey)
+		PianoTilesUI.PlayStringVibration(column, instrument)
 	end
 	PianoTilesUI.ShowHitRating(ratingKey, column, y)
 
@@ -1108,7 +1387,8 @@ end
 function PianoTilesUI.UpdateHeader(
 	castLabel,
 	castColor,
-	melodyName
+	melodyName,
+	instrument
 )
 	if castBonusLabel then
 		castBonusLabel.Text = "✨ " .. tostring(castLabel or "PERFECT CAST")
@@ -1117,6 +1397,10 @@ function PianoTilesUI.UpdateHeader(
 
 	if songLabel then
 		songLabel.Text = "🎵 " .. tostring(melodyName or "Melodi")
+	end
+
+	if instrument then
+		PianoTilesUI.ApplyInstrumentTheme(instrument)
 	end
 end
 
@@ -1368,6 +1652,8 @@ function PianoTilesUI.Destroy()
 
 	castBonusLabel = nil
 	songLabel = nil
+	instrumentBadgeLabel = nil
+	instrumentPill = nil
 	comboLabel = nil
 	centerJudgementLabel = nil
 	hitLine = nil
@@ -1390,6 +1676,10 @@ function PianoTilesUI.Destroy()
 	table.clear(columnFlashes)
 	table.clear(receptorPads)
 	table.clear(receptorLabels)
+	table.clear(receptorStringLabels)
+	table.clear(stringLines)
+	table.clear(fretWires)
+	table.clear(fretInlays)
 end
 
 return PianoTilesUI

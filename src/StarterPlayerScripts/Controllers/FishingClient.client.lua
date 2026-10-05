@@ -1129,7 +1129,8 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		end)
 	end
 
-	showMessage("🎣 IKAN MENYAMBAR! Mainkan Piano Tiles (D, F, J, K)!", Color3.fromRGB(255, 220, 50), 3.5)
+	local currentRod = (lastPlayerData and lastPlayerData.equippedRod) or "StarterRod"
+	showMessage("🎸 IKAN MENYAMBAR! Mainkan Irama [A, W, S, D]!", Color3.fromRGB(255, 220, 50), 3.5)
 	AnimSystem.SetPhase("Reeling")
 
 	fsm:Transition(FishingStateMachine.States.MINIGAME, { sessionId = sessionId })
@@ -1140,6 +1141,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 	PianoTilesGame.Start({
 		castQuality = castQuality,
 		tier = rarity,
+		rodId = currentRod,
 	}, function(metrics)
 		fsm:Transition(FishingStateMachine.States.REELING_SUCCESS, { metrics = metrics })
 		AnimSystem.PlayVictoryLift(char)
