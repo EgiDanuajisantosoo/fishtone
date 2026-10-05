@@ -84,6 +84,20 @@ Setiap joran memiliki statistik Luck, Kekuatan Lemparan, serta **Badge Instrumen
 | 🎣 **Abyssal Trident Rod** | 🎸 `GUITAR` | **Abyssal Heavy Metal Solo**<br>Pola riff cepat untuk memburu ikan langka kedalaman samudra. | **`A`**, **`S`**, **`D`**, **`J`**, **`K`**, **`L`** |
 | 🎣 **Celestial Melody Rod** | 🥁 `DRUM` | **Drum Concentric Beat Timing**<br>Lingkaran gelombang ketukan berdenyut menyatu ke pusat target pad drum. | **`Spasi`**, **`E`**, atau **`Q`** tepat saat lingkaran menyatu |
 
+### 🎯 Panduan Posisi Ketukan Not Piano (Hit Zones):
+Di dalam mini-game Piano Tiles, arena permainan kini dilengkapi dengan **Indikator Visual Zona Warna** dan **Legend Bar** di bagian atas:
+1. ⭐ **Zona PERFECT (Emas / Gold)**:
+   - **Posisi**: Tepat di garis laser target tengah (`HitLine`).
+   - **Skor**: **+300 Poin** + Bonus Combo Maksimal.
+2. ◆ **Zona GREAT (Biru Muda / Cyan)**:
+   - **Posisi**: Area di sekitar garis target (sedikit sebelum / sesudah garis target).
+   - **Skor**: **+180 Poin** + Melanjutkan Combo.
+3. ● **Zona GOOD (Hijau Emerald)**:
+   - **Posisi**: Area terluar saat not mulai memasuki bantalan tuts piano (`ReceptorPad`).
+   - **Skor**: **+80 Poin** + Menjaga Progres Tangkapan.
+4. ✕ **Garis MISS (Merah)**:
+   - **Posisi**: Melewati garis bawah arena. Jika not terlewat atau tuts ditekan saat not belum masuk zona, dinilai **MISS** (Combo Reset & Progres berkurang).
+
 ---
 
 ## 🎮 4. Daftar Tombol & Hotkey Lengkap
