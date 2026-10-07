@@ -275,19 +275,33 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	local pName = prompt.Name:lower()
 	local pAction = prompt.ActionText:lower()
 	local pObject = prompt.ObjectText:lower()
+	local parentName = (prompt.Parent and prompt.Parent.Name:lower()) or ""
+	local modelName = (prompt.Parent and prompt.Parent:IsA("Model") and prompt.Parent.Name:lower())
+		or (prompt.Parent and prompt.Parent.Parent and prompt.Parent.Parent:IsA("Model") and prompt.Parent.Parent.Name:lower())
+		or ""
 
-	-- A. Penjualan Ikan & Loot (Sell Fish / Sell All)
-	if pName:find("sell") or pName:find("jual") or pName:find("merchant") or pName:find("pedagang")
-		or pAction:find("sell") or pAction:find("jual")
-		or pObject:find("ikan") or pObject:find("lapak") or pObject:find("merchant") then
-		InventoryService.SellAll(player)
+	local allText = string.format("%s %s %s %s %s", pName, pAction, pObject, parentName, modelName)
 
-	-- B. Toko Peralatan Pancing (Shop)
-	elseif pName:find("shop") or pName:find("toko") or pName:find("bait") or pName:find("rod")
-		or pAction:find("shop") or pAction:find("toko") or pAction:find("beli") or pAction:find("buy")
-		or pObject:find("toko") or pObject:find("shop") then
+	-- A. Penjualan Ikan & Loot (Toko Ikan / Tukang Ikan / Merchant / Jual Ikan)
+	if allText:find("sell") or allText:find("jual") or allText:find("merchant") or allText:find("pedagang")
+		or allText:find("ikan") or allText:find("lapak") or allText:find("pasar") then
 		local catalog = EconomyService.GetShopCatalog(player)
 		catalog.openModal = true
+		catalog.initialTab = "SELL"
+		RemoteContract.Server.ShopCatalogData(player, catalog)
+
+	-- B. Toko Peralatan Pancing (Toko Pancing / Shop / Beli Joran / Umpan)
+	elseif allText:find("shop") or allText:find("toko") or allText:find("bait") or allText:find("rod")
+		or allText:find("beli") or allText:find("buy") or allText:find("pancing") or allText:find("joran") then
+		local catalog = EconomyService.GetShopCatalog(player)
+		catalog.openModal = true
+		catalog.initialTab = "RODS"
+		RemoteContract.Server.ShopCatalogData(player, catalog)
+	else
+		-- Fallback general shop
+		local catalog = EconomyService.GetShopCatalog(player)
+		catalog.openModal = true
+		catalog.initialTab = "RODS"
 		RemoteContract.Server.ShopCatalogData(player, catalog)
 	end
 end)

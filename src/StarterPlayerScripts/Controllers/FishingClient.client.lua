@@ -2207,7 +2207,7 @@ if remote then
 				EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			end
 			if catalog and catalog.openModal and not ShopUI.IsOpen() then
-				ShopUI.Show(gui, catalog)
+				ShopUI.Show(gui, catalog, catalog.initialTab)
 			end
 		elseif action == RemoteContract.S2C.SHOP_TRANSACTION_SUCCESS then
 			local itemType = arg1
@@ -2312,18 +2312,20 @@ if remote then
 		local pName = prompt.Name:lower()
 		local pAction = prompt.ActionText:lower()
 		local pObject = prompt.ObjectText:lower()
+		local parentName = (prompt.Parent and prompt.Parent.Name:lower()) or ""
+		local modelName = (prompt.Parent and prompt.Parent:IsA("Model") and prompt.Parent.Name:lower())
+			or (prompt.Parent and prompt.Parent.Parent and prompt.Parent.Parent:IsA("Model") and prompt.Parent.Parent.Name:lower())
+			or ""
+		local allText = string.format("%s %s %s %s %s", pName, pAction, pObject, parentName, modelName)
 
-		if pName:find("shop") or pName:find("toko") or pName:find("bait") or pName:find("rod")
-			or pAction:find("shop") or pAction:find("toko") or pAction:find("beli") or pAction:find("buy")
-			or pObject:find("toko") or pObject:find("shop") then
-			RemoteContract.Client.GetShopCatalog()
-			if not ShopUI.IsOpen() then
-				ShopUI.Show(gui)
+		RemoteContract.Client.GetShopCatalog()
+		if not ShopUI.IsOpen() then
+			if allText:find("sell") or allText:find("jual") or allText:find("merchant") or allText:find("pedagang")
+				or allText:find("ikan") or allText:find("lapak") or allText:find("pasar") then
+				ShopUI.Show(gui, nil, "SELL")
+			else
+				ShopUI.Show(gui, nil, "RODS")
 			end
-		elseif pName:find("sell") or pName:find("jual") or pName:find("merchant") or pName:find("pedagang")
-			or pAction:find("sell") or pAction:find("jual")
-			or pObject:find("ikan") or pObject:find("lapak") or pObject:find("merchant") then
-			RemoteContract.Client.SellAllFish()
 		end
 	end)
 end

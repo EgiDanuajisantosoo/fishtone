@@ -999,7 +999,7 @@ function ShopUI.RenderContent()
 end
 
 -- ============ SHOW SHOP MODAL ============
-function ShopUI.Show(targetGui, catalogData)
+function ShopUI.Show(targetGui, catalogData, initialTab)
 	if not targetGui then return end
 
 	if activeOverlay then
@@ -1007,6 +1007,12 @@ function ShopUI.Show(targetGui, catalogData)
 		activeOverlay = nil
 		activeModal = nil
 		isClosing = false
+	end
+
+	if initialTab then
+		currentTab = initialTab
+	elseif catalogData and catalogData.initialTab then
+		currentTab = catalogData.initialTab
 	end
 
 	if catalogData then
