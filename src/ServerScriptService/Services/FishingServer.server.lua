@@ -229,6 +229,48 @@ end
 -- 2. Toko/Shop: Nama prompt atau actionText mengandung "shop", "toko", "beli", "rod", "bait"
 local ProximityPromptService = game:GetService("ProximityPromptService")
 
+-- Fungsi otomatis untuk memindahkan ProximityPrompt dari Model ke BasePart agar muncul di layar
+local function sanitizePrompt(prompt)
+	if not prompt:IsA("ProximityPrompt") then return end
+
+	-- Jika ProximityPrompt ditaruh langsung sebagai anak Model, pindahkan ke BasePart (Torso/HumanoidRootPart/Head)
+	if prompt.Parent and prompt.Parent:IsA("Model") then
+		local model = prompt.Parent
+		local targetPart = model.PrimaryPart 
+			or model:FindFirstChild("HumanoidRootPart") 
+			or model:FindFirstChild("Torso") 
+			or model:FindFirstChild("UpperTorso") 
+			or model:FindFirstChild("Head") 
+			or model:FindFirstChildWhichIsA("BasePart")
+
+		if targetPart then
+			prompt.Parent = targetPart
+		end
+	end
+
+	-- Optimasi visibilitas prompt (tidak terhalang dinding/stand toko)
+	if prompt.MaxActivationDistance < 12 then
+		prompt.MaxActivationDistance = 14
+	end
+	prompt.RequiresLineOfSight = false
+end
+
+-- Scan semua prompt yang sudah ada di workspace
+for _, desc in ipairs(workspace:GetDescendants()) do
+	if desc:IsA("ProximityPrompt") then
+		sanitizePrompt(desc)
+	end
+end
+
+-- Dengarkan prompt baru yang ditambahkan di runtime/Studio
+workspace.DescendantAdded:Connect(function(desc)
+	if desc:IsA("ProximityPrompt") then
+		task.defer(function()
+			sanitizePrompt(desc)
+		end)
+	end
+end)
+
 ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	local pName = prompt.Name:lower()
 	local pAction = prompt.ActionText:lower()

@@ -2270,4 +2270,60 @@ if remote then
 		RemoteContract.Client.GetPlayerData()
 		RemoteContract.Client.GetShopCatalog()
 	end)
+
+	-- Client ProximityPrompt Handler untuk respon instan
+	local ProximityPromptService = game:GetService("ProximityPromptService")
+	
+	local function sanitizeClientPrompt(prompt)
+		if not prompt:IsA("ProximityPrompt") then return end
+		if prompt.Parent and prompt.Parent:IsA("Model") then
+			local model = prompt.Parent
+			local targetPart = model.PrimaryPart 
+				or model:FindFirstChild("HumanoidRootPart") 
+				or model:FindFirstChild("Torso") 
+				or model:FindFirstChild("UpperTorso") 
+				or model:FindFirstChild("Head") 
+				or model:FindFirstChildWhichIsA("BasePart")
+			if targetPart then
+				prompt.Parent = targetPart
+			end
+		end
+		if prompt.MaxActivationDistance < 12 then
+			prompt.MaxActivationDistance = 14
+		end
+		prompt.RequiresLineOfSight = false
+	end
+
+	for _, desc in ipairs(workspace:GetDescendants()) do
+		if desc:IsA("ProximityPrompt") then
+			sanitizeClientPrompt(desc)
+		end
+	end
+
+	workspace.DescendantAdded:Connect(function(desc)
+		if desc:IsA("ProximityPrompt") then
+			task.defer(function()
+				sanitizeClientPrompt(desc)
+			end)
+		end
+	end)
+
+	ProximityPromptService.PromptTriggered:Connect(function(prompt)
+		local pName = prompt.Name:lower()
+		local pAction = prompt.ActionText:lower()
+		local pObject = prompt.ObjectText:lower()
+
+		if pName:find("shop") or pName:find("toko") or pName:find("bait") or pName:find("rod")
+			or pAction:find("shop") or pAction:find("toko") or pAction:find("beli") or pAction:find("buy")
+			or pObject:find("toko") or pObject:find("shop") then
+			RemoteContract.Client.GetShopCatalog()
+			if not ShopUI.IsOpen() then
+				ShopUI.Show(gui)
+			end
+		elseif pName:find("sell") or pName:find("jual") or pName:find("merchant") or pName:find("pedagang")
+			or pAction:find("sell") or pAction:find("jual")
+			or pObject:find("ikan") or pObject:find("lapak") or pObject:find("merchant") then
+			RemoteContract.Client.SellAllFish()
+		end
+	end)
 end
