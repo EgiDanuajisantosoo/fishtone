@@ -390,8 +390,9 @@ local function playSound(soundId, volume, pitch)
 	Debris:AddItem(s, 2.5)
 end
 
-local function createWaterSplash(pos)
+local function createWaterSplash(pos, customColor)
 	local emitterPart = Instance.new("Part")
+	emitterPart.Name = "WaterSplashFX"
 	emitterPart.Size = Vector3.new(1, 0.2, 1)
 	emitterPart.Position = pos
 	emitterPart.Anchored = true
@@ -399,27 +400,54 @@ local function createWaterSplash(pos)
 	emitterPart.Transparency = 1
 	emitterPart.Parent = workspace
 	
+	-- 1. Partikel Percikan Air (Droplets)
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Texture = "rbxasset://textures/particles/smoke_main.dds"
-	emitter.Color = ColorSequence.new(Color3.fromRGB(200, 240, 255), Color3.fromRGB(255, 255, 255))
+	emitter.Color = ColorSequence.new(customColor or Color3.fromRGB(180, 235, 255), Color3.fromRGB(255, 255, 255))
 	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.4),
-		NumberSequenceKeypoint.new(1, 1.8)
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(0.4, 1.8),
+		NumberSequenceKeypoint.new(1, 0.2),
 	})
 	emitter.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.2),
-		NumberSequenceKeypoint.new(1, 1)
+		NumberSequenceKeypoint.new(0, 0.1),
+		NumberSequenceKeypoint.new(0.7, 0.4),
+		NumberSequenceKeypoint.new(1, 1),
 	})
-	emitter.Speed = NumberRange.new(8, 14)
-	emitter.SpreadAngle = Vector2.new(45, 45)
-	emitter.Acceleration = Vector3.new(0, -28, 0)
-	emitter.Lifetime = NumberRange.new(0.4, 0.7)
+	emitter.Speed = NumberRange.new(9, 16)
+	emitter.SpreadAngle = Vector2.new(50, 50)
+	emitter.Acceleration = Vector3.new(0, -32, 0)
+	emitter.Lifetime = NumberRange.new(0.5, 0.8)
 	emitter.Rate = 0
+	emitter.LightEmission = 0.5
 	emitter.Parent = emitterPart
 	
-	emitter:Emit(25)
-	playSound("rbxasset://sounds/splat.wav", 0.5, 1.2)
-	Debris:AddItem(emitterPart, 1.5)
+	emitter:Emit(35)
+
+	-- 2. Riak Gelombang Air Melingkar (Dynamic Water Ripple Ring)
+	local ripple = Instance.new("Part")
+	ripple.Name = "SplashRippleRing"
+	ripple.Shape = Enum.PartType.Cylinder
+	ripple.Size = Vector3.new(0.04, 0.6, 0.6)
+	ripple.CFrame = CFrame.new(pos + Vector3.new(0, 0.05, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ripple.Color = customColor or Color3.fromRGB(130, 225, 255)
+	ripple.Material = Enum.Material.Neon
+	ripple.Transparency = 0.35
+	ripple.CanCollide = false
+	ripple.Anchored = true
+	ripple.Parent = workspace
+
+	local grow = TweenService:Create(ripple, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.04, 6.2, 6.2),
+		Transparency = 1,
+	})
+	grow:Play()
+	grow.Completed:Connect(function()
+		ripple:Destroy()
+	end)
+
+	playSound("rbxasset://sounds/splat.wav", 0.55, 1.2)
+	Debris:AddItem(emitterPart, 1.6)
 end
 
 local function showStrikeAlert(pos)

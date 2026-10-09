@@ -33,60 +33,70 @@ gui.Parent = pGui
 
 local bannerFrame = Instance.new("Frame")
 bannerFrame.Name = "ZoneBanner"
-bannerFrame.Size = UDim2.new(0, 360, 0, 68)
-bannerFrame.Position = UDim2.new(0.5, -180, -0.15, 0) -- Hidden above screen
-bannerFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 32)
-bannerFrame.BackgroundTransparency = 0.2
+bannerFrame.Size = UDim2.new(0, 420, 0, 72)
+bannerFrame.Position = UDim2.new(0.5, -210, -0.15, 0) -- Hidden above screen
+bannerFrame.BackgroundColor3 = Color3.fromRGB(12, 18, 28)
+bannerFrame.BackgroundTransparency = 0.15
 bannerFrame.BorderSizePixel = 0
 bannerFrame.Parent = gui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 14)
-corner.Parent = bannerFrame
+Instance.new("UICorner", bannerFrame).CornerRadius = UDim.new(0, 16)
 
 local stroke = Instance.new("UIStroke")
 stroke.Color = Color3.fromRGB(0, 200, 255)
-stroke.Transparency = 0.4
-stroke.Thickness = 1.5
+stroke.Transparency = 0.3
+stroke.Thickness = 1.8
 stroke.Parent = bannerFrame
+
+local bgGradient = Instance.new("UIGradient")
+bgGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 220, 255)),
+})
+bgGradient.Parent = bannerFrame
+
+local iconBadge = Instance.new("Frame")
+iconBadge.Name = "IconBadge"
+iconBadge.Size = UDim2.new(0, 52, 0, 52)
+iconBadge.Position = UDim2.new(0, 10, 0.5, -26)
+iconBadge.BackgroundColor3 = Color3.fromRGB(20, 30, 48)
+iconBadge.BorderSizePixel = 0
+iconBadge.Parent = bannerFrame
+Instance.new("UICorner", iconBadge).CornerRadius = UDim.new(0, 12)
 
 local iconLabel = Instance.new("TextLabel")
 iconLabel.Name = "ZoneIcon"
-iconLabel.Size = UDim2.new(0, 48, 1, 0)
-iconLabel.Position = UDim2.new(0, 10, 0, 0)
+iconLabel.Size = UDim2.new(1, 0, 1, 0)
 iconLabel.BackgroundTransparency = 1
 iconLabel.Text = "⚓"
-iconLabel.TextSize = 32
-iconLabel.Font = Enum.Font.GothamBlack
-iconLabel.Parent = bannerFrame
+iconLabel.TextSize = 28
+iconLabel.Parent = iconBadge
 
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Name = "ZoneTitle"
-titleLabel.Size = UDim2.new(1, -70, 0, 28)
-titleLabel.Position = UDim2.new(0, 62, 0, 8)
+titleLabel.Size = UDim2.new(1, -78, 0, 26)
+titleLabel.Position = UDim2.new(0, 70, 0, 10)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Text = "MELODY BAY"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Font = Enum.Font.GothamBlack
-titleLabel.TextSize = 18
+titleLabel.TextSize = 17
 titleLabel.Parent = bannerFrame
 
 local subLabel = Instance.new("TextLabel")
 subLabel.Name = "ZoneSubtitle"
-subLabel.Size = UDim2.new(1, -70, 0, 22)
-subLabel.Position = UDim2.new(0, 62, 0, 34)
+subLabel.Size = UDim2.new(1, -78, 0, 22)
+subLabel.Position = UDim2.new(0, 70, 0, 36)
 subLabel.BackgroundTransparency = 1
 subLabel.Text = "Dermaga Harmoni & Zona Pemula (Lv. 1+)"
 subLabel.TextColor3 = Color3.fromRGB(180, 220, 255)
 subLabel.TextXAlignment = Enum.TextXAlignment.Left
 subLabel.Font = Enum.Font.GothamMedium
-subLabel.TextSize = 12
+subLabel.TextSize = 11.5
 subLabel.Parent = bannerFrame
 
 -- ============ TRANSITION ANIMATIONS ============
 local currentZoneId = nil
-local isAnimating = false
 
 local function showZoneBanner(zone)
 	if not zone or zone.id == currentZoneId then return end
@@ -97,15 +107,16 @@ local function showZoneBanner(zone)
 	titleLabel.TextColor3 = zone.themeColor or Color3.fromRGB(255, 255, 255)
 	stroke.Color = zone.themeColor or Color3.fromRGB(0, 200, 255)
 
-	local levelText = zone.minLevel and string.format(" (Lv. %d+)", zone.minLevel) or ""
-	subLabel.Text = (zone.subtitle or "") .. levelText
+	local levelText = zone.minLevel and string.format(" • Min. Lv. %d", zone.minLevel) or ""
+	local luckText = (zone.luckBonus and zone.luckBonus > 0) and string.format(" [🍀 +%d Luck]", zone.luckBonus) or ""
+	subLabel.Text = string.format("%s%s%s", zone.subtitle or "", levelText, luckText)
 
 	-- Animasi Muncul ke Layar
-	bannerFrame.Position = UDim2.new(0.5, -180, -0.15, 0)
+	bannerFrame.Position = UDim2.new(0.5, -210, -0.15, 0)
 	local tweenIn = TweenService:Create(
 		bannerFrame,
-		TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-		{ Position = UDim2.new(0.5, -180, 0.03, 0) }
+		TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Position = UDim2.new(0.5, -210, 0.035, 0) }
 	)
 	tweenIn:Play()
 
@@ -113,18 +124,18 @@ local function showZoneBanner(zone)
 	local sound = Instance.new("Sound")
 	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
 	sound.Volume = 0.5
-	sound.PlaybackSpeed = 1.9
-	sound.Parent = Workspace
+	sound.PlaybackSpeed = 1.6
+	sound.Parent = workspace
 	sound:Play()
-	game:GetService("Debris"):AddItem(sound, 2)
+	Debris:AddItem(sound, 2)
 
 	-- Hilang Otomatis setelah 4 Detik
-	task.delay(4.0, function()
+	task.delay(4.2, function()
 		if currentZoneId == zone.id then
 			local tweenOut = TweenService:Create(
 				bannerFrame,
-				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				{ Position = UDim2.new(0.5, -180, -0.15, 0) }
+				TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{ Position = UDim2.new(0.5, -210, -0.15, 0) }
 			)
 			tweenOut:Play()
 		end
