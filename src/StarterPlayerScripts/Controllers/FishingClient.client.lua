@@ -1342,8 +1342,10 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
 		if remote and activeSessionId and activeSessionId ~= "" then
+			print(string.format("[FishingClient] 📤 Mengirim SubmitCatch ke Server! SessionId: %s | Skor: %d", tostring(activeSessionId), tonumber(metrics.score or 0) or 0))
 			RemoteContract.Client.SubmitCatch(activeSessionId, metrics)
 		else
+			warn(string.format("[FishingClient] ⚠️ activeSessionId tidak ditemukan saat minigame selesai! SessionId: %s", tostring(activeSessionId)))
 			showMessage("🎉 TANGKAPAN BERHASIL! Skor: " .. tostring(metrics.score or 0), Color3.fromRGB(50, 255, 130), 4.0)
 		end
 
@@ -1386,18 +1388,22 @@ local function getFishInBackpack()
 	local backpack = player:FindFirstChild("Backpack")
 	local char = player.Character
 
+	local function checkAndAdd(item)
+		if not item:IsA("Tool") then return end
+		if isRodTool(item) then return end
+		if item:GetAttribute("IsFish") == true or item:GetAttribute("IsLoot") == true or item:GetAttribute("Coins") ~= nil or item:GetAttribute("Weight") ~= nil or item:GetAttribute("ItemId") ~= nil then
+			table.insert(fishList, item)
+		end
+	end
+
 	if backpack then
 		for _, item in ipairs(backpack:GetChildren()) do
-			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or item:GetAttribute("IsLoot") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
-				table.insert(fishList, item)
-			end
+			checkAndAdd(item)
 		end
 	end
 	if char then
 		for _, item in ipairs(char:GetChildren()) do
-			if item:IsA("Tool") and (item:GetAttribute("IsFish") == true or item:GetAttribute("IsLoot") == true or (item.Name ~= "FishingRod" and item.Name ~= "Pancingan")) then
-				table.insert(fishList, item)
-			end
+			checkAndAdd(item)
 		end
 	end
 
@@ -2341,6 +2347,8 @@ if remote then
 			local rewardInfo = arg2 or {}
 			local pData = arg3 or {}
 			local pityState = arg4 or {}
+
+			print(string.format("[FishingClient] 🎉 CatchSuccess diterima dari Server! Ikan: %s (%s) | Bobot: %.1f Kg | Koin: +%d", tostring(fishData.name or "Ikan"), tostring(fishData.rarity or "COMMON"), tonumber(fishData.weight or 1) or 1, tonumber(rewardInfo.coins or 0) or 0))
 
 			clientPity = pityState
 

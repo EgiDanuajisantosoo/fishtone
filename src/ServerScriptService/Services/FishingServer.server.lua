@@ -157,10 +157,12 @@ if remote then
 
 			local session, err = FishingSessionService.CreateSession(player, waterPos, castQuality, castPower, rodLuck)
 			if not session then
+				warn("[FishingServer] Gagal membuat sesi memancing untuk", player.Name, ":", tostring(err))
 				RemoteContract.Server.Notify(player, "❌ " .. tostring(err or "Gagal memulai sesi memancing"))
 				return
 			end
 
+			print(string.format("[FishingServer] 🎣 Sesi Memancing Dimulai: %s | Player: %s | Quality: %s | Wait: %.1fs", session.sessionId, player.Name, session.castQuality, session.waitDuration))
 			RemoteContract.Server.SessionStarted(
 				player,
 				session.sessionId,
@@ -174,16 +176,24 @@ if remote then
 		if action == RemoteContract.C2S.SUBMIT_CATCH then
 			local sessionId = arg1
 			local metrics = arg2
+			print(string.format("[FishingServer] 📥 Menerima SubmitCatch untuk Sesi: %s dari Player: %s", tostring(sessionId), player.Name))
 
 			local fishData, rewardInfo, updatedData = FishingSessionService.ValidateAndComplete(player, sessionId, metrics)
 			if not fishData then
+				warn(string.format("[FishingServer] ❌ Validasi tangkapan gagal untuk %s: %s", player.Name, tostring(rewardInfo or "Invalid session")))
 				RemoteContract.Server.Notify(player, "❌ " .. tostring(rewardInfo or "Sesi memancing tidak valid."))
 				return
 			end
 
 			-- Tambahkan Item 3D ke Inventory Player via InventoryService
-			InventoryService.AddItem(player, fishData)
+			local itemTool, itemErr = InventoryService.AddItem(player, fishData)
+			if itemTool then
+				print(string.format("[FishingServer] 🐟 Berhasil menambah item '%s' ke Backpack %s!", itemTool.Name, player.Name))
+			else
+				warn(string.format("[FishingServer] ⚠️ Gagal menambah item ke Backpack %s: %s", player.Name, tostring(itemErr)))
+			end
 
+			print(string.format("[FishingServer] ⭐ Catch Success! Ikan: %s (%s) | Koin: +%d | EXP: +%d | Player: %s", fishData.name, fishData.rarity, rewardInfo.coins or 0, rewardInfo.exp or 0, player.Name))
 			RemoteContract.Server.CatchSuccess(player, fishData, rewardInfo, updatedData, updatedData.pity)
 			return
 		end
