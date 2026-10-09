@@ -340,7 +340,13 @@ function PlayerDataService.LoadData(player)
 				fetchSuccess = true
 				break
 			else
-				warn(string.format("[PlayerDataService] Gagal load data %s (percobaan %d/%d): %s", player.Name, attempt, MAX_RETRIES, tostring(res)))
+				local errStr = tostring(res)
+				if errStr:find("Studio access to APIs is not allowed") or errStr:find("Error code: 7") then
+					dataStoreAvailable = false
+					warn("[PlayerDataService] Studio API Access nonaktif di Game Settings Roblox Studio. Menggunakan in-memory cache.")
+					break
+				end
+				warn(string.format("[PlayerDataService] Gagal load data %s (percobaan %d/%d): %s", player.Name, attempt, MAX_RETRIES, errStr))
 				task.wait(1)
 			end
 		end

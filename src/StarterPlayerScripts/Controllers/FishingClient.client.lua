@@ -845,7 +845,7 @@ function AnimSystem.PlayCast(char, targetPos)
 	local lS = AnimSystem.savedC0.LeftShoulder
 	local w = AnimSystem.savedC0.Waist
 
-	playSound("rbxasset://sounds/action_whoosh.mp3", 0.75, 1.1)
+	playSound("rbxasset://sounds/swordslash.wav", 0.5, 1.4)
 	if rS then
 		TweenService:Create(rS.joint, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			C0 = rS.orig * CFrame.Angles(math.rad(-45), 0, math.rad(10))

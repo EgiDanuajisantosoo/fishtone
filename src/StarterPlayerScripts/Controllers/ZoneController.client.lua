@@ -12,6 +12,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local Shared = ReplicatedStorage:WaitForChild("Shared")
