@@ -166,6 +166,16 @@ local function buildDynamicGui(playerGui)
 		pStroke.Transparency = 0.2
 		pStroke.Parent = pad
 
+		local targetNotch = Instance.new("Frame")
+		targetNotch.Name = "PerfectTargetNotch"
+		targetNotch.Size = UDim2.new(0.6, 0, 0, 2)
+		targetNotch.Position = UDim2.new(0.2, 0, 0.5, -1)
+		targetNotch.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+		targetNotch.BackgroundTransparency = 0.4
+		targetNotch.BorderSizePixel = 0
+		targetNotch.ZIndex = 13
+		targetNotch.Parent = pad
+
 		local keyText = Instance.new("TextLabel")
 		keyText.Name = "KeyLabel"
 		keyText.Size = UDim2.new(1, 0, 0.55, 0)
@@ -199,6 +209,25 @@ local function buildDynamicGui(playerGui)
 	hLine.BorderSizePixel = 0
 	hLine.ZIndex = 14
 	hLine.Parent = arena
+
+	local hLineStroke = Instance.new("UIStroke")
+	hLineStroke.Color = Color3.fromRGB(248, 113, 113)
+	hLineStroke.Thickness = 1.5
+	hLineStroke.Transparency = 0.3
+	hLineStroke.Parent = hLine
+
+	local perfectBadge = Instance.new("TextLabel")
+	perfectBadge.Name = "PerfectBadge"
+	perfectBadge.Size = UDim2.new(0, 70, 0, 14)
+	perfectBadge.Position = UDim2.new(0, 6, 0, -15)
+	perfectBadge.BackgroundTransparency = 1
+	perfectBadge.Text = "★ PERFECT"
+	perfectBadge.TextColor3 = Color3.fromRGB(255, 215, 0)
+	perfectBadge.Font = Enum.Font.GothamBold
+	perfectBadge.TextSize = 9
+	perfectBadge.TextXAlignment = Enum.TextXAlignment.Left
+	perfectBadge.ZIndex = 15
+	perfectBadge.Parent = hLine
 
 	local centerJudge = Instance.new("TextLabel")
 	centerJudge.Name = "CenterJudgementLabel"
@@ -377,9 +406,13 @@ function DrumUI.CreateTile(column, y)
 	local icon = Instance.new("TextLabel")
 	icon.Size = UDim2.fromScale(1, 1)
 	icon.BackgroundTransparency = 1
-	icon.Text = Config.PAD_ICONS[column] or "🥁"
-	icon.TextSize = 16
-	icon.Parent = tile
+	local glow = Instance.new("UIStroke")
+	glow.Name = "TileGlow"
+	glow.Color = Color3.fromRGB(255, 215, 0)
+	glow.Thickness = 2.5
+	glow.Transparency = 1
+	glow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	glow.Parent = tile
 
 	return tile
 end
@@ -387,6 +420,23 @@ end
 function DrumUI.MoveTile(tile, y)
 	if tile and tile.Parent then
 		tile.Position = UDim2.new(0.06, 0, y, 0)
+		local glow = tile:FindFirstChild("TileGlow")
+		if glow then
+			local delta = math.abs(y - Config.HIT_LINE)
+			if delta <= 0.05 then
+				-- Zone PERFECT: Radiant Gold Glow
+				glow.Color = Color3.fromRGB(255, 215, 0)
+				glow.Thickness = 3
+				glow.Transparency = 0.05
+			elseif delta <= 0.09 then
+				-- Zone GREAT: Crimson/Red-Orange Glow
+				glow.Color = Color3.fromRGB(239, 68, 68)
+				glow.Thickness = 2
+				glow.Transparency = 0.35
+			else
+				glow.Transparency = 1
+			end
+		end
 	end
 end
 

@@ -251,6 +251,19 @@ local function buildDynamicGui(playerGui)
 	hLineStroke.Transparency = 0.2
 	hLineStroke.Parent = hLine
 
+	local perfectBadge = Instance.new("TextLabel")
+	perfectBadge.Name = "PerfectBadge"
+	perfectBadge.Size = UDim2.new(0, 70, 0, 14)
+	perfectBadge.Position = UDim2.new(0, 6, 0, -15)
+	perfectBadge.BackgroundTransparency = 1
+	perfectBadge.Text = "★ PERFECT"
+	perfectBadge.TextColor3 = Color3.fromRGB(255, 215, 0)
+	perfectBadge.Font = Enum.Font.GothamBold
+	perfectBadge.TextSize = 9
+	perfectBadge.TextXAlignment = Enum.TextXAlignment.Left
+	perfectBadge.ZIndex = 15
+	perfectBadge.Parent = hLine
+
 	-- Perfect Hit Target Receptors (One box in each column)
 	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
 	for i = 1, Config.COLUMN_COUNT do
@@ -276,6 +289,16 @@ local function buildDynamicGui(playerGui)
 			rStroke.Thickness = 2
 			rStroke.Transparency = 0.3
 			rStroke.Parent = receptor
+
+			local targetNotch = Instance.new("Frame")
+			targetNotch.Name = "PerfectTargetNotch"
+			targetNotch.Size = UDim2.new(0.6, 0, 0, 2)
+			targetNotch.Position = UDim2.new(0.2, 0, 0.5, -1)
+			targetNotch.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			targetNotch.BackgroundTransparency = 0.4
+			targetNotch.BorderSizePixel = 0
+			targetNotch.ZIndex = 13
+			targetNotch.Parent = receptor
 
 			local keyText = Instance.new("TextLabel")
 			keyText.Name = "KeyLabel"
@@ -667,10 +690,13 @@ function PianoTilesUI.CreateTile(column, y)
 	tile.ZIndex = 15
 	tile.Parent = parent
 
-	local aspect = Instance.new("UIAspectRatioConstraint")
-	aspect.Name = "SquareConstraint"
-	aspect.AspectRatio = 1
-	aspect.Parent = tile
+	local glow = Instance.new("UIStroke")
+	glow.Name = "TileGlow"
+	glow.Color = Color3.fromRGB(255, 215, 0)
+	glow.Thickness = 2.5
+	glow.Transparency = 1
+	glow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	glow.Parent = tile
 
 	return tile
 end
@@ -678,6 +704,23 @@ end
 function PianoTilesUI.MoveTile(tile, y)
 	if tile and tile.Parent then
 		tile.Position = UDim2.new(0.06, 0, y, 0)
+		local glow = tile:FindFirstChild("TileGlow")
+		if glow then
+			local delta = math.abs(y - Config.HIT_LINE)
+			if delta <= 0.05 then
+				-- Zone PERFECT: Radiant Gold Glow
+				glow.Color = Color3.fromRGB(255, 215, 0)
+				glow.Thickness = 3
+				glow.Transparency = 0.05
+			elseif delta <= 0.09 then
+				-- Zone GREAT: Cyan Glow
+				glow.Color = Color3.fromRGB(0, 230, 255)
+				glow.Thickness = 2
+				glow.Transparency = 0.35
+			else
+				glow.Transparency = 1
+			end
+		end
 	end
 end
 
