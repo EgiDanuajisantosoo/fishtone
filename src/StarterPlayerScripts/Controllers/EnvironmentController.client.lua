@@ -190,14 +190,17 @@ local function applyZoneSoundscape(zone, transitionDuration)
 		end)
 	end
 
-	-- Fade In Next
-	if targetSoundId ~= "" then
+	-- Fade In Next (Only if a valid ambient audio ID is present)
+	if targetSoundId and targetSoundId ~= "" then
 		nextChannel.SoundId = targetSoundId
 		nextChannel.Volume = 0
 		nextChannel:Play()
 		TweenService:Create(nextChannel, TweenInfo.new(transitionDuration, Enum.EasingStyle.Linear), {
 			Volume = targetVolume,
 		}):Play()
+	else
+		nextChannel:Stop()
+		nextChannel.Volume = 0
 	end
 end
 

@@ -250,7 +250,8 @@ function PianoSession:_registerMistake(column)
 	self.Mistakes += 1
 	playMissSound()
 
-	self.CurrentNotes = math.clamp(self.CurrentNotes - self.PenaltyNotes, 0, self.TargetNotes)
+	local penalty = self.PenaltyNotes or 1
+	self.CurrentNotes = math.max(0, self.CurrentNotes - penalty)
 	self.Progress = math.clamp(self.CurrentNotes / self.TargetNotes, 0, 1)
 
 	PianoUI.ShowHitRating("MISS", column, Config.HIT_LINE)
@@ -269,7 +270,7 @@ end
 function PianoSession:HandleColumnInput(column)
 	if self.State ~= "PLAYING" then return end
 	local now = os.clock()
-	if now - (self.LastColPressTime[column] or 0) < 0.06 then return end
+	if now - (self.LastColPressTime[column] or 0) < 0.05 then return end
 	self.LastColPressTime[column] = now
 
 	local bestEntry, bestDist = nil, math.huge
@@ -283,7 +284,8 @@ function PianoSession:HandleColumnInput(column)
 		end
 	end
 
-	if bestEntry and bestEntry.y >= (Config.HIT_LINE - 0.22) and bestEntry.y <= Config.MISS_LINE then
+	local hitThreshold = 0.28
+	if bestEntry and bestEntry.y >= (Config.HIT_LINE - hitThreshold) and bestEntry.y <= (Config.MISS_LINE + 0.04) then
 		self:_registerHit(bestEntry, bestEntry.y)
 	else
 		self:_registerMistake(column)
@@ -320,6 +322,25 @@ function PianoSession:_update(dt)
 	end
 end
 
+local KEY_BIND_MAP = {
+	[Enum.KeyCode.A] = 1,
+	[Enum.KeyCode.One] = 1,
+	[Enum.KeyCode.H] = 1,
+
+	[Enum.KeyCode.W] = 2,
+	[Enum.KeyCode.Two] = 2,
+	[Enum.KeyCode.F] = 2,
+
+	[Enum.KeyCode.S] = 3,
+	[Enum.KeyCode.Three] = 3,
+	[Enum.KeyCode.J] = 3,
+
+	[Enum.KeyCode.D] = 4,
+	[Enum.KeyCode.Four] = 4,
+	[Enum.KeyCode.K] = 4,
+	[Enum.KeyCode.L] = 4,
+}
+
 function PianoSession:_bindInput()
 	self:_unbindInput()
 
@@ -327,20 +348,28 @@ function PianoSession:_bindInput()
 		Config.ACTION_INPUT,
 		function(actionName, inputState, inputObj)
 			if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
-			for idx, key in ipairs(Config.KEYS) do
-				if inputObj.KeyCode == key then
-					self:HandleColumnInput(idx)
-					return Enum.ContextActionResult.Sink
-				end
+			local targetCol = KEY_BIND_MAP[inputObj.KeyCode]
+			if targetCol then
+				self:HandleColumnInput(targetCol)
+				return Enum.ContextActionResult.Sink
 			end
-			return Enum.ContextActionResult.Sink
+			return Enum.ContextActionResult.Pass
 		end,
 		false,
 		Enum.ContextActionPriority.High.Value + 5000,
-		Config.KEYS[1],
-		Config.KEYS[2],
-		Config.KEYS[3],
-		Config.KEYS[4]
+		Enum.KeyCode.A,
+		Enum.KeyCode.W,
+		Enum.KeyCode.S,
+		Enum.KeyCode.D,
+		Enum.KeyCode.F,
+		Enum.KeyCode.H,
+		Enum.KeyCode.J,
+		Enum.KeyCode.K,
+		Enum.KeyCode.L,
+		Enum.KeyCode.One,
+		Enum.KeyCode.Two,
+		Enum.KeyCode.Three,
+		Enum.KeyCode.Four
 	)
 
 	table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)

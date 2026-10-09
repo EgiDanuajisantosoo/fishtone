@@ -60,7 +60,7 @@ ZoneConfig.ZONES = {
 			},
 		},
 		soundscape = {
-			ambientId = "rbxasset://sounds/action_footsteps_plastic.mp3", -- Fallback ocean breeze / water flow
+			ambientId = "", -- Pure natural ambient / custom atmospheric tracks
 			ambientVolume = 0.4,
 			bgmVolume = 0.5,
 			reverbType = Enum.ReverbType.StoneRoom,
@@ -125,7 +125,7 @@ ZoneConfig.ZONES = {
 			},
 		},
 		soundscape = {
-			ambientId = "rbxasset://sounds/electronicpingshort.wav",
+			ambientId = "", -- Pure natural ambient / custom atmospheric tracks
 			ambientVolume = 0.45,
 			bgmVolume = 0.55,
 			reverbType = Enum.ReverbType.Forest,
@@ -190,7 +190,7 @@ ZoneConfig.ZONES = {
 			},
 		},
 		soundscape = {
-			ambientId = "rbxasset://sounds/electronicpingshort.wav",
+			ambientId = "", -- Pure natural ambient / custom atmospheric tracks
 			ambientVolume = 0.5,
 			bgmVolume = 0.6,
 			reverbType = Enum.ReverbType.ConcertHall,

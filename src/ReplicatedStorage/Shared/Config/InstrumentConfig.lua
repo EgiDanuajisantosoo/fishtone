@@ -102,25 +102,25 @@ InstrumentConfig.HIT_RATINGS = {
 -- ============ CAST BONUSES ============
 InstrumentConfig.CAST_BONUSES = {
 	PERFECT = {
-		startRatio = 0.35,
+		startRatio = 0.50,
 		gainBonus = 0.02,
-		penaltyMult = 0.70,
+		penaltyMult = 0.50,
 		label = "PERFECT CAST",
-		color = Color3.fromRGB(255, 255, 255),
+		color = Color3.fromRGB(255, 215, 0),
 	},
 	GREAT = {
-		startRatio = 0.20,
+		startRatio = 0.35,
 		gainBonus = 0.01,
-		penaltyMult = 0.85,
+		penaltyMult = 0.75,
 		label = "GREAT CAST",
-		color = Color3.fromRGB(255, 255, 255),
+		color = Color3.fromRGB(0, 220, 255),
 	},
 	GOOD = {
-		startRatio = 0.10,
+		startRatio = 0.25,
 		gainBonus = 0.00,
 		penaltyMult = 1.00,
 		label = "GOOD CAST",
-		color = Color3.fromRGB(255, 255, 255),
+		color = Color3.fromRGB(230, 235, 255),
 	},
 }
 

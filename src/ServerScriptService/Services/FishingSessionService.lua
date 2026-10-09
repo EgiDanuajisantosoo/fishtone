@@ -238,8 +238,8 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		return nil, "Sesi memancing telah kadaluarsa"
 	end
 
-	-- 2. Anti-Speedhack: Waktu tunggu sambaran harus terpenuhi
-	if now - session.startTime < (session.waitDuration * 0.8) then
+	-- 2. Anti-Speedhack: Waktu tunggu sambaran harus terpenuhi (dengan toleransi latensi jaringan)
+	if now - session.startTime < (session.waitDuration * 0.5) then
 		activeSessions[sessionId] = nil
 		playerSessions[player.UserId] = nil
 		return nil, "Sambaran terlalu cepat (Waktu tunggu belum terpenuhi)"
