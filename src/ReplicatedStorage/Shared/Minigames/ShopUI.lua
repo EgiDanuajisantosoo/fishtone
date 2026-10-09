@@ -111,9 +111,9 @@ end
 -- ============ RENDER RODS TAB ============
 local function renderRodsTab(parent)
 	local rods = (cachedCatalog and cachedCatalog.rods)
-	local pCoins = cachedCatalog and cachedCatalog.coins or 0
-	local pLevel = cachedCatalog and cachedCatalog.level or 1
-	local equippedRod = cachedCatalog and cachedCatalog.equippedRod or "StarterRod"
+	local pCoins = cachedCatalog and cachedCatalog.coins or cachedCoins or 0
+	local pLevel = cachedCatalog and cachedCatalog.level or (player and player:GetAttribute("Level")) or 1
+	local equippedRod = cachedCatalog and cachedCatalog.equippedRod or (player and player:GetAttribute("EquippedRod")) or "StarterRod"
 
 	-- Fallback jika catalog dari remote belum sampai
 	if not rods or #rods == 0 then
@@ -130,7 +130,7 @@ local function renderRodsTab(parent)
 				description = r.description,
 				tier = r.tier,
 				badge = r.badge,
-				isOwned = (r.id == "StarterRod"),
+				isOwned = (r.id == "StarterRod" or r.id == equippedRod),
 				isEquipped = (r.id == equippedRod),
 				canBuy = (pCoins >= r.price) and (pLevel >= r.levelReq),
 			})
@@ -138,6 +138,7 @@ local function renderRodsTab(parent)
 	end
 
 	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "RodsScroll"
 	scroll.Size = UDim2.new(1, 0, 1, 0)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
@@ -145,6 +146,7 @@ local function renderRodsTab(parent)
 	scroll.ScrollBarImageColor3 = Color3.fromRGB(2, 132, 199)
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.ZIndex = 43
 	scroll.Parent = parent
 
 	local layout = Instance.new("UIListLayout")
@@ -164,6 +166,7 @@ local function renderRodsTab(parent)
 		card.BackgroundColor3 = Color3.fromRGB(18, 27, 43)
 		card.BorderSizePixel = 0
 		card.LayoutOrder = idx
+		card.ZIndex = 44
 		card.Parent = scroll
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
 
@@ -173,20 +176,30 @@ local function renderRodsTab(parent)
 		cStroke.Parent = card
 
 		-- Left Icon Area
+		local instType = InstrumentDefinitions.GetInstrumentTypeForRod(rod.id)
+		local instData = InstrumentDefinitions.GetInstrumentData(instType)
+
 		local iconBox = Instance.new("Frame")
 		iconBox.Size = UDim2.new(0, 80, 0, 80)
 		iconBox.Position = UDim2.new(0, 12, 0.5, -40)
-		iconBox.BackgroundColor3 = Color3.fromRGB(10, 17, 29)
+		iconBox.BackgroundColor3 = (instData and instData.color) and Color3.fromRGB(math.floor(instData.color.R * 40), math.floor(instData.color.G * 40), math.floor(instData.color.B * 40)) or Color3.fromRGB(10, 17, 29)
 		iconBox.BorderSizePixel = 0
+		iconBox.ZIndex = 45
 		iconBox.Parent = card
 		Instance.new("UICorner", iconBox).CornerRadius = UDim.new(0, 10)
+
+		local iconStroke = Instance.new("UIStroke")
+		iconStroke.Color = instData and instData.color or Color3.fromRGB(40, 60, 90)
+		iconStroke.Thickness = 1.2
+		iconStroke.Parent = iconBox
 
 		local iconLabel = Instance.new("TextLabel")
 		iconLabel.Size = UDim2.new(1, 0, 1, 0)
 		iconLabel.BackgroundTransparency = 1
-		iconLabel.Text = "🎣"
+		iconLabel.Text = (instData and instData.icon) and (instData.icon .. "🎣") or "🎣"
 		iconLabel.Font = Enum.Font.GothamBlack
-		iconLabel.TextSize = 34
+		iconLabel.TextSize = 28
+		iconLabel.ZIndex = 46
 		iconLabel.Parent = iconBox
 
 		-- Rod Info
@@ -199,6 +212,7 @@ local function renderRodsTab(parent)
 		title.Font = Enum.Font.GothamBold
 		title.TextSize = 14
 		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.ZIndex = 45
 		title.Parent = card
 
 		local badge = Instance.new("TextLabel")
@@ -210,23 +224,28 @@ local function renderRodsTab(parent)
 		badge.TextColor3 = Color3.fromRGB(251, 191, 36)
 		badge.Font = Enum.Font.GothamBold
 		badge.TextSize = 9
+		badge.ZIndex = 45
 		badge.Parent = card
 		Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 4)
 
 		-- Badge Instrumen (FISH-027 / FISH!TUNE)
-		local instType = InstrumentDefinitions.GetInstrumentTypeForRod(rod.id)
-		local instData = InstrumentDefinitions.GetInstrumentData(instType)
 		local instBadge = Instance.new("TextLabel")
 		instBadge.Size = UDim2.new(0, 95, 0, 16)
 		instBadge.Position = UDim2.new(0, 190, 0, 34)
-		instBadge.BackgroundColor3 = Color3.fromRGB(36, 25, 48)
+		instBadge.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
 		instBadge.BorderSizePixel = 0
 		instBadge.Text = instData and instData.badge or "🎹 PIANO"
 		instBadge.TextColor3 = instData and instData.color or Color3.fromRGB(56, 189, 248)
 		instBadge.Font = Enum.Font.GothamBold
 		instBadge.TextSize = 9
+		instBadge.ZIndex = 45
 		instBadge.Parent = card
 		Instance.new("UICorner", instBadge).CornerRadius = UDim.new(0, 4)
+
+		local instBadgeStroke = Instance.new("UIStroke")
+		instBadgeStroke.Color = instData and instData.color or Color3.fromRGB(56, 189, 248)
+		instBadgeStroke.Thickness = 0.8
+		instBadgeStroke.Parent = instBadge
 
 		local statsLabel = Instance.new("TextLabel")
 		statsLabel.Size = UDim2.new(0.55, 0, 0, 18)
@@ -238,6 +257,7 @@ local function renderRodsTab(parent)
 		statsLabel.Font = Enum.Font.GothamMedium
 		statsLabel.TextSize = 11
 		statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+		statsLabel.ZIndex = 45
 		statsLabel.Parent = card
 
 		local descLabel = Instance.new("TextLabel")
@@ -250,6 +270,7 @@ local function renderRodsTab(parent)
 		descLabel.TextSize = 10
 		descLabel.TextXAlignment = Enum.TextXAlignment.Left
 		descLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		descLabel.ZIndex = 45
 		descLabel.Parent = card
 
 		-- Action Button on Right
@@ -259,6 +280,7 @@ local function renderRodsTab(parent)
 		actionBtn.BorderSizePixel = 0
 		actionBtn.Font = Enum.Font.GothamBlack
 		actionBtn.TextSize = 11
+		actionBtn.ZIndex = 45
 		actionBtn.Parent = card
 		Instance.new("UICorner", actionBtn).CornerRadius = UDim.new(0, 8)
 
@@ -296,7 +318,7 @@ end
 -- ============ RENDER BAITS TAB ============
 local function renderBaitsTab(parent)
 	local baits = (cachedCatalog and cachedCatalog.baits)
-	local pCoins = cachedCatalog and cachedCatalog.coins or 0
+	local pCoins = cachedCatalog and cachedCatalog.coins or cachedCoins or 0
 	local equippedBait = cachedCatalog and cachedCatalog.equippedBait
 
 	-- Fallback jika catalog dari remote belum sampai
@@ -320,6 +342,7 @@ local function renderBaitsTab(parent)
 	end
 
 	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "BaitsScroll"
 	scroll.Size = UDim2.new(1, 0, 1, 0)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
@@ -327,6 +350,7 @@ local function renderBaitsTab(parent)
 	scroll.ScrollBarImageColor3 = Color3.fromRGB(2, 132, 199)
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.ZIndex = 43
 	scroll.Parent = parent
 
 	local layout = Instance.new("UIListLayout")
@@ -346,6 +370,7 @@ local function renderBaitsTab(parent)
 		card.BackgroundColor3 = Color3.fromRGB(18, 27, 43)
 		card.BorderSizePixel = 0
 		card.LayoutOrder = idx
+		card.ZIndex = 44
 		card.Parent = scroll
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
 
@@ -360,6 +385,7 @@ local function renderBaitsTab(parent)
 		iconBox.Position = UDim2.new(0, 12, 0.5, -40)
 		iconBox.BackgroundColor3 = Color3.fromRGB(10, 17, 29)
 		iconBox.BorderSizePixel = 0
+		iconBox.ZIndex = 45
 		iconBox.Parent = card
 		Instance.new("UICorner", iconBox).CornerRadius = UDim.new(0, 10)
 
@@ -369,6 +395,7 @@ local function renderBaitsTab(parent)
 		iconLabel.Text = bait.icon or "🪱"
 		iconLabel.Font = Enum.Font.GothamBlack
 		iconLabel.TextSize = 34
+		iconLabel.ZIndex = 46
 		iconLabel.Parent = iconBox
 
 		-- Bait Info
@@ -381,6 +408,7 @@ local function renderBaitsTab(parent)
 		title.Font = Enum.Font.GothamBold
 		title.TextSize = 14
 		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.ZIndex = 45
 		title.Parent = card
 
 		local badge = Instance.new("TextLabel")
@@ -392,6 +420,7 @@ local function renderBaitsTab(parent)
 		badge.TextColor3 = Color3.fromRGB(251, 191, 36)
 		badge.Font = Enum.Font.GothamBold
 		badge.TextSize = 9
+		badge.ZIndex = 45
 		badge.Parent = card
 		Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 4)
 
@@ -405,6 +434,7 @@ local function renderBaitsTab(parent)
 		statsLabel.Font = Enum.Font.GothamMedium
 		statsLabel.TextSize = 11
 		statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+		statsLabel.ZIndex = 45
 		statsLabel.Parent = card
 
 		local descLabel = Instance.new("TextLabel")
@@ -418,6 +448,7 @@ local function renderBaitsTab(parent)
 		descLabel.TextWrapped = true
 		descLabel.TextXAlignment = Enum.TextXAlignment.Left
 		descLabel.TextYAlignment = Enum.TextYAlignment.Top
+		descLabel.ZIndex = 45
 		descLabel.Parent = card
 
 		-- Action Buttons Container on Right
@@ -425,6 +456,7 @@ local function renderBaitsTab(parent)
 		btnGroup.Size = UDim2.new(0, 190, 1, -20)
 		btnGroup.Position = UDim2.new(1, -202, 0, 10)
 		btnGroup.BackgroundTransparency = 1
+		btnGroup.ZIndex = 45
 		btnGroup.Parent = card
 
 		-- Equip / Unequip Button
@@ -434,6 +466,7 @@ local function renderBaitsTab(parent)
 		equipBtn.BorderSizePixel = 0
 		equipBtn.Font = Enum.Font.GothamBold
 		equipBtn.TextSize = 10
+		equipBtn.ZIndex = 46
 		equipBtn.Parent = btnGroup
 		Instance.new("UICorner", equipBtn).CornerRadius = UDim.new(0, 6)
 
@@ -469,6 +502,7 @@ local function renderBaitsTab(parent)
 		buySingleBtn.TextColor3 = canBuySingle and Color3.fromRGB(251, 191, 36) or Color3.fromRGB(120, 130, 140)
 		buySingleBtn.Font = Enum.Font.GothamBold
 		buySingleBtn.TextSize = 10
+		buySingleBtn.ZIndex = 46
 		buySingleBtn.Parent = btnGroup
 		Instance.new("UICorner", buySingleBtn).CornerRadius = UDim.new(0, 6)
 
@@ -489,6 +523,7 @@ local function renderBaitsTab(parent)
 		buyPackBtn.TextColor3 = canBuyPack and Color3.fromRGB(15, 23, 42) or Color3.fromRGB(160, 140, 80)
 		buyPackBtn.Font = Enum.Font.GothamBlack
 		buyPackBtn.TextSize = 10
+		buyPackBtn.ZIndex = 46
 		buyPackBtn.Parent = btnGroup
 		Instance.new("UICorner", buyPackBtn).CornerRadius = UDim.new(0, 6)
 
@@ -503,15 +538,17 @@ end
 
 -- ============ RENDER BAG UPGRADE TAB ============
 local function renderBagTab(parent)
-	local pCoins = cachedCatalog and cachedCatalog.coins or 0
-	local pLevel = cachedCatalog and cachedCatalog.level or 1
+	local pCoins = cachedCatalog and cachedCatalog.coins or cachedCoins or 0
+	local pLevel = cachedCatalog and cachedCatalog.level or (player and player:GetAttribute("Level")) or 1
 	local currentSlots = cachedCatalog and cachedCatalog.maxSlots or 35
 	local bagTier = cachedCatalog and cachedCatalog.bagTier or 0
 	local nextUpgrade = cachedCatalog and cachedCatalog.nextBagUpgrade
 
 	local container = Instance.new("Frame")
+	container.Name = "BagContainer"
 	container.Size = UDim2.new(1, 0, 1, 0)
 	container.BackgroundTransparency = 1
+	container.ZIndex = 43
 	container.Parent = parent
 
 	-- Card 1: Current Capacity
@@ -520,6 +557,7 @@ local function renderBagTab(parent)
 	currentCard.Position = UDim2.new(0, 0, 0, 0)
 	currentCard.BackgroundColor3 = Color3.fromRGB(18, 27, 43)
 	currentCard.BorderSizePixel = 0
+	currentCard.ZIndex = 44
 	currentCard.Parent = container
 	Instance.new("UICorner", currentCard).CornerRadius = UDim.new(0, 14)
 
@@ -532,6 +570,7 @@ local function renderBagTab(parent)
 	curTitle.Font = Enum.Font.GothamBold
 	curTitle.TextSize = 12
 	curTitle.TextXAlignment = Enum.TextXAlignment.Left
+	curTitle.ZIndex = 45
 	curTitle.Parent = currentCard
 
 	local curValue = Instance.new("TextLabel")
@@ -544,6 +583,7 @@ local function renderBagTab(parent)
 	curValue.Font = Enum.Font.GothamBlack
 	curValue.TextSize = 28
 	curValue.TextXAlignment = Enum.TextXAlignment.Left
+	curValue.ZIndex = 45
 	curValue.Parent = currentCard
 
 	local curDesc = Instance.new("TextLabel")
@@ -555,6 +595,7 @@ local function renderBagTab(parent)
 	curDesc.Font = Enum.Font.GothamMedium
 	curDesc.TextSize = 11
 	curDesc.TextXAlignment = Enum.TextXAlignment.Left
+	curDesc.ZIndex = 45
 	curDesc.Parent = currentCard
 
 	-- Card 2: Next Upgrade
@@ -563,6 +604,7 @@ local function renderBagTab(parent)
 	nextCard.Position = UDim2.new(0, 0, 0, 145)
 	nextCard.BackgroundColor3 = Color3.fromRGB(18, 27, 43)
 	nextCard.BorderSizePixel = 0
+	nextCard.ZIndex = 44
 	nextCard.Parent = container
 	Instance.new("UICorner", nextCard).CornerRadius = UDim.new(0, 14)
 
@@ -585,6 +627,7 @@ local function renderBagTab(parent)
 		nextHeader.Font = Enum.Font.GothamBold
 		nextHeader.TextSize = 13
 		nextHeader.TextXAlignment = Enum.TextXAlignment.Left
+		nextHeader.ZIndex = 45
 		nextHeader.Parent = nextCard
 
 		local nextName = Instance.new("TextLabel")
@@ -596,6 +639,7 @@ local function renderBagTab(parent)
 		nextName.Font = Enum.Font.GothamBlack
 		nextName.TextSize = 18
 		nextName.TextXAlignment = Enum.TextXAlignment.Left
+		nextName.ZIndex = 45
 		nextName.Parent = nextCard
 
 		local nextPerk = Instance.new("TextLabel")
@@ -608,6 +652,7 @@ local function renderBagTab(parent)
 		nextPerk.Font = Enum.Font.GothamBold
 		nextPerk.TextSize = 13
 		nextPerk.TextXAlignment = Enum.TextXAlignment.Left
+		nextPerk.ZIndex = 45
 		nextPerk.Parent = nextCard
 
 		local nextReq = Instance.new("TextLabel")
@@ -620,6 +665,7 @@ local function renderBagTab(parent)
 		nextReq.Font = Enum.Font.GothamMedium
 		nextReq.TextSize = 11
 		nextReq.TextXAlignment = Enum.TextXAlignment.Left
+		nextReq.ZIndex = 45
 		nextReq.Parent = nextCard
 
 		local upBtn = Instance.new("TextButton")
@@ -628,6 +674,7 @@ local function renderBagTab(parent)
 		upBtn.BorderSizePixel = 0
 		upBtn.Font = Enum.Font.GothamBlack
 		upBtn.TextSize = 13
+		upBtn.ZIndex = 45
 		upBtn.Parent = nextCard
 		Instance.new("UICorner", upBtn).CornerRadius = UDim.new(0, 10)
 
@@ -656,6 +703,7 @@ local function renderBagTab(parent)
 		maxLabel.TextColor3 = Color3.fromRGB(74, 222, 128)
 		maxLabel.Font = Enum.Font.GothamBlack
 		maxLabel.TextSize = 14
+		maxLabel.ZIndex = 45
 		maxLabel.Parent = nextCard
 	end
 end
@@ -711,8 +759,10 @@ local function renderSellTab(parent)
 	end
 
 	local container = Instance.new("Frame")
+	container.Name = "SellContainer"
 	container.Size = UDim2.new(1, 0, 1, 0)
 	container.BackgroundTransparency = 1
+	container.ZIndex = 43
 	container.Parent = parent
 
 	-- Top Summary Header Bar
@@ -721,6 +771,7 @@ local function renderSellTab(parent)
 	summaryBar.Position = UDim2.new(0, 0, 0, 0)
 	summaryBar.BackgroundColor3 = Color3.fromRGB(18, 27, 43)
 	summaryBar.BorderSizePixel = 0
+	summaryBar.ZIndex = 44
 	summaryBar.Parent = container
 	Instance.new("UICorner", summaryBar).CornerRadius = UDim.new(0, 10)
 
@@ -744,6 +795,7 @@ local function renderSellTab(parent)
 		lbl.TextColor3 = color or Color3.fromRGB(255, 255, 255)
 		lbl.Font = Enum.Font.GothamBold
 		lbl.TextSize = 12
+		lbl.ZIndex = 45
 		lbl.Parent = summaryBar
 	end
 
@@ -756,6 +808,7 @@ local function renderSellTab(parent)
 	filterBar.Size = UDim2.new(1, -10, 0, 32)
 	filterBar.Position = UDim2.new(0, 0, 0, 56)
 	filterBar.BackgroundTransparency = 1
+	filterBar.ZIndex = 44
 	filterBar.Parent = container
 
 	local fLayout = Instance.new("UIListLayout")
@@ -781,6 +834,7 @@ local function renderSellTab(parent)
 		fBtn.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(148, 163, 184)
 		fBtn.Font = Enum.Font.GothamBold
 		fBtn.TextSize = 10
+		fBtn.ZIndex = 45
 		fBtn.Parent = filterBar
 		Instance.new("UICorner", fBtn).CornerRadius = UDim.new(0, 6)
 
@@ -793,6 +847,7 @@ local function renderSellTab(parent)
 
 	-- Items Scroll Frame
 	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "SellScroll"
 	scroll.Size = UDim2.new(1, -10, 1, -150)
 	scroll.Position = UDim2.new(0, 0, 0, 96)
 	scroll.BackgroundTransparency = 1
@@ -801,6 +856,7 @@ local function renderSellTab(parent)
 	scroll.ScrollBarImageColor3 = Color3.fromRGB(2, 132, 199)
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.ZIndex = 44
 	scroll.Parent = container
 
 	local layout = Instance.new("UIListLayout")
@@ -816,6 +872,7 @@ local function renderSellTab(parent)
 		emptyLabel.TextColor3 = Color3.fromRGB(148, 163, 184)
 		emptyLabel.Font = Enum.Font.GothamMedium
 		emptyLabel.TextSize = 13
+		emptyLabel.ZIndex = 45
 		emptyLabel.Parent = scroll
 	else
 		for idx, tool in ipairs(filteredItems) do
@@ -835,6 +892,7 @@ local function renderSellTab(parent)
 			card.BackgroundColor3 = isLocked and Color3.fromRGB(16, 22, 34) or Color3.fromRGB(18, 27, 43)
 			card.BorderSizePixel = 0
 			card.LayoutOrder = idx
+			card.ZIndex = 45
 			card.Parent = scroll
 			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
 
@@ -853,6 +911,7 @@ local function renderSellTab(parent)
 			iconLabel.Text = badge:find("PETI") and "📦" or (badge:find("RELIK") and "🔮" or (badge:find("SAMPAH") and "🗑️" or "🐟"))
 			iconLabel.Font = Enum.Font.GothamBlack
 			iconLabel.TextSize = 22
+			iconLabel.ZIndex = 46
 			iconLabel.Parent = card
 			Instance.new("UICorner", iconLabel).CornerRadius = UDim.new(0, 8)
 
@@ -866,6 +925,7 @@ local function renderSellTab(parent)
 			nameLabel.Font = Enum.Font.GothamBold
 			nameLabel.TextSize = 13
 			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.ZIndex = 46
 			nameLabel.Parent = card
 
 			local detailsLabel = Instance.new("TextLabel")
@@ -877,6 +937,7 @@ local function renderSellTab(parent)
 			detailsLabel.Font = Enum.Font.GothamMedium
 			detailsLabel.TextSize = 10
 			detailsLabel.TextXAlignment = Enum.TextXAlignment.Left
+			detailsLabel.ZIndex = 46
 			detailsLabel.Parent = card
 
 			-- Lock Button
@@ -889,6 +950,7 @@ local function renderSellTab(parent)
 			lockBtn.TextColor3 = isLocked and Color3.fromRGB(15, 23, 42) or Color3.fromRGB(203, 213, 225)
 			lockBtn.Font = Enum.Font.GothamBlack
 			lockBtn.TextSize = 14
+			lockBtn.ZIndex = 46
 			lockBtn.Parent = card
 			Instance.new("UICorner", lockBtn).CornerRadius = UDim.new(0, 8)
 
@@ -907,6 +969,7 @@ local function renderSellTab(parent)
 			sellSingleBtn.BorderSizePixel = 0
 			sellSingleBtn.Font = Enum.Font.GothamBlack
 			sellSingleBtn.TextSize = 11
+			sellSingleBtn.ZIndex = 46
 			sellSingleBtn.Parent = card
 			Instance.new("UICorner", sellSingleBtn).CornerRadius = UDim.new(0, 8)
 
@@ -934,6 +997,7 @@ local function renderSellTab(parent)
 	bottomSellBar.Size = UDim2.new(1, -10, 0, 46)
 	bottomSellBar.Position = UDim2.new(0, 0, 1, -46)
 	bottomSellBar.BackgroundTransparency = 1
+	bottomSellBar.ZIndex = 47
 	bottomSellBar.Parent = container
 
 	local sellAllBtn = Instance.new("TextButton")
@@ -941,6 +1005,7 @@ local function renderSellTab(parent)
 	sellAllBtn.BorderSizePixel = 0
 	sellAllBtn.Font = Enum.Font.GothamBlack
 	sellAllBtn.TextSize = 13
+	sellAllBtn.ZIndex = 48
 	sellAllBtn.Parent = bottomSellBar
 	Instance.new("UICorner", sellAllBtn).CornerRadius = UDim.new(0, 10)
 
@@ -1002,6 +1067,10 @@ end
 function ShopUI.Show(targetGui, catalogData, initialTab)
 	if not targetGui then return end
 
+	if targetGui:IsA("ScreenGui") then
+		targetGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	end
+
 	if activeOverlay then
 		activeOverlay:Destroy()
 		activeOverlay = nil
@@ -1018,6 +1087,17 @@ function ShopUI.Show(targetGui, catalogData, initialTab)
 	if catalogData then
 		cachedCatalog = catalogData
 		cachedCoins = catalogData.coins or cachedCoins
+	end
+
+	-- Fallback saldo koin real-time dari data lokal jika belum ada di cache
+	if not cachedCoins or cachedCoins == 0 then
+		local leaderstats = player:FindFirstChild("leaderstats")
+		local koinVal = leaderstats and (leaderstats:FindFirstChild("Koin") or leaderstats:FindFirstChild("Coins"))
+		if koinVal and tonumber(koinVal.Value) then
+			cachedCoins = tonumber(koinVal.Value)
+		else
+			cachedCoins = tonumber(player:GetAttribute("Coins")) or 0
+		end
 	end
 
 	-- 1. Fullscreen Dark Backdrop

@@ -151,6 +151,17 @@ function PlayerDataService.AddExp(player, amount)
 	return leveledUp
 end
 
+function PlayerDataService.SetLevel(player, targetLevel)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return 1 end
+	pData.level = math.max(1, math.floor(tonumber(targetLevel) or 1))
+	pData.exp = 0
+	PlayerDataService.SyncLeaderstats(player)
+	RemoteContract.Server.LevelUp(player, pData.level)
+	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+	return pData.level
+end
+
 function PlayerDataService.GetPity(player)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return PlayerDataSchema.DeepCopy(PlayerDataSchema.DEFAULT_DATA.pity) end
@@ -241,16 +252,24 @@ function PlayerDataService.LoadData(player)
 		else
 			print(string.format("[PlayerDataService] Data baru dibuat untuk %s", player.Name))
 		end
+	end
+
 	-- Studio Testing Helper: Berikan saldo koin & joran jika sedang testing di Studio
 	if RunService:IsStudio() then
 		profile.coins = math.max(profile.coins or 0, 50000)
 		profile.level = math.max(profile.level or 1, 20)
 		profile.unlockedRods = {
+			-- Piano Rods
 			"StarterRod",
+			"HarmonicTuningRod",
+			"CrystalSonataRod",
+			-- Guitar Rods
 			"BambooRod",
 			"CarbonFiberRod",
-			"HarmonicTuningRod",
 			"AbyssalTridentRod",
+			-- Drum Rods
+			"TribalPercussionRod",
+			"SynthwaveDrumRod",
 			"CelestialMelodyRod",
 		}
 		profile.baits = profile.baits or {}
