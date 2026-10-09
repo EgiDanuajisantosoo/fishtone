@@ -17,11 +17,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
+local ProgressionRoadmapUI = require(script.Parent:WaitForChild("ProgressionRoadmapUI"))
 
 local EconomyHUD = {}
 
 -- UI Components
 local hudContainer = nil
+local targetGuiRef = nil
 local coinLabel = nil
 local coinPill = nil
 local levelBadge = nil
@@ -32,6 +34,7 @@ local bagPillLabel = nil
 local receiptContainer = nil
 
 -- Cached State
+local cachedPlayerData = {}
 local displayedCoins = 0
 local targetCoins = 0
 local isCountUpRunning = false
@@ -143,6 +146,8 @@ function EconomyHUD.Create(targetGui)
 	bagPillLabel.ZIndex = 27
 	bagPillLabel.Parent = bagPill
 
+	targetGuiRef = targetGui
+
 	-- ============ PILL 3: LEVEL & EXP PROGRESS ============
 	local levelPill = Instance.new("Frame")
 	levelPill.Name = "LevelPill"
@@ -204,6 +209,29 @@ function EconomyHUD.Create(targetGui)
 	expTextLabel.TextXAlignment = Enum.TextXAlignment.Left
 	expTextLabel.ZIndex = 27
 	expTextLabel.Parent = levelPill
+
+	-- Level Pill Interactive Click Overlay
+	local levelBtn = Instance.new("TextButton")
+	levelBtn.Name = "LevelBtn"
+	levelBtn.Size = UDim2.new(1, 0, 1, 0)
+	levelBtn.BackgroundTransparency = 1
+	levelBtn.Text = ""
+	levelBtn.ZIndex = 30
+	levelBtn.Parent = levelPill
+
+	levelBtn.MouseEnter:Connect(function()
+		TweenService:Create(lvStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(56, 189, 248), Thickness = 2.0 }):Play()
+		TweenService:Create(levelPill, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(24, 36, 56) }):Play()
+	end)
+
+	levelBtn.MouseLeave:Connect(function()
+		TweenService:Create(lvStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(14, 165, 233), Thickness = 1.4 }):Play()
+		TweenService:Create(levelPill, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(15, 24, 38) }):Play()
+	end)
+
+	levelBtn.MouseButton1Click:Connect(function()
+		ProgressionRoadmapUI.Toggle(targetGuiRef or targetGui, cachedPlayerData)
+	end)
 
 	-- ============ PILL 4: COINS DASHBOARD ============
 	coinPill = Instance.new("Frame")
@@ -314,6 +342,7 @@ end
 function EconomyHUD.Update(playerData, optLootCount)
 	if not hudContainer then return end
 	playerData = playerData or {}
+	cachedPlayerData = playerData
 
 	-- 1. Update Coins
 	local coins = math.max(0, tonumber(playerData.coins) or 0)

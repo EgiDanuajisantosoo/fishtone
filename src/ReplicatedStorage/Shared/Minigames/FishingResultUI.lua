@@ -16,6 +16,10 @@
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 
 local player = Players.LocalPlayer
 
@@ -143,8 +147,8 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	local card = Instance.new("Frame")
 	card.Name = "ResultCard"
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
-	card.Size = UDim2.new(0, 500, 0, 460)
-	card.Position = UDim2.new(0.5, 0, 0.54, 0)
+	card.Size = UDim2.new(0, 500, 0, 490)
+	card.Position = UDim2.new(0.5, 0, 0.52, 0)
 	card.BackgroundColor3 = Color3.fromRGB(12, 17, 28)
 	card.BackgroundTransparency = 0.15
 	card.BorderSizePixel = 0
@@ -534,6 +538,64 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	-- 4. Berat
 	local weightSubText = string.format("Skala Ukuran: %.2f", fishData.scale or 1.0)
 	createMetricCard("⚖️ BERAT TANGKAPAN", string.format("%.1f Kg", weight), weightSubText, Color3.fromRGB(230, 240, 255), 4)
+
+	-- ============ 3B. LIVE EXP PROGRESS BAR ============
+	local pData = data.playerData or {}
+	local totalExp = tonumber(pData.totalExp)
+	if totalExp == nil then
+		totalExp = XPProgressionSystem.ReconcileToTotalExp(pData.level or 1, pData.exp or 0)
+	end
+	local prog = XPProgressionSystem.DeriveProgression(totalExp)
+
+	local expProgressRow = Instance.new("Frame")
+	expProgressRow.Name = "ExpProgressRow"
+	expProgressRow.Size = UDim2.new(1, -40, 0, 24)
+	expProgressRow.Position = UDim2.new(0, 20, 0, 400)
+	expProgressRow.BackgroundTransparency = 1
+	expProgressRow.ZIndex = 47
+	expProgressRow.Parent = card
+
+	local lvBadgeMini = Instance.new("TextLabel")
+	lvBadgeMini.Size = UDim2.new(0, 46, 0, 22)
+	lvBadgeMini.Position = UDim2.new(0, 0, 0, 1)
+	lvBadgeMini.BackgroundColor3 = Color3.fromRGB(15, 23, 38)
+	lvBadgeMini.BorderSizePixel = 0
+	lvBadgeMini.Text = string.format("Lv. %d", prog.level)
+	lvBadgeMini.TextColor3 = Color3.fromRGB(56, 189, 248)
+	lvBadgeMini.Font = Enum.Font.GothamBlack
+	lvBadgeMini.TextSize = 10
+	lvBadgeMini.ZIndex = 48
+	lvBadgeMini.Parent = expProgressRow
+	Instance.new("UICorner", lvBadgeMini).CornerRadius = UDim.new(0, 6)
+
+	local expBarMiniBg = Instance.new("Frame")
+	expBarMiniBg.Size = UDim2.new(1, -56, 0, 8)
+	expBarMiniBg.Position = UDim2.new(0, 54, 0, 2)
+	expBarMiniBg.BackgroundColor3 = Color3.fromRGB(10, 16, 26)
+	expBarMiniBg.BorderSizePixel = 0
+	expBarMiniBg.ZIndex = 48
+	expBarMiniBg.Parent = expProgressRow
+	Instance.new("UICorner", expBarMiniBg).CornerRadius = UDim.new(1, 0)
+
+	local expBarMiniFill = Instance.new("Frame")
+	expBarMiniFill.Size = UDim2.new(math.clamp(prog.progressPercent, 0, 1), 0, 1, 0)
+	expBarMiniFill.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
+	expBarMiniFill.BorderSizePixel = 0
+	expBarMiniFill.ZIndex = 49
+	expBarMiniFill.Parent = expBarMiniBg
+	Instance.new("UICorner", expBarMiniFill).CornerRadius = UDim.new(1, 0)
+
+	local expMiniSub = Instance.new("TextLabel")
+	expMiniSub.Size = UDim2.new(1, -56, 0, 12)
+	expMiniSub.Position = UDim2.new(0, 54, 0, 12)
+	expMiniSub.BackgroundTransparency = 1
+	expMiniSub.Text = string.format("%d / %d EXP (%d%%) • +%d EXP tangkapan", prog.currentLevelExp, prog.nextLevelExp, math.floor(prog.progressPercent * 100), exp)
+	expMiniSub.TextColor3 = Color3.fromRGB(148, 163, 184)
+	expMiniSub.Font = Enum.Font.GothamMedium
+	expMiniSub.TextSize = 9
+	expMiniSub.TextXAlignment = Enum.TextXAlignment.Left
+	expMiniSub.ZIndex = 48
+	expMiniSub.Parent = expProgressRow
 
 	-- ============ 4. ACTION BUTTONS BAR ============
 	local actionsBar = Instance.new("Frame")

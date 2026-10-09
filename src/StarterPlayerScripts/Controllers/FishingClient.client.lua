@@ -36,6 +36,8 @@ local PianoTilesGame = RhythmController
 local FishingResultUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishingResultUI"))
 local FishDexUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishDexUI"))
 local ShopUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ShopUI"))
+local LevelUpUI = require(Shared:WaitForChild("Minigames"):WaitForChild("LevelUpUI"))
+local ProgressionRoadmapUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ProgressionRoadmapUI"))
 local EconomyHUD = require(Shared:WaitForChild("Minigames"):WaitForChild("EconomyHUD"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
@@ -2070,6 +2072,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 		return
 	end
+
+	-- Hotkey P atau L untuk Toggle Jalur Progresi & Roadmap
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.P or input.KeyCode == Enum.KeyCode.L) then
+		ProgressionRoadmapUI.Toggle(gui, lastPlayerData)
+		return
+	end
 	if gameProcessed then return end
 
 	-- Jangan tangani interaksi pancing jika minigame sedang berjalan (karena [A,W,S,D] dipakai oleh minigame)
@@ -2193,6 +2201,7 @@ if remote then
 				rewardInfo = rewardInfo,
 				pityState = pityState,
 				toolInstance = foundTool,
+				playerData = pData or lastPlayerData,
 			}, function(actionType, targetTool)
 				if actionType == "LOCK" then
 					if targetTool and targetTool.Parent then
@@ -2253,10 +2262,18 @@ if remote then
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.LEVEL_UP then
 			local newLevel = arg1 or 2
+			local oldLevel = lastPlayerData.level or (newLevel - 1)
 			lastPlayerData.level = newLevel
 			showMessage("⭐ LEVEL UP! Selamat, kamu sekarang Level " .. newLevel .. "! ⭐", Color3.fromRGB(255, 215, 0), 4.5)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
+
+			-- Tampilkan Modal Perayaan Naik Level & Unlocks (FISH-032)
+			LevelUpUI.Show(gui, newLevel, oldLevel, lastPlayerData, function(actionType)
+				if actionType == "OPEN_SHOP" then
+					ShopUI.Show(gui, nil, "RODS")
+				end
+			end)
 		elseif action == RemoteContract.S2C.PLAYER_DATA_UPDATE then
 			local pData = arg1 or {}
 			local pityState = arg2 or pData.pity or {}
