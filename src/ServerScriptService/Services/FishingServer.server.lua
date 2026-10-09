@@ -165,8 +165,7 @@ if remote then
 				player,
 				session.sessionId,
 				session.waitDuration,
-				session.castQuality,
-				session.rarity
+				session.castQuality
 			)
 			return
 		end

@@ -1098,7 +1098,7 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	-- Fallback Timer: HANYA berjalan jika server tidak merespon dalam 3.5 detik dan belum menerima sesi server
 	task.delay(3.5, function()
 		if sessionToken == currentToken and fsm:Is(FishingStateMachine.States.CASTING) and not serverSessionReceived then
-			onSessionStarted("LOCAL_FALLBACK", 1.6, castQuality, "COMMON")
+			onSessionStarted("LOCAL_FALLBACK", 1.6, castQuality)
 		end
 	end)
 end)
@@ -1147,7 +1147,7 @@ executeCastAfterMeter = function()
 	})
 end
 
-onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
+onSessionStarted = function(sessionId, waitDuration, castQuality)
 	if sessionId ~= "LOCAL_FALLBACK" then
 		serverSessionReceived = true
 	end
@@ -1171,7 +1171,6 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		sessionId = sessionId,
 		waitDuration = waitDuration,
 		castQuality = castQuality,
-		rarity = rarity
 	})
 
 	advanceTutorial(2)
@@ -1240,7 +1239,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 
 	RhythmController.Start({
 		castQuality = castQuality,
-		tier = rarity,
+		tier = "MYSTERY",
 		rodId = currentRod,
 		instrumentType = instType,
 	}, function(metrics)
@@ -2238,16 +2237,12 @@ if remote then
 			local sessionId = arg1
 			local waitDuration = arg2 or 3.0
 			local castQuality = arg3 or "GOOD"
-			local rarity = arg4 or "COMMON"
-
-			print("[FishingClient] Rarity:", rarity)
 
 			task.spawn(function()
 				onSessionStarted(
 					sessionId,
 					waitDuration,
-					castQuality,
-					rarity
+					castQuality
 				)
 			end)
 		elseif action == RemoteContract.S2C.CATCH_SUCCESS then
