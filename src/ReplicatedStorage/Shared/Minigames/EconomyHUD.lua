@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 
 local EconomyHUD = {}
@@ -326,22 +327,26 @@ function EconomyHUD.Update(playerData, optLootCount)
 		end
 	end
 
-	-- 2. Update Level & EXP
-	local totalExp = math.max(0, tonumber(playerData.exp) or 0)
-	local level, curExp, nextExp, percent = FishingRaritySystem.GetLevelFromTotalExp(totalExp)
-	currentLevel = level
-	currentExp = curExp
+	-- 2. Update Level & EXP (FISH-030)
+	local totalExp = tonumber(playerData.totalExp)
+	if totalExp == nil then
+		totalExp = XPProgressionSystem.ReconcileToTotalExp(playerData.level or 1, playerData.exp or 0)
+	end
+
+	local prog = XPProgressionSystem.DeriveProgression(totalExp)
+	currentLevel = prog.level
+	currentExp = prog.currentLevelExp
 
 	if levelBadge then
-		levelBadge.Text = string.format("Lv. %d", level)
+		levelBadge.Text = string.format("Lv. %d", prog.level)
 	end
 	if expFillBar then
 		TweenService:Create(expFillBar, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.new(percent, 0, 1, 0)
+			Size = UDim2.new(prog.progressPercent, 0, 1, 0)
 		}):Play()
 	end
 	if expTextLabel then
-		expTextLabel.Text = string.format("%d / %d EXP (%d%%)", curExp, nextExp, math.floor(percent * 100))
+		expTextLabel.Text = string.format("%d / %d EXP (%d%%)", prog.currentLevelExp, prog.nextLevelExp, math.floor(prog.progressPercent * 100))
 	end
 
 	-- 3. Update Active Luck

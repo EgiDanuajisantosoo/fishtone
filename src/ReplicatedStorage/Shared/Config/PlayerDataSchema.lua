@@ -1,9 +1,9 @@
 --[[
 	PlayerDataSchema (ModuleScript)
-	FISH!TUNE — Central Player Data Schema & Migration Pipeline (FISH-005 / FISH-029)
+	FISH!TUNE — Central Player Data Schema & Migration Pipeline (FISH-005 / FISH-029 / FISH-030)
 
 	Satu sumber kebenaran (Single Source of Truth) untuk struktur data pemain:
-	1. Definisi Schema Lengkap (Level, EXP, Koin, Pity, Rods, Instrument, Journal, Stats, Settings).
+	1. Definisi Schema Lengkap (TotalXP, Level, EXP, Koin, Pity, Rods, Instrument, Journal, Stats, Settings).
 	2. Versioning & Migration Pipeline (Mendukung upgrade format data otomatis di masa depan).
 	3. Deep Reconciler (Memastikan field baru otomatis terisi ke data pemain lama tanpa merusak data yang ada).
 	4. Schema Invariant Validator (Mencegah data corrupt / nilai negatif / tipe data salah).
@@ -12,6 +12,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 
 local PlayerDataSchema = {}
 
@@ -22,9 +23,10 @@ PlayerDataSchema.SCHEMA_VERSION = 1
 PlayerDataSchema.DEFAULT_DATA = {
 	version = PlayerDataSchema.SCHEMA_VERSION,
 
-	-- Progresi Karakter
+	-- Progresi Karakter & TotalXP (Persistence Source of Truth)
 	level = 1,
 	exp = 0,
+	totalExp = 0,
 	coins = 0,
 	pearls = 0,
 	totalFish = 0,
@@ -59,6 +61,9 @@ PlayerDataSchema.DEFAULT_DATA = {
 		totalPurchases = 0,
 		highestCombo = 0,
 		highestScore = 0,
+		totalCatches = 0,
+		allPerfectCount = 0,
+		fullComboCount = 0,
 	},
 
 	-- Preferensi & Pengaturan Pemain
@@ -123,7 +128,17 @@ function PlayerDataSchema.Reconcile(target, template)
 		end
 	end
 
-	-- Pastikan equippedInstrument selalu sinkron dengan equippedRod
+	-- 1. Rekonsiliasi TotalXP & Progresi Level (FISH-030)
+	if target.totalExp == nil or typeof(target.totalExp) ~= "number" or target.totalExp < 0 then
+		target.totalExp = XPProgressionSystem.ReconcileToTotalExp(target.level or 1, target.exp or 0)
+	end
+
+	-- Pastikan level dan exp selalu selaras secara matematis dengan TotalXP
+	local prog = XPProgressionSystem.DeriveProgression(target.totalExp)
+	target.level = prog.level
+	target.exp = prog.currentLevelExp
+
+	-- 2. Pastikan equippedInstrument selalu sinkron dengan equippedRod
 	if not target.equippedInstrument or not InstrumentDefinitions.IsValidInstrumentType(target.equippedInstrument) then
 		target.equippedInstrument = InstrumentDefinitions.GetInstrumentTypeForRod(target.equippedRod or "StarterRod")
 	end
@@ -179,6 +194,9 @@ function PlayerDataSchema.Validate(data)
 	end
 	if typeof(data.exp) ~= "number" or data.exp < 0 then
 		return false, "EXP tidak valid"
+	end
+	if typeof(data.totalExp) ~= "number" or data.totalExp < 0 then
+		return false, "TotalExp tidak valid"
 	end
 	if typeof(data.coins) ~= "number" or data.coins < 0 then
 		return false, "Koin tidak valid (nilai negatif)"

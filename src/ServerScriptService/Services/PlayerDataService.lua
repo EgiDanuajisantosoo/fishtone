@@ -17,6 +17,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local PlayerDataSchema = require(Shared:WaitForChild("Config"):WaitForChild("PlayerDataSchema"))
 
@@ -126,40 +127,52 @@ end
 
 function PlayerDataService.AddExp(player, amount)
 	local pData = PlayerDataService.Get(player)
-	if not pData then return false end
+	if not pData then return false, 1 end
+	amount = math.max(0, math.floor(tonumber(amount) or 0))
+	if amount <= 0 then return false, pData.level or 1 end
 
-	pData.exp = (pData.exp or 0) + amount
-	pData.level = pData.level or 1
-	local leveledUp = false
+	local oldLevel = pData.level or 1
+	pData.totalExp = math.max(0, (pData.totalExp or 0) + amount)
 
-	while true do
-		local reqExp = FishingRaritySystem.GetExpRequiredForLevel(pData.level)
-		if pData.exp >= reqExp then
-			pData.exp -= reqExp
-			pData.level += 1
-			leveledUp = true
-		else
-			break
-		end
-	end
+	local prog = XPProgressionSystem.DeriveProgression(pData.totalExp)
+	pData.level = prog.level
+	pData.exp = prog.currentLevelExp
 
+	local leveledUp = prog.level > oldLevel
 	PlayerDataService.SyncLeaderstats(player)
+
 	if leveledUp then
 		RemoteContract.Server.LevelUp(player, pData.level)
 	end
 	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
-	return leveledUp
+	return leveledUp, pData.level, prog
 end
 
 function PlayerDataService.SetLevel(player, targetLevel)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return 1 end
-	pData.level = math.max(1, math.floor(tonumber(targetLevel) or 1))
-	pData.exp = 0
+	local oldLevel = pData.level or 1
+	targetLevel = math.max(1, math.floor(tonumber(targetLevel) or 1))
+	pData.totalExp = XPProgressionSystem.GetTotalExpForLevel(targetLevel)
+
+	local prog = XPProgressionSystem.DeriveProgression(pData.totalExp)
+	pData.level = prog.level
+	pData.exp = prog.currentLevelExp
+
 	PlayerDataService.SyncLeaderstats(player)
-	RemoteContract.Server.LevelUp(player, pData.level)
+	if pData.level ~= oldLevel then
+		RemoteContract.Server.LevelUp(player, pData.level)
+	end
 	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
-	return pData.level
+	return pData.level, prog
+end
+
+function PlayerDataService.GetProgression(player)
+	local pData = PlayerDataService.Get(player)
+	if not pData then
+		return XPProgressionSystem.DeriveProgression(0)
+	end
+	return XPProgressionSystem.DeriveProgression(pData.totalExp or 0)
 end
 
 function PlayerDataService.GetPity(player)

@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local LootTableSystem = require(Shared:WaitForChild("Systems"):WaitForChild("LootTableSystem"))
 local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
@@ -272,10 +273,18 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		session.effectiveLuck or 0
 	)
 
-	-- 7. Terapkan Pengganda Performa (XP & Koin Multipliers)
-	local baseExp = lootData.exp or 10
+	-- 7. Terapkan Pengganda Performa & Valuasi EXP/Koin Server-Authoritative (FISH-030)
+	local catchExpCalc = XPProgressionSystem.CalculateCatchExp(
+		session.rarity,
+		lootData.weight,
+		performance.performanceScore,
+		lootData.isMutated == true,
+		lootData.mutationType or "NONE"
+	)
+	local baseExp = catchExpCalc.baseExp
+	local finalExp = catchExpCalc.finalExp
+
 	local baseCoins = lootData.coins or 15
-	local finalExp = math.max(1, math.floor(baseExp * (performance.xpMultiplier or 1.0)))
 	local finalCoins = math.max(1, math.floor(baseCoins * (performance.coinMultiplier or 1.0)))
 
 	lootData.exp = finalExp
@@ -291,7 +300,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	pData.pity = PlayerDataService.UpdatePity(player, session.rarity)
 	pData.prevPerformanceLuckBonus = performance.performanceLuckBonus or 0
 	PlayerDataService.AddFish(player, 1)
-	PlayerDataService.AddExp(player, finalExp)
+	local leveledUp, newLevel, prog = PlayerDataService.AddExp(player, finalExp)
 	PlayerDataService.RecordJournal(player, lootData, lootData.weight)
 
 	if pData.stats then
@@ -319,7 +328,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		grade = performance.grade,
 		gradeTitle = performance.gradeTitle,
 		accuracy = performance.accuracy,
-		xpMultiplier = performance.xpMultiplier,
+		xpMultiplier = catchExpCalc.perfMultiplier,
 		coinMultiplier = performance.coinMultiplier,
 		performanceLuckBonus = performance.performanceLuckBonus,
 		effectiveLuck = session.effectiveLuck or 0,
@@ -333,6 +342,12 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		isAllPerfect = performance.isAllPerfect,
 		wasPity = session.wasPity,
 		breakdown = performance.breakdown,
+		leveledUp = leveledUp,
+		level = (prog and prog.level) or newLevel or pData.level or 1,
+		currentLevelExp = (prog and prog.currentLevelExp) or pData.exp or 0,
+		nextLevelExp = (prog and prog.nextLevelExp) or 100,
+		progressPercent = (prog and prog.progressPercent) or 0.0,
+		totalExp = (prog and prog.totalExp) or pData.totalExp or 0,
 	}
 
 	return lootData, rewardInfo, pData

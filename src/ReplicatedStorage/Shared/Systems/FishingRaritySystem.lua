@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("FishDefinitions"))
 local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 
 local FishingRaritySystem = {}
 
@@ -27,26 +28,7 @@ FishingRaritySystem.CONFIG = {
 		MAX = 100,
 		PERFORMANCE_COEFF = 0.25, -- Performance Score (0-100) * 0.25 -> Max +25 Luck
 	},
-	XP = {
-		BASE_FORMULA = 100,
-		EXPONENT = 1.65,
-		BASE_XP = {
-			COMMON = 10,
-			RARE = 18,
-			SUPER_RARE = 30,
-			LEGENDARY = 55,
-			MYTHIC = 100,
-			SPECIAL = 175,
-		},
-		PERF_MULTIPLIERS = {
-			{ maxScore = 39, mult = 0.75 },
-			{ maxScore = 59, mult = 0.90 },
-			{ maxScore = 74, mult = 1.00 },
-			{ maxScore = 89, mult = 1.10 },
-			{ maxScore = 99, mult = 1.20 },
-			{ maxScore = 100, mult = 1.30 },
-		}
-	},
+	XP = XPProgressionSystem.CONFIG,
 	ECONOMY = {
 		BASE_COINS = {
 			COMMON = 15,
@@ -213,32 +195,22 @@ FishingRaritySystem.RARITY_ORDER = {
 	"SPECIAL"
 }
 
--- ============ 1. FORMULA PROGRESSION LEVEL & XP ============
+-- ============ 1. FORMULA PROGRESSION LEVEL & XP (DELEGATED TO XPProgressionSystem) ============
 function FishingRaritySystem.GetExpRequiredForLevel(level)
-	level = math.max(1, tonumber(level) or 1)
-	return math.floor(FishingRaritySystem.CONFIG.XP.BASE_FORMULA * (level ^ FishingRaritySystem.CONFIG.XP.EXPONENT))
+	return XPProgressionSystem.GetExpRequiredForLevel(level)
+end
+
+function FishingRaritySystem.GetTotalExpForLevel(level)
+	return XPProgressionSystem.GetTotalExpForLevel(level)
 end
 
 function FishingRaritySystem.GetLevelFromTotalExp(totalExp)
-	totalExp = math.max(0, tonumber(totalExp) or 0)
-	local level = 1
-	local accExp = 0
+	local prog = XPProgressionSystem.DeriveProgression(totalExp)
+	return prog.level, prog.currentLevelExp, prog.nextLevelExp, prog.progressPercent
+end
 
-	while true do
-		local req = FishingRaritySystem.GetExpRequiredForLevel(level)
-		if accExp + req <= totalExp then
-			accExp += req
-			level += 1
-		else
-			break
-		end
-	end
-
-	local currentLevelExp = totalExp - accExp
-	local nextLevelExp = FishingRaritySystem.GetExpRequiredForLevel(level)
-	local percent = math.clamp(currentLevelExp / math.max(1, nextLevelExp), 0, 1)
-
-	return level, currentLevelExp, nextLevelExp, percent
+function FishingRaritySystem.DeriveProgression(totalExp)
+	return XPProgressionSystem.DeriveProgression(totalExp)
 end
 
 -- ============ 2. FORMULA EFFECTIVE LUCK & DIMINISHING RETURNS (FISH-019) ============
