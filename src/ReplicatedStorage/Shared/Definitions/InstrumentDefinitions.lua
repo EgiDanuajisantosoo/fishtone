@@ -68,7 +68,7 @@ InstrumentDefinitions.Instruments = {
 -- ============ ROD TO INSTRUMENT MAPPING ============
 -- Joran menentukan jenis instrumen & mekanisme minigame
 InstrumentDefinitions.RodMapping = {
-	-- Starting / Classic Rods -> Piano
+	-- ==================== 🎹 PIANO RODS ====================
 	StarterRod = {
 		instrumentType = InstrumentDefinitions.Types.PIANO,
 		instrumentVariant = "CLASSIC_PIANO",
@@ -77,31 +77,71 @@ InstrumentDefinitions.RodMapping = {
 	HarmonicTuningRod = {
 		instrumentType = InstrumentDefinitions.Types.PIANO,
 		instrumentVariant = "GRAND_PIANO",
-		name = "Harmonic Tuning Grand Piano",
+		name = "Harmonic Grand Piano",
+	},
+	HarmonicGrandRod = {
+		instrumentType = InstrumentDefinitions.Types.PIANO,
+		instrumentVariant = "GRAND_PIANO",
+		name = "Harmonic Grand Piano",
+	},
+	CrystalSonataRod = {
+		instrumentType = InstrumentDefinitions.Types.PIANO,
+		instrumentVariant = "CRYSTAL_SONATA",
+		name = "Crystal Sonata Resonant Piano",
 	},
 
-	-- Acoustic & Electric String Rods -> Guitar
+	-- ==================== 🎸 GUITAR RODS ====================
 	BambooRod = {
 		instrumentType = InstrumentDefinitions.Types.GUITAR,
 		instrumentVariant = "ACOUSTIC_GUITAR",
-		name = "Acoustic Fingerstyle Bamboo",
+		name = "Acoustic Fingerstyle Mahogany",
+	},
+	AcousticGuitarRod = {
+		instrumentType = InstrumentDefinitions.Types.GUITAR,
+		instrumentVariant = "ACOUSTIC_GUITAR",
+		name = "Acoustic Fingerstyle Mahogany",
 	},
 	CarbonFiberRod = {
 		instrumentType = InstrumentDefinitions.Types.GUITAR,
 		instrumentVariant = "ELECTRIC_GUITAR",
 		name = "Carbon Overdrive Electric",
 	},
+	ElectricOverdriveRod = {
+		instrumentType = InstrumentDefinitions.Types.GUITAR,
+		instrumentVariant = "ELECTRIC_GUITAR",
+		name = "Electric Overdrive Guitar",
+	},
 	AbyssalTridentRod = {
 		instrumentType = InstrumentDefinitions.Types.GUITAR,
 		instrumentVariant = "ABYSSAL_METAL",
 		name = "Abyssal Heavy Metal Riff",
 	},
+	AbyssalMetalRod = {
+		instrumentType = InstrumentDefinitions.Types.GUITAR,
+		instrumentVariant = "ABYSSAL_METAL",
+		name = "Abyssal Heavy Metal Riff",
+	},
 
-	-- Beat / Celestial Percussion Rods -> Drum
+	-- ==================== 🥁 DRUM RODS ====================
+	TribalPercussionRod = {
+		instrumentType = InstrumentDefinitions.Types.DRUM,
+		instrumentVariant = "TRIBAL_PERCUSSION",
+		name = "Tribal Rhythm Percussion",
+	},
+	SynthwaveDrumRod = {
+		instrumentType = InstrumentDefinitions.Types.DRUM,
+		instrumentVariant = "SYNTHWAVE_DRUM",
+		name = "Synthwave Neon Drum Pad",
+	},
 	CelestialMelodyRod = {
 		instrumentType = InstrumentDefinitions.Types.DRUM,
 		instrumentVariant = "CELESTIAL_BEAT",
-		name = "Celestial Beat Drum",
+		name = "Celestial Cosmic Beat Drum",
+	},
+	CelestialCosmicRod = {
+		instrumentType = InstrumentDefinitions.Types.DRUM,
+		instrumentVariant = "CELESTIAL_BEAT",
+		name = "Celestial Cosmic Beat Drum",
 	},
 }
 

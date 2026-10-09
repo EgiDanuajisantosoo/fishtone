@@ -173,20 +173,28 @@ local function renderRodsTab(parent)
 		cStroke.Parent = card
 
 		-- Left Icon Area
+		local instType = InstrumentDefinitions.GetInstrumentTypeForRod(rod.id)
+		local instData = InstrumentDefinitions.GetInstrumentData(instType)
+
 		local iconBox = Instance.new("Frame")
 		iconBox.Size = UDim2.new(0, 80, 0, 80)
 		iconBox.Position = UDim2.new(0, 12, 0.5, -40)
-		iconBox.BackgroundColor3 = Color3.fromRGB(10, 17, 29)
+		iconBox.BackgroundColor3 = (instData and instData.color) and Color3.fromRGB(math.floor(instData.color.R * 40), math.floor(instData.color.G * 40), math.floor(instData.color.B * 40)) or Color3.fromRGB(10, 17, 29)
 		iconBox.BorderSizePixel = 0
 		iconBox.Parent = card
 		Instance.new("UICorner", iconBox).CornerRadius = UDim.new(0, 10)
 
+		local iconStroke = Instance.new("UIStroke")
+		iconStroke.Color = instData and instData.color or Color3.fromRGB(40, 60, 90)
+		iconStroke.Thickness = 1.2
+		iconStroke.Parent = iconBox
+
 		local iconLabel = Instance.new("TextLabel")
 		iconLabel.Size = UDim2.new(1, 0, 1, 0)
 		iconLabel.BackgroundTransparency = 1
-		iconLabel.Text = "🎣"
+		iconLabel.Text = (instData and instData.icon) and (instData.icon .. "🎣") or "🎣"
 		iconLabel.Font = Enum.Font.GothamBlack
-		iconLabel.TextSize = 34
+		iconLabel.TextSize = 28
 		iconLabel.Parent = iconBox
 
 		-- Rod Info
@@ -214,12 +222,10 @@ local function renderRodsTab(parent)
 		Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 4)
 
 		-- Badge Instrumen (FISH-027 / FISH!TUNE)
-		local instType = InstrumentDefinitions.GetInstrumentTypeForRod(rod.id)
-		local instData = InstrumentDefinitions.GetInstrumentData(instType)
 		local instBadge = Instance.new("TextLabel")
 		instBadge.Size = UDim2.new(0, 95, 0, 16)
 		instBadge.Position = UDim2.new(0, 190, 0, 34)
-		instBadge.BackgroundColor3 = Color3.fromRGB(36, 25, 48)
+		instBadge.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
 		instBadge.BorderSizePixel = 0
 		instBadge.Text = instData and instData.badge or "🎹 PIANO"
 		instBadge.TextColor3 = instData and instData.color or Color3.fromRGB(56, 189, 248)
@@ -227,6 +233,11 @@ local function renderRodsTab(parent)
 		instBadge.TextSize = 9
 		instBadge.Parent = card
 		Instance.new("UICorner", instBadge).CornerRadius = UDim.new(0, 4)
+
+		local instBadgeStroke = Instance.new("UIStroke")
+		instBadgeStroke.Color = instData and instData.color or Color3.fromRGB(56, 189, 248)
+		instBadgeStroke.Thickness = 0.8
+		instBadgeStroke.Parent = instBadge
 
 		local statsLabel = Instance.new("TextLabel")
 		statsLabel.Size = UDim2.new(0.55, 0, 0, 18)

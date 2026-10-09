@@ -246,11 +246,17 @@ function PlayerDataService.LoadData(player)
 		profile.coins = math.max(profile.coins or 0, 50000)
 		profile.level = math.max(profile.level or 1, 20)
 		profile.unlockedRods = {
+			-- Piano Rods
 			"StarterRod",
+			"HarmonicTuningRod",
+			"CrystalSonataRod",
+			-- Guitar Rods
 			"BambooRod",
 			"CarbonFiberRod",
-			"HarmonicTuningRod",
 			"AbyssalTridentRod",
+			-- Drum Rods
+			"TribalPercussionRod",
+			"SynthwaveDrumRod",
 			"CelestialMelodyRod",
 		}
 		profile.baits = profile.baits or {}

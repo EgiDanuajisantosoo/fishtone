@@ -103,6 +103,7 @@ function EconomyService.CreateRodTool(rodData)
 	tool:SetAttribute("IsRod", true)
 	tool:SetAttribute("RodId", rodData.id)
 	tool:SetAttribute("RodName", rodData.name)
+	tool:SetAttribute("InstrumentType", rodData.instrumentType or "PIANO")
 	tool:SetAttribute("Luck", rodData.luckBonus or 5)
 	tool:SetAttribute("CastPower", rodData.castPowerMultiplier or 1.0)
 	tool:SetAttribute("ReelSpeed", rodData.reelSpeedMultiplier or 1.0)
@@ -110,6 +111,7 @@ function EconomyService.CreateRodTool(rodData)
 	tool:SetAttribute("Description", rodData.description or "")
 
 	local scale = rodData.scale or 1.0
+	local instType = rodData.instrumentType or "PIANO"
 
 	-- Gagang Utama (Handle)
 	local handle = Instance.new("Part")
@@ -142,7 +144,7 @@ function EconomyService.CreateRodTool(rodData)
 	local tip = Instance.new("Part")
 	tip.Name = "RodTip"
 	tip.Shape = Enum.PartType.Ball
-	tip.Size = Vector3.new(0.3 * scale, 0.3 * scale, 0.3 * scale)
+	tip.Size = Vector3.new(0.32 * scale, 0.32 * scale, 0.32 * scale)
 	tip.Color = rodData.accentColor or Color3.fromRGB(255, 230, 100)
 	tip.Material = (rodData.tier == "MYTHIC" or rodData.tier == "LEGENDARY" or rodData.tier == "SUPER_RARE") and Enum.Material.Neon or Enum.Material.SmoothPlastic
 	tip.CanCollide = false
@@ -154,7 +156,7 @@ function EconomyService.CreateRodTool(rodData)
 	wcTip.Part1 = tip
 	wcTip.Parent = handle
 
-	-- Reel / Gulungan Senar
+	-- Reel / Gulungan Senar Musikal
 	local reel = Instance.new("Part")
 	reel.Name = "RodReel"
 	reel.Shape = Enum.PartType.Cylinder
@@ -162,7 +164,7 @@ function EconomyService.CreateRodTool(rodData)
 	reel.Color = rodData.accentColor or Color3.fromRGB(200, 200, 210)
 	reel.Material = Enum.Material.Metal
 	reel.CanCollide = false
-	reel.CFrame = handle.CFrame * CFrame.new(0.2 * scale, -0.2 * scale, 0) * CFrame.Angles(0, math.rad(90), 0)
+	reel.CFrame = handle.CFrame * CFrame.new(0.22 * scale, -0.2 * scale, 0) * CFrame.Angles(0, math.rad(90), 0)
 	reel.Parent = tool
 
 	local wcReel = Instance.new("WeldConstraint")
@@ -170,24 +172,77 @@ function EconomyService.CreateRodTool(rodData)
 	wcReel.Part1 = reel
 	wcReel.Parent = handle
 
-	-- Efek Partikel Glow untuk Joran Rarity Tinggi
-	if rodData.tier == "MYTHIC" or rodData.tier == "LEGENDARY" then
+	-- Ornamen Tematik Khusus Berdasarkan Jenis Instrumen (Piano / Guitar / Drum)
+	if instType == "PIANO" then
+		-- Keyboard Accent Block (Tuts Piano Gading & Hitam)
+		local pianoKeys = Instance.new("Part")
+		pianoKeys.Name = "PianoAccent"
+		pianoKeys.Shape = Enum.PartType.Block
+		pianoKeys.Size = Vector3.new(0.3 * scale, 0.7 * scale, 0.26 * scale)
+		pianoKeys.Color = (rodData.tier == "LEGENDARY") and Color3.fromRGB(220, 240, 255) or Color3.fromRGB(245, 245, 250)
+		pianoKeys.Material = Enum.Material.SmoothPlastic
+		pianoKeys.CanCollide = false
+		pianoKeys.CFrame = handle.CFrame * CFrame.new(0, 0.4 * scale, 0.1 * scale)
+		pianoKeys.Parent = tool
+
+		local wcKeys = Instance.new("WeldConstraint")
+		wcKeys.Part0 = handle
+		wcKeys.Part1 = pianoKeys
+		wcKeys.Parent = handle
+
+	elseif instType == "GUITAR" then
+		-- Fretboard Plate & Headstock Bridge (Gitar Petikan)
+		local fretPlate = Instance.new("Part")
+		fretPlate.Name = "GuitarFretPlate"
+		fretPlate.Shape = Enum.PartType.Block
+		fretPlate.Size = Vector3.new(0.22 * scale, 1.2 * scale, 0.12 * scale)
+		fretPlate.Color = rodData.accentColor or Color3.fromRGB(245, 158, 11)
+		fretPlate.Material = (rodData.tier == "SUPER_RARE" or rodData.tier == "LEGENDARY") and Enum.Material.Neon or Enum.Material.Metal
+		fretPlate.CanCollide = false
+		fretPlate.CFrame = shaft.CFrame * CFrame.new(0, -0.8 * scale, 0.08 * scale)
+		fretPlate.Parent = tool
+
+		local wcFret = Instance.new("WeldConstraint")
+		wcFret.Part0 = handle
+		wcFret.Part1 = fretPlate
+		wcFret.Parent = handle
+
+	elseif instType == "DRUM" then
+		-- Drum Cymbal / Ring Pad Perkusi
+		local drumRing = Instance.new("Part")
+		drumRing.Name = "DrumRingPad"
+		drumRing.Shape = Enum.PartType.Cylinder
+		drumRing.Size = Vector3.new(0.12 * scale, 0.75 * scale, 0.75 * scale)
+		drumRing.Color = rodData.accentColor or Color3.fromRGB(239, 68, 68)
+		drumRing.Material = (rodData.tier == "SUPER_RARE" or rodData.tier == "MYTHIC") and Enum.Material.Neon or Enum.Material.Metal
+		drumRing.CanCollide = false
+		drumRing.CFrame = shaft.CFrame * CFrame.new(0, 0.5 * scale, 0) * CFrame.Angles(0, 0, math.rad(90))
+		drumRing.Parent = tool
+
+		local wcDrum = Instance.new("WeldConstraint")
+		wcDrum.Part0 = handle
+		wcDrum.Part1 = drumRing
+		wcDrum.Parent = handle
+	end
+
+	-- Efek Partikel Glow untuk Joran Rarity Tinggi (SUPER_RARE, LEGENDARY, MYTHIC)
+	if rodData.tier == "MYTHIC" or rodData.tier == "LEGENDARY" or rodData.tier == "SUPER_RARE" then
 		local pe = Instance.new("ParticleEmitter")
 		pe.Name = "RodAura"
 		pe.Texture = "rbxassetid://243098098"
 		pe.Color = ColorSequence.new(rodData.color, rodData.accentColor)
-		pe.LightEmission = 0.8
+		pe.LightEmission = (rodData.tier == "MYTHIC") and 1.0 or 0.75
 		pe.Size = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.2),
-			NumberSequenceKeypoint.new(1, 0.05),
+			NumberSequenceKeypoint.new(0, 0.25 * scale),
+			NumberSequenceKeypoint.new(1, 0.05 * scale),
 		})
 		pe.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.2),
+			NumberSequenceKeypoint.new(0, 0.15),
 			NumberSequenceKeypoint.new(1, 1.0),
 		})
-		pe.Lifetime = NumberRange.new(0.4, 0.8)
-		pe.Rate = 12
-		pe.Speed = NumberRange.new(0.5, 1.5)
+		pe.Lifetime = NumberRange.new(0.4, 0.9)
+		pe.Rate = (rodData.tier == "MYTHIC") and 20 or 12
+		pe.Speed = NumberRange.new(0.5, 1.8)
 		pe.Parent = tip
 	end
 
