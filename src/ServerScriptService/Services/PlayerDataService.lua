@@ -150,6 +150,55 @@ function PlayerDataService.IsInstrumentUnlocked(player, instrumentType)
 	return table.find(pData.unlockedInstruments, instrumentType) ~= nil
 end
 
+-- ============ TUTORIAL MUTATORS (FISH-033) ============
+function PlayerDataService.CompleteTutorialStep(player, step)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return end
+	local targetStep = tonumber(step) or 0
+	if (pData.tutorialStep or 0) < targetStep then
+		pData.tutorialStep = targetStep
+		RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+	end
+end
+
+function PlayerDataService.FinishTutorial(player)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return end
+
+	if not pData.tutorialCompleted then
+		pData.tutorialCompleted = true
+		pData.tutorialStep = 5
+
+		-- Hadiah penyelesaian tutorial: 100 Koin + 5 Umpan Cacing Starter
+		local rewardCoins = 100
+		pData.coins = (pData.coins or 0) + rewardCoins
+
+		pData.baits = pData.baits or {}
+		pData.baits.StandardWorm = (pData.baits.StandardWorm or 0) + 5
+
+		PlayerDataService.SyncLeaderstats(player)
+		RemoteContract.Server.TutorialCompleted(player, {
+			coins = rewardCoins,
+			baitName = "StandardWorm",
+			baitCount = 5,
+		})
+		RemoteContract.Server.Notify(player, "🎉 Selamat! Kamu telah menyelesaikan Tutorial Dasar FISH!TUNE (+100 Koin & +5 Umpan)!")
+		RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+		return true
+	end
+	return false
+end
+
+function PlayerDataService.SkipTutorial(player)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return end
+
+	pData.tutorialCompleted = true
+	pData.tutorialStep = 5
+	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+	RemoteContract.Server.Notify(player, "ℹ️ Tutorial dilewati. Buka tombol [❓ PANDUAN] di HUD kapan saja untuk melihat panduan bermain!")
+end
+
 function PlayerDataService.AddExp(player, amount)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return false, 1 end

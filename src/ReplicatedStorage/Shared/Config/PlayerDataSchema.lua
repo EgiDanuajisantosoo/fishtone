@@ -67,6 +67,10 @@ PlayerDataSchema.DEFAULT_DATA = {
 		fullComboCount = 0,
 	},
 
+	-- Tutorial & Onboarding (FISH-033)
+	tutorialStep = 0,
+	tutorialCompleted = false,
+
 	-- Preferensi & Pengaturan Pemain
 	settings = {
 		bgmVolume = 1.0,
@@ -168,6 +172,14 @@ function PlayerDataSchema.Reconcile(target, template)
 	-- 3. Pastikan equippedInstrument selalu sinkron dengan equippedRod
 	if not target.equippedInstrument or not InstrumentDefinitions.IsValidInstrumentType(target.equippedInstrument) then
 		target.equippedInstrument = InstrumentDefinitions.GetInstrumentTypeForRod(target.equippedRod or "StarterRod")
+	end
+
+	-- 4. Rekonsiliasi Tutorial (FISH-033)
+	if target.tutorialStep == nil or typeof(target.tutorialStep) ~= "number" then
+		target.tutorialStep = 0
+	end
+	if target.tutorialCompleted == nil or typeof(target.tutorialCompleted) ~= "boolean" then
+		target.tutorialCompleted = false
 	end
 
 	return target

@@ -262,6 +262,24 @@ if remote then
 			RemoteContract.Server.ShopCatalogData(player, catalog)
 			return
 		end
+
+		-- 15. Tutorial Pemula: Selesaikan Langkah Tutorial (FISH-033)
+		if action == RemoteContract.C2S.COMPLETE_TUTORIAL_STEP then
+			PlayerDataService.CompleteTutorialStep(player, arg1)
+			return
+		end
+
+		-- 16. Tutorial Pemula: Selesaikan Keseluruhan Tutorial & Klaim Reward (FISH-033)
+		if action == RemoteContract.C2S.FINISH_TUTORIAL then
+			PlayerDataService.FinishTutorial(player)
+			return
+		end
+
+		-- 17. Tutorial Pemula: Lewati Tutorial (FISH-033)
+		if action == RemoteContract.C2S.SKIP_TUTORIAL then
+			PlayerDataService.SkipTutorial(player)
+			return
+		end
 	end)
 else
 	warn("FishingServer: FishingRemote tidak ditemukan di ReplicatedStorage")

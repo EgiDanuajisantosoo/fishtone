@@ -33,8 +33,12 @@ RemoteContract.C2S = {
 	EQUIP_ROD        = "EquipRod",
 	BUY_BAIT         = "BuyBait",
 	EQUIP_BAIT       = "EquipBait",
-	UPGRADE_BAG      = "UpgradeBag",
-	GET_SHOP_CATALOG = "GetShopCatalog",
+	UPGRADE_BAG             = "UpgradeBag",
+	GET_SHOP_CATALOG        = "GetShopCatalog",
+	-- Tutorial & FTUE Actions (FISH-033)
+	COMPLETE_TUTORIAL_STEP  = "CompleteTutorialStep",
+	FINISH_TUTORIAL         = "FinishTutorial",
+	SKIP_TUTORIAL           = "SkipTutorial",
 }
 
 -- Server -> Client Actions
@@ -54,6 +58,8 @@ RemoteContract.S2C = {
 	BAG_UPGRADED             = "BagUpgraded",
 	SHOP_CATALOG_DATA        = "ShopCatalogData",
 	INSTRUMENT_UNLOCKED      = "InstrumentUnlocked",
+	-- Tutorial & FTUE Actions (FISH-033)
+	TUTORIAL_COMPLETED       = "TutorialCompleted",
 }
 
 -- ============ REMOTE PROVIDER ============
@@ -255,6 +261,18 @@ function RemoteContract.Server.InstrumentUnlocked(player, instrumentType, instDa
 	end
 end
 
+function RemoteContract.Server.TutorialCompleted(player, bonusCoins, bonusBaits)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.TUTORIAL_COMPLETED,
+			bonusCoins,
+			bonusBaits
+		)
+	end
+end
+
 -- ============ CLIENT DISPATCHERS (Client -> Server) ============
 RemoteContract.Client = {}
 
@@ -353,6 +371,27 @@ function RemoteContract.Client.GetShopCatalog()
 	local remote = RemoteContract.GetRemote()
 	if remote then
 		remote:FireServer(RemoteContract.C2S.GET_SHOP_CATALOG)
+	end
+end
+
+function RemoteContract.Client.CompleteTutorialStep(step)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.COMPLETE_TUTORIAL_STEP, step)
+	end
+end
+
+function RemoteContract.Client.FinishTutorial()
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.FINISH_TUTORIAL)
+	end
+end
+
+function RemoteContract.Client.SkipTutorial()
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.SKIP_TUTORIAL)
 	end
 end
 

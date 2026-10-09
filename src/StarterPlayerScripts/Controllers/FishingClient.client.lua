@@ -39,6 +39,7 @@ local ShopUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ShopUI"))
 local LevelUpUI = require(Shared:WaitForChild("Minigames"):WaitForChild("LevelUpUI"))
 local ProgressionRoadmapUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ProgressionRoadmapUI"))
 local EconomyHUD = require(Shared:WaitForChild("Minigames"):WaitForChild("EconomyHUD"))
+local TutorialUI = require(Shared:WaitForChild("Minigames"):WaitForChild("TutorialUI"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
@@ -70,6 +71,40 @@ end
 local clientPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
 local lastPlayerData = {}
 local activeSessionId = nil
+
+-- ============ STATE & HELPER TUTORIAL (FISH-033) ============
+local hasShownWelcomeTutorial = false
+
+local function syncTutorialState(pData)
+	if not pData then return end
+	if pData.tutorialCompleted == true then
+		TutorialUI.HideQuestPill()
+		return
+	end
+
+	local step = tonumber(pData.tutorialStep) or 0
+	if step == 0 and not hasShownWelcomeTutorial then
+		hasShownWelcomeTutorial = true
+		TutorialUI.ShowWelcomeModal(gui, function()
+			TutorialUI.CreateOrUpdateQuestPill(gui, 1)
+			RemoteContract.Client.CompleteTutorialStep(1)
+		end, function()
+			RemoteContract.Client.SkipTutorial()
+		end)
+	elseif step >= 1 and step <= 4 then
+		TutorialUI.CreateOrUpdateQuestPill(gui, step)
+	end
+end
+
+local function advanceTutorial(targetStep)
+	if not lastPlayerData or lastPlayerData.tutorialCompleted == true then return end
+	local current = tonumber(lastPlayerData.tutorialStep) or 0
+	if current < targetStep then
+		lastPlayerData.tutorialStep = targetStep
+		TutorialUI.CreateOrUpdateQuestPill(gui, targetStep)
+		RemoteContract.Client.CompleteTutorialStep(targetStep)
+	end
+end
 
 -- ============ GUI ROOT ============
 local pGui = getPlayerGui()
@@ -1139,6 +1174,8 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		rarity = rarity
 	})
 
+	advanceTutorial(2)
+
 	if castQuality == "PERFECT" then
 		showMessage("⭐ PERFECT CAST! (+35 Luck) Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 2.5)
 	elseif castQuality == "GREAT" then
@@ -1190,6 +1227,8 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		or InstrumentDefinitions.GetInstrumentTypeForRod(currentRod)
 	local instData = InstrumentDefinitions.GetInstrumentData(instType)
 	local hint = InstrumentDefinitions.GetInstrumentHint(instType)
+
+	advanceTutorial(3)
 
 	showMessage(string.format("%s IKAN MENYAMBAR! %s", instData.icon or "🎵", hint), instData.color or Color3.fromRGB(255, 220, 50), 3.5)
 	AnimSystem.SetPhase("Reeling")
@@ -2016,6 +2055,37 @@ end
 
 buildShopHUD()
 
+-- ============ SISTEM PANDUAN HUD (FISH-033) ============
+local panduanBtn
+local function buildPanduanHUD()
+	panduanBtn = Instance.new("TextButton")
+	panduanBtn.Name = "PanduanBtn"
+	panduanBtn.Size = UDim2.new(0, 145, 0, 36)
+	panduanBtn.Position = UDim2.new(0, 20, 0.44, 0)
+	panduanBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
+	panduanBtn.BackgroundTransparency = 0.25
+	panduanBtn.BorderSizePixel = 0
+	panduanBtn.Text = "❓ PANDUAN [H]"
+	panduanBtn.TextColor3 = Color3.fromRGB(56, 189, 248)
+	panduanBtn.Font = Enum.Font.GothamBlack
+	panduanBtn.TextSize = 12
+	panduanBtn.Parent = gui
+	Instance.new("UICorner", panduanBtn).CornerRadius = UDim.new(0, 10)
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(56, 189, 248)
+	btnStroke.Thickness = 1.5
+	btnStroke.Transparency = 0.4
+	btnStroke.Parent = panduanBtn
+
+	panduanBtn.MouseButton1Click:Connect(function()
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+		TutorialUI.ToggleHelpGuide(gui)
+	end)
+end
+
+buildPanduanHUD()
+
 -- ============ LISTENER INPUT AKTIVASI ============
 local lastTriggerTime = 0
 local function handleInteractionTrigger()
@@ -2076,6 +2146,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	-- Hotkey P atau L untuk Toggle Jalur Progresi & Roadmap
 	if not gameProcessed and (input.KeyCode == Enum.KeyCode.P or input.KeyCode == Enum.KeyCode.L) then
 		ProgressionRoadmapUI.Toggle(gui, lastPlayerData)
+		return
+	end
+
+	-- Hotkey H untuk Toggle Buku Panduan Nelayan (FISH-033)
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.H) then
+		TutorialUI.ToggleHelpGuide(gui)
 		return
 	end
 	if gameProcessed then return end
@@ -2223,6 +2299,8 @@ if remote then
 				end
 			end
 
+			advanceTutorial(4)
+
 			updateInventoryUI()
 			updatePityUI()
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
@@ -2235,6 +2313,11 @@ if remote then
 				lastPlayerData.coins = currentCoins
 			else
 				lastPlayerData.coins = (lastPlayerData.coins or 0) + coinsGained
+			end
+
+			-- Jika pemain sedang berada di langkah tutorial 4, selesaikan tutorial
+			if lastPlayerData and lastPlayerData.tutorialCompleted == false and (lastPlayerData.tutorialStep or 0) >= 4 then
+				RemoteContract.Client.FinishTutorial()
 			end
 
 			showMessage(string.format("💰 Berhasil menjual %s seharga +%d Koin!", fishName, coinsGained), Color3.fromRGB(50, 255, 130), 3.5)
@@ -2252,6 +2335,11 @@ if remote then
 				lastPlayerData.coins = currentCoins
 			else
 				lastPlayerData.coins = (lastPlayerData.coins or 0) + totalCoins
+			end
+
+			-- Jika pemain sedang berada di langkah tutorial 4, selesaikan tutorial
+			if lastPlayerData and lastPlayerData.tutorialCompleted == false and (lastPlayerData.tutorialStep or 0) >= 4 then
+				RemoteContract.Client.FinishTutorial()
 			end
 
 			showMessage(string.format("💰 Berhasil menjual %d Ikan seharga total +%d Koin!", count, totalCoins), Color3.fromRGB(50, 255, 130), 4.0)
@@ -2274,6 +2362,17 @@ if remote then
 					ShopUI.Show(gui, nil, "RODS")
 				end
 			end)
+		elseif action == RemoteContract.S2C.TUTORIAL_COMPLETED then
+			local rewardData = arg1 or {}
+			lastPlayerData.tutorialCompleted = true
+			lastPlayerData.tutorialStep = 5
+			if rewardData.coins then
+				lastPlayerData.coins = (lastPlayerData.coins or 0) + rewardData.coins
+			end
+			TutorialUI.ShowCelebrationModal(gui, rewardData, function()
+				-- Pemain mengonfirmasi klaim hadiah
+			end)
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.PLAYER_DATA_UPDATE then
 			local pData = arg1 or {}
 			local pityState = arg2 or pData.pity or {}
@@ -2282,6 +2381,7 @@ if remote then
 			if pData.journal then
 				FishDexUI.UpdateJournalData(pData.journal)
 			end
+			syncTutorialState(lastPlayerData)
 			updatePityUI()
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.SHOP_CATALOG_DATA then
