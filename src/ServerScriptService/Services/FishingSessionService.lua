@@ -33,7 +33,7 @@ local FishingSessionService = {}
 -- ============ CONFIGURATION ============
 local MAX_CAST_DISTANCE = 150 -- Jarak maksimal (studs) antara player dan target air
 local MIN_CAST_DISTANCE = 1   -- Jarak minimal (studs)
-local BASE_SESSION_TTL  = 90  -- Waktu kedaluwarsa sesi dasar (detik) setelah ikan menyambar
+local BASE_SESSION_TTL  = 180 -- Waktu kedaluwarsa sesi dasar (180 detik) setelah ikan menyambar
 
 -- ============ ACTIVE SESSIONS STORE ============
 local activeSessions = {} -- [sessionId] = sessionData
@@ -56,13 +56,13 @@ function FishingSessionService.SanitizeAndValidateMetrics(rawMetrics, session, n
 	local tierData = FishingRaritySystem.GetTierData(session.rarity)
 	local expectedTargetNotes = tierData.targetNotes or 30
 
-	-- 1. Anti-Speedhack & Duration Validation
+	-- 1. Anti-Speedhack & Duration Validation dengan toleransi latensi jaringan
 	local waitDuration = session.waitDuration or 1.5
-	local minigameElapsed = math.max(0.1, now - (session.startTime + waitDuration))
+	local minigameElapsed = math.max(0.1, now - (session.startTime + (waitDuration * 0.4)))
+	local reportedDuration = tonumber((typeof(rawMetrics.breakdown) == "table" and rawMetrics.breakdown.duration) or rawMetrics.duration) or minigameElapsed
 
-	-- Minigame membutuhkan waktu fisik minimal untuk menyelesaikan not lagu
-	local minPhysicalDuration = 0.4
-	if minigameElapsed < minPhysicalDuration then
+	local minPhysicalDuration = 0.15
+	if minigameElapsed < minPhysicalDuration and reportedDuration < minPhysicalDuration then
 		return nil, string.format("Durasi minigame terlalu cepat (%.2fs), terdeteksi instant catch exploit", minigameElapsed)
 	end
 
@@ -219,6 +219,15 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	sessionId = tostring(sessionId or "")
 	local session = activeSessions[sessionId]
 
+	-- Fallback ke active session ID pemain jika sessionId yang dikirim client mismatch
+	if not session and player and player:IsA("Player") then
+		local pSessionId = playerSessions[player.UserId]
+		if pSessionId and activeSessions[pSessionId] then
+			session = activeSessions[pSessionId]
+			sessionId = pSessionId
+		end
+	end
+
 	if not session then
 		return nil, "Sesi memancing tidak ditemukan"
 	end
@@ -231,15 +240,15 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 
 	local now = os.clock()
 
-	-- 1. Validasi Waktu Kadaluarsa
-	if now > session.expireAt then
+	-- 1. Validasi Waktu Kadaluarsa (dengan toleransi buffer 30s)
+	if now > (session.expireAt + 30) then
 		activeSessions[sessionId] = nil
 		playerSessions[player.UserId] = nil
 		return nil, "Sesi memancing telah kadaluarsa"
 	end
 
 	-- 2. Anti-Speedhack: Waktu tunggu sambaran harus terpenuhi (dengan toleransi latensi jaringan)
-	if now - session.startTime < (session.waitDuration * 0.5) then
+	if (now - session.startTime) < (session.waitDuration * 0.25) then
 		activeSessions[sessionId] = nil
 		playerSessions[player.UserId] = nil
 		return nil, "Sambaran terlalu cepat (Waktu tunggu belum terpenuhi)"
