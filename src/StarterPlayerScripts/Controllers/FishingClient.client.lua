@@ -59,6 +59,7 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "FishingGui"
 gui.ResetOnSpawn = false
 gui.Enabled = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = pGui or workspace
 
 -- Inisialisasi Top Economy & Currency HUD
