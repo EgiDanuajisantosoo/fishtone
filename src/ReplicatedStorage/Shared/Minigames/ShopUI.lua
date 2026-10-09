@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
+local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
 
 local player = Players.LocalPlayer
 
@@ -77,6 +78,7 @@ function ShopUI.Hide(callback)
 
 	closeTween:Play()
 	overlayTween:Play()
+	AudioEffectsSystem.PlayModalClose()
 
 	closeTween.Completed:Connect(function()
 		if overlay and overlay.Parent then
@@ -1219,7 +1221,7 @@ function ShopUI.Show(targetGui, catalogData, initialTab)
 	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
 
 	closeBtn.MouseButton1Click:Connect(function()
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.2)
+		AudioEffectsSystem.PlayButtonClick()
 		ShopUI.Hide()
 	end)
 
@@ -1269,7 +1271,7 @@ function ShopUI.Show(targetGui, catalogData, initialTab)
 		tabButtons[t.id] = tBtn
 
 		tBtn.MouseButton1Click:Connect(function()
-			playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+			AudioEffectsSystem.PlayButtonClick()
 			currentTab = t.id
 			ShopUI.RenderContent()
 		end)
@@ -1301,6 +1303,7 @@ function ShopUI.Show(targetGui, catalogData, initialTab)
 
 	overlayIn:Play()
 	cardIn:Play()
+	AudioEffectsSystem.PlayModalOpen()
 
 	return overlay
 end

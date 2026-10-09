@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
+local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
 
 local player = Players.LocalPlayer
 
@@ -622,7 +623,7 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	Instance.new("UICorner", keepBtn).CornerRadius = UDim.new(0, 10)
 
 	keepBtn.MouseButton1Click:Connect(function()
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 1.4)
+		AudioEffectsSystem.PlayButtonClick()
 		FishingResultUI.Hide(function()
 			if onAction then onAction("KEEP", toolInstance) end
 		end)
@@ -644,7 +645,7 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	Instance.new("UICorner", lockBtn).CornerRadius = UDim.new(0, 10)
 
 	lockBtn.MouseButton1Click:Connect(function()
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 1.6)
+		AudioEffectsSystem.PlayButtonClick()
 		FishingResultUI.Hide(function()
 			if onAction then onAction("LOCK", toolInstance) end
 		end)
@@ -666,7 +667,7 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	Instance.new("UICorner", quickSellBtn).CornerRadius = UDim.new(0, 10)
 
 	quickSellBtn.MouseButton1Click:Connect(function()
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.5)
+		AudioEffectsSystem.PlayItemSell()
 		FishingResultUI.Hide(function()
 			if onAction then onAction("SELL", toolInstance) end
 		end)
@@ -685,14 +686,8 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	overlayIn:Play()
 	cardIn:Play()
 
-	-- Sound fanfare
-	if wasPity then
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.4)
-	elseif isMutated then
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.2)
-	else
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
-	end
+	-- Audio Fanfare disesuaikan dengan Rarity & Grade (FISH-036)
+	AudioEffectsSystem.PlayCatchFanfare(fish.rarity or "COMMON", grade)
 
 	return overlay
 end

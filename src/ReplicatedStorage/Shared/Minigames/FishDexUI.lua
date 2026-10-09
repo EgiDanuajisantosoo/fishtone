@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("FishDefinitions"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
+local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
 
 local player = Players.LocalPlayer
 
@@ -157,6 +158,7 @@ function FishDexUI.Hide(callback)
 
 	closeTween:Play()
 	overlayTween:Play()
+	AudioEffectsSystem.PlayModalClose()
 
 	closeTween.Completed:Connect(function()
 		if overlay and overlay.Parent then
@@ -846,7 +848,7 @@ function FishDexUI.Show(targetGui, pData)
 	closeStroke.Parent = closeBtn
 
 	closeBtn.MouseButton1Click:Connect(function()
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.2)
+		AudioEffectsSystem.PlayButtonClick()
 		FishDexUI.Hide()
 	end)
 
@@ -946,7 +948,7 @@ function FishDexUI.Show(targetGui, pData)
 		rarityTabWidgets[tab.id] = { button = tabBtn, stroke = tStroke }
 
 		tabBtn.MouseButton1Click:Connect(function()
-			playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+			AudioEffectsSystem.PlayButtonClick()
 			currentRarityFilter = tab.id
 			updateFilterTabStyles()
 			FishDexUI.RenderGrid()
@@ -998,7 +1000,7 @@ function FishDexUI.Show(targetGui, pData)
 		zoneTabWidgets[zone.id] = { button = zBtn, stroke = zStroke }
 
 		zBtn.MouseButton1Click:Connect(function()
-			playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+			AudioEffectsSystem.PlayButtonClick()
 			currentZoneFilter = zone.id
 			updateFilterTabStyles()
 			FishDexUI.RenderGrid()
@@ -1088,6 +1090,7 @@ function FishDexUI.Show(targetGui, pData)
 
 	overlayIn:Play()
 	cardIn:Play()
+	AudioEffectsSystem.PlayModalOpen()
 
 	return overlay
 end

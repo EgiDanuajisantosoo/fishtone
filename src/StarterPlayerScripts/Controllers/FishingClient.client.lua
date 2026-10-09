@@ -44,6 +44,8 @@ local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("Econom
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
+local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
+local VisualEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("VisualEffectsSystem"))
 local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
 local fsm = FishingStateMachine.new()
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
@@ -454,69 +456,17 @@ local function playSound(soundId, volume, pitch)
 	Debris:AddItem(s, 2.5)
 end
 
-local function createWaterSplash(pos, customColor)
-	local emitterPart = Instance.new("Part")
-	emitterPart.Name = "WaterSplashFX"
-	emitterPart.Size = Vector3.new(1, 0.2, 1)
-	emitterPart.Position = pos
-	emitterPart.Anchored = true
-	emitterPart.CanCollide = false
-	emitterPart.Transparency = 1
-	emitterPart.Parent = workspace
-	
-	-- 1. Partikel Percikan Air (Droplets)
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Texture = "rbxasset://textures/particles/smoke_main.dds"
-	emitter.Color = ColorSequence.new(customColor or Color3.fromRGB(180, 235, 255), Color3.fromRGB(255, 255, 255))
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.5),
-		NumberSequenceKeypoint.new(0.4, 1.8),
-		NumberSequenceKeypoint.new(1, 0.2),
-	})
-	emitter.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.1),
-		NumberSequenceKeypoint.new(0.7, 0.4),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	emitter.Speed = NumberRange.new(9, 16)
-	emitter.SpreadAngle = Vector2.new(50, 50)
-	emitter.Acceleration = Vector3.new(0, -32, 0)
-	emitter.Lifetime = NumberRange.new(0.5, 0.8)
-	emitter.Rate = 0
-	emitter.LightEmission = 0.5
-	emitter.Parent = emitterPart
-	
-	emitter:Emit(35)
-
-	-- 2. Riak Gelombang Air Melingkar (Dynamic Water Ripple Ring)
-	local ripple = Instance.new("Part")
-	ripple.Name = "SplashRippleRing"
-	ripple.Shape = Enum.PartType.Cylinder
-	ripple.Size = Vector3.new(0.04, 0.6, 0.6)
-	ripple.CFrame = CFrame.new(pos + Vector3.new(0, 0.05, 0)) * CFrame.Angles(0, 0, math.rad(90))
-	ripple.Color = customColor or Color3.fromRGB(130, 225, 255)
-	ripple.Material = Enum.Material.Neon
-	ripple.Transparency = 0.35
-	ripple.CanCollide = false
-	ripple.Anchored = true
-	ripple.Parent = workspace
-
-	local grow = TweenService:Create(ripple, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = Vector3.new(0.04, 6.2, 6.2),
-		Transparency = 1,
-	})
-	grow:Play()
-	grow.Completed:Connect(function()
-		ripple:Destroy()
-	end)
-
-	playSound("rbxasset://sounds/splat.wav", 0.55, 1.2)
-	Debris:AddItem(emitterPart, 1.6)
+local function createWaterSplash(pos, customColor, scale)
+	VisualEffectsSystem.CreateWaterSplash(pos, customColor, scale or 1.0)
+	AudioEffectsSystem.PlayWaterSplash(scale and scale > 1.2)
 end
 
 local function showStrikeAlert(pos)
+	VisualEffectsSystem.CreateStrikeShockwave(pos)
+	AudioEffectsSystem.PlayStrikeAlert()
+
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(0, 64, 0, 64)
+	billboard.Size = UDim2.new(0, 72, 0, 72)
 	billboard.AlwaysOnTop = true
 	
 	local anchor = Instance.new("Part")
@@ -538,13 +488,18 @@ local function showStrikeAlert(pos)
 	badge.Parent = billboard
 	Instance.new("UICorner", badge).CornerRadius = UDim.new(1, 0)
 
+	local bStroke = Instance.new("UIStroke")
+	bStroke.Color = Color3.fromRGB(255, 255, 255)
+	bStroke.Thickness = 2.5
+	bStroke.Parent = badge
+
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.Text = "!"
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
 	label.Font = Enum.Font.GothamBlack
-	label.TextSize = 38
+	label.TextSize = 42
 	label.Parent = badge
 
 	badge.Size = UDim2.fromScale(0.2, 0.2)
@@ -554,8 +509,6 @@ local function showStrikeAlert(pos)
 		Position = UDim2.fromScale(0, 0)
 	})
 	pop:Play()
-
-	playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.6)
 
 	task.delay(1.5, function()
 		if billboard and billboard.Parent then
@@ -1181,7 +1134,13 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 		AnimSystem.StartFishingStance(char)
 	end
 
+	AudioEffectsSystem.PlayCastSwing(finalPower)
 	createWaterSplash(waterPos)
+	task.delay(0.25, function()
+		if fsm:Is(FishingStateMachine.States.CASTING) or fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) then
+			AudioEffectsSystem.PlayBobberPlop()
+		end
+	end)
 
 	if remote then
 		RemoteContract.Client.StartFishing(waterPos, castQuality, finalPower)
@@ -1274,6 +1233,19 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 		showMessage("🎣 Kail di air... Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 2.5)
 	end
 
+	-- Ambient bobber buoyancy ripples loop (FISH-036)
+	task.spawn(function()
+		while sessionToken == currentToken and fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) do
+			if activeBobber then
+				local bobberPart = activeBobber:IsA("Model") and (activeBobber.PrimaryPart or activeBobber:FindFirstChildWhichIsA("BasePart")) or activeBobber
+				if bobberPart and bobberPart.Parent then
+					VisualEffectsSystem.SpawnBobberPulse(bobberPart)
+				end
+			end
+			task.wait(1.0)
+		end
+	end)
+
 	task.wait(waitDuration)
 
 	-- Validasi kepemilikan token & status setelah durasi tunggu
@@ -1355,7 +1327,8 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 	end, function(metrics)
 		fsm:Transition(FishingStateMachine.States.REELING_FAIL, { metrics = metrics })
 		destroyBobberSafely()
-		createWaterSplash(waterPos)
+		AudioEffectsSystem.PlayFishEscape()
+		createWaterSplash(waterPos, Color3.fromRGB(160, 180, 200), 1.2)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
 		if remote and activeSessionId and activeSessionId ~= "" then
@@ -2351,6 +2324,14 @@ if remote then
 			print(string.format("[FishingClient] 🎉 CatchSuccess diterima dari Server! Ikan: %s (%s) | Bobot: %.1f Kg | Koin: +%d", tostring(fishData.name or "Ikan"), tostring(fishData.rarity or "COMMON"), tonumber(fishData.weight or 1) or 1, tonumber(rewardInfo.coins or 0) or 0))
 			showMessage(string.format("🎉 TANGKAPAN BERHASIL: %s (%s) • +%d Koin • +%d EXP", tostring(fishData.name or "Ikan"), tostring(fishData.rarity or "COMMON"), tonumber(rewardInfo.coins or 15) or 15, tonumber(rewardInfo.exp or 10) or 10), Color3.fromRGB(50, 255, 130), 4.0)
 
+			-- Trigger catch victory fanfare & 3D particle celebration (FISH-036)
+			AudioEffectsSystem.PlayCatchFanfare(fishData.rarity, fishData.grade or "A")
+			local char = player.Character
+			if char then
+				VisualEffectsSystem.CreateCatchCelebration(char, fishData.rarity)
+				VisualEffectsSystem.SpawnFloatingReward(char, string.format("+%d 💰  +%d XP", tonumber(rewardInfo.coins or 15) or 15, tonumber(rewardInfo.exp or 10) or 10), Color3.fromRGB(255, 225, 60))
+			end
+
 			clientPity = pityState
 
 			-- Temukan instance tool tangkapan di backpack/karakter pemain
@@ -2418,7 +2399,7 @@ if remote then
 			showMessage(string.format("💰 Berhasil menjual %s seharga +%d Koin!", fishName, coinsGained), Color3.fromRGB(50, 255, 130), 3.5)
 			spawnFloatingCoinEffect(coinsGained, "Terjual: " .. fishName)
 			EconomyHUD.ShowTransactionNotification("💰 IKAN TERJUAL", string.format("+%d Koin • %s", coinsGained, fishName), true)
-			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+			AudioEffectsSystem.PlayItemSell()
 			updateInventoryUI()
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.ALL_FISH_SOLD then
@@ -2440,7 +2421,8 @@ if remote then
 			showMessage(string.format("💰 Berhasil menjual %d Ikan seharga total +%d Koin!", count, totalCoins), Color3.fromRGB(50, 255, 130), 4.0)
 			spawnFloatingCoinEffect(totalCoins, string.format("Jual Massal %d Tangkapan", count))
 			EconomyHUD.ShowTransactionNotification("💰 JUAL MASSAL", string.format("+%d Koin (%d Tangkapan)", totalCoins, count), true)
-			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
+			AudioEffectsSystem.PlayItemSell()
+			AudioEffectsSystem.PlayCoinGain()
 			updateInventoryUI()
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 		elseif action == RemoteContract.S2C.LEVEL_UP then
@@ -2448,7 +2430,7 @@ if remote then
 			local oldLevel = lastPlayerData.level or (newLevel - 1)
 			lastPlayerData.level = newLevel
 			showMessage("⭐ LEVEL UP! Selamat, kamu sekarang Level " .. newLevel .. "! ⭐", Color3.fromRGB(255, 215, 0), 4.5)
-			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
+			AudioEffectsSystem.PlayLevelUp()
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 
 			-- Tampilkan Modal Perayaan Naik Level & Unlocks (FISH-032)
@@ -2506,7 +2488,7 @@ if remote then
 			end
 			showMessage(string.format("🎉 Transaksi Berhasil: %s!", tostring(details or itemId)), Color3.fromRGB(50, 255, 130), 3.5)
 			EconomyHUD.ShowTransactionNotification("🛍️ TRANSAKSI BERHASIL", tostring(details or itemId), false)
-			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.8)
+			AudioEffectsSystem.PlayCoinGain()
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			RemoteContract.Client.GetShopCatalog()
 		elseif action == RemoteContract.S2C.SHOP_TRANSACTION_FAILED then

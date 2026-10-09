@@ -7,8 +7,8 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("DrumConfig"))
+local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
 
 local DrumUI = {}
 
@@ -667,6 +667,7 @@ function DrumUI.PlayHitEffect(tile, y, ratingKey, column)
 		DrumUI.FlashColumn(column, ratingKey)
 	end
 	DrumUI.ShowHitRating(ratingKey, column, y)
+	AudioEffectsSystem.PlayNoteHit(ratingKey)
 
 	if tile and tile.Parent then
 		local tween = TweenService:Create(tile, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {

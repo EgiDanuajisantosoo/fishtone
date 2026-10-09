@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = ReplicatedStorage:FindFirstChild("PianoTilesConfig")
 	and require(ReplicatedStorage.PianoTilesConfig)
 	or require(Shared:WaitForChild("Config"):WaitForChild("PianoTilesConfig"))
+local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
 
 local PianoUI = {}
 
@@ -536,6 +537,7 @@ function PianoUI.PlayHitEffect(tile, y, ratingKey, column)
 		PianoUI.FlashColumn(column, ratingKey)
 	end
 	PianoUI.ShowHitRating(ratingKey, column, y)
+	AudioEffectsSystem.PlayNoteHit(ratingKey)
 
 	if tile and tile.Parent then
 		local tween = TweenService:Create(tile, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
