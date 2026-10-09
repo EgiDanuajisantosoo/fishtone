@@ -268,12 +268,35 @@ local function buildHybridGui(playerGui)
 	end
 
 	-- =========================================================
-	-- FEATURE TEMAN: CenterJudgementLabel
-	-- Belum ada di GUI user -> dibuat sementara.
+	-- FEATURE: CenterJudgementLabel
+	-- Prioritaskan label yang sudah ada di GUI Studio (header/arenaFrame/container),
+	-- jika belum ada, buat sebagai fallback non-destruktif.
 	-- =========================================================
-	centerJudgementLabel = header
-		and header:FindFirstChild("CenterJudgementLabel")
-		or nil
+	centerJudgementLabel = (header and (header:FindFirstChild("CenterJudgementLabel") or header:FindFirstChild("JudgementLabel") or header:FindFirstChild("RatingLabel")))
+		or (arena:FindFirstChild("CenterJudgementLabel") or arena:FindFirstChild("JudgementLabel") or arena:FindFirstChild("RatingLabel"))
+		or (container:FindFirstChild("CenterJudgementLabel", true) or container:FindFirstChild("JudgementLabel", true))
+
+	if not centerJudgementLabel then
+		centerJudgementLabel = Instance.new("TextLabel")
+		centerJudgementLabel.Name = "CenterJudgementLabel"
+		centerJudgementLabel.Size = UDim2.new(0, 220, 0, 40)
+		centerJudgementLabel.Position = UDim2.new(0.5, -110, 0.42, 0)
+		centerJudgementLabel.BackgroundTransparency = 1
+		centerJudgementLabel.Text = ""
+		centerJudgementLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		centerJudgementLabel.Font = Enum.Font.FredokaOne
+		centerJudgementLabel.TextSize = 26
+		centerJudgementLabel.ZIndex = 25
+		centerJudgementLabel.Visible = false
+		centerJudgementLabel.Parent = arena
+
+		local jStroke = Instance.new("UIStroke")
+		jStroke.Name = "Stroke"
+		jStroke.Color = Color3.fromRGB(0, 0, 0)
+		jStroke.Thickness = 2
+		jStroke.Transparency = 0.3
+		jStroke.Parent = centerJudgementLabel
+	end
 
 	-- =========================================================
 	-- USER PROGRESS BAR
@@ -350,9 +373,12 @@ function PianoUI.Create()
 	arenaFrame = arenaContainer:FindFirstChild("ArenaFrame")
 	if not arenaFrame then return false end
 
-	hitLine = arenaContainer:FindFirstChild("HitLine")
+	hitLine = arenaContainer:FindFirstChild("HitLine") or arenaFrame:FindFirstChild("HitLine")
 	perfectZoneGuide = arenaFrame:FindFirstChild("PerfectZoneGuide")
-	centerJudgementLabel = arenaFrame:FindFirstChild("CenterJudgementLabel")
+	if not centerJudgementLabel or not centerJudgementLabel.Parent then
+		centerJudgementLabel = arenaFrame:FindFirstChild("CenterJudgementLabel")
+			or (arenaContainer and arenaContainer:FindFirstChild("CenterJudgementLabel", true))
+	end
 
 	castBonusLabel = arenaContainer:FindFirstChild("CastBonusLabel", true)
 	songLabel = arenaContainer:FindFirstChild("SongLabel", true)
@@ -467,21 +493,41 @@ function PianoUI.TriggerReceptorPress(column, ratingKey)
 end
 
 function PianoUI.ShowHitRating(ratingKey, column, y)
-	print("Rating diterima:", ratingKey)
-	print("Label yang dipakai:", centerJudgementLabel)
-
-	if not centerJudgementLabel then
-		warn("CenterJudgementLabel tidak ditemukan!")
-		return
+	if not centerJudgementLabel or not centerJudgementLabel.Parent then
+		centerJudgementLabel = (arenaFrame and arenaFrame:FindFirstChild("CenterJudgementLabel"))
+			or (arenaContainer and arenaContainer:FindFirstChild("CenterJudgementLabel", true))
+		if not centerJudgementLabel then return end
 	end
 
 	local ratingData = getRatingData(ratingKey)
-	print("Teks yang akan ditampilkan:", ratingData.symbol)
-
-	centerJudgementLabel.Text = ratingData.symbol
-	centerJudgementLabel.TextColor3 = ratingData.color
+	centerJudgementLabel.Text = ratingData.symbol or tostring(ratingKey)
+	centerJudgementLabel.TextColor3 = ratingData.color or Color3.fromRGB(255, 255, 255)
 	centerJudgementLabel.TextTransparency = 0
 	centerJudgementLabel.Visible = true
+
+	local stroke = centerJudgementLabel:FindFirstChild("Stroke") or centerJudgementLabel:FindFirstChildOfClass("UIStroke")
+	if stroke then stroke.Transparency = 0.2 end
+
+	-- Animasi Punch & Fade Out Halus
+	local popTween = TweenService:Create(centerJudgementLabel, TweenInfo.new(0.08, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		TextSize = math.floor(26 * (ratingData.scale or 1.15)),
+	})
+	popTween:Play()
+
+	task.delay(0.28, function()
+		if centerJudgementLabel and centerJudgementLabel.Text == (ratingData.symbol or tostring(ratingKey)) then
+			local fade = TweenService:Create(centerJudgementLabel, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				TextTransparency = 1,
+				TextSize = 26,
+			})
+			fade:Play()
+			if stroke then
+				TweenService:Create(stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					Transparency = 1,
+				}):Play()
+			end
+		end
+	end)
 end
 
 function PianoUI.PlayHitEffect(tile, y, ratingKey, column)
