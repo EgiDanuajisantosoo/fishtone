@@ -175,8 +175,8 @@ local function buildDynamicGui(playerGui)
 	-- Bottom Wooden Dock
 	local bottomDock = Instance.new("Frame")
 	bottomDock.Name = "BottomDock"
-	bottomDock.Size = UDim2.new(1, 0, 0, 56)
-	bottomDock.Position = UDim2.new(0, 0, Config.HIT_LINE + 0.05, 0)
+	bottomDock.Size = UDim2.new(1, 0, 0, 68)
+	bottomDock.Position = UDim2.new(0, 0, 1, -68)
 	bottomDock.BackgroundColor3 = Color3.fromRGB(112, 74, 46)
 	bottomDock.BorderSizePixel = 0
 	bottomDock.ZIndex = 9
@@ -195,7 +195,7 @@ local function buildDynamicGui(playerGui)
 	local hLine = Instance.new("Frame")
 	hLine.Name = "HitLine"
 	hLine.Size = UDim2.new(1, 0, 0, 2)
-	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	hLine.Position = UDim2.new(0, 0, 1, -68)
 	hLine.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
 	hLine.BorderSizePixel = 0
 	hLine.ZIndex = 14
@@ -229,21 +229,48 @@ local function buildDynamicGui(playerGui)
 	for i = 1, Config.COLUMN_COUNT do
 		local col = arena:FindFirstChild("Column" .. i)
 		if col then
-			-- Fishing Hook Visual
-			local hookIcon = Instance.new("TextLabel")
-			hookIcon.Name = "HookIcon"
-			hookIcon.Size = UDim2.new(0, 24, 0, 28)
-			hookIcon.Position = UDim2.new(0.5, -12, Config.HIT_LINE - 0.02, 0)
-			hookIcon.BackgroundTransparency = 1
-			hookIcon.Text = "🪝"
-			hookIcon.TextSize = 22
-			hookIcon.ZIndex = 11
-			hookIcon.Parent = col
+			-- Metallic Fishing Hook Visual
+			local hookHolder = Instance.new("Frame")
+			hookHolder.Name = "FishingHook" .. i
+			hookHolder.Size = UDim2.new(0, 24, 0, 36)
+			hookHolder.Position = UDim2.new(0.5, -12, 1, -82)
+			hookHolder.BackgroundTransparency = 1
+			hookHolder.ZIndex = 11
+			hookHolder.Parent = col
+
+			local eyelet = Instance.new("Frame")
+			eyelet.Size = UDim2.new(0, 8, 0, 8)
+			eyelet.Position = UDim2.new(0.5, -4, 0, 0)
+			eyelet.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
+			eyelet.BorderSizePixel = 0
+			eyelet.ZIndex = 11
+			eyelet.Parent = hookHolder
+			Instance.new("UICorner", eyelet).CornerRadius = UDim.new(1, 0)
+
+			local shank = Instance.new("Frame")
+			shank.Size = UDim2.new(0, 3, 0, 20)
+			shank.Position = UDim2.new(0.5, -1.5, 0, 6)
+			shank.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
+			shank.BorderSizePixel = 0
+			shank.ZIndex = 11
+			shank.Parent = hookHolder
+
+			local bend = Instance.new("Frame")
+			bend.Size = UDim2.new(0, 16, 0, 14)
+			bend.Position = UDim2.new(0.5, -8, 0, 20)
+			bend.BackgroundTransparency = 1
+			bend.ZIndex = 11
+			bend.Parent = hookHolder
+			local bendStroke = Instance.new("UIStroke")
+			bendStroke.Color = Color3.fromRGB(240, 245, 255)
+			bendStroke.Thickness = 2.5
+			bendStroke.Parent = bend
+			Instance.new("UICorner", bend).CornerRadius = UDim.new(0, 7)
 
 			local pad = Instance.new("Frame")
 			pad.Name = "DrumPad"
-			pad.Size = UDim2.new(0.76, 0, 0.125, 0)
-			pad.Position = UDim2.new(0.12, 0, Config.HIT_LINE + 0.045, 0)
+			pad.Size = UDim2.new(0.72, 0, 0, 44)
+			pad.Position = UDim2.new(0.14, 0, 1, -54)
 			pad.BackgroundColor3 = Config.PAD_COLORS[i] or Color3.fromRGB(239, 68, 68)
 			pad.BorderSizePixel = 0
 			pad.ZIndex = 12
@@ -276,7 +303,7 @@ local function buildDynamicGui(playerGui)
 			keyText.Text = keyLabels[i] or tostring(i)
 			keyText.TextColor3 = Color3.fromRGB(255, 255, 255)
 			keyText.Font = Enum.Font.FredokaOne
-			keyText.TextSize = 18
+			keyText.TextSize = 20
 			keyText.ZIndex = 13
 			keyText.Parent = pad
 

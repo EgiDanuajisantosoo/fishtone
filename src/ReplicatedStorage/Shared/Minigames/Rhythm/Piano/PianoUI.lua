@@ -1,6 +1,6 @@
 --[[
     PianoUI (ModuleScript)
-    FISH!TUNE — Authentic Tropical Fishing × Rhythm Minigame UI (Matching Stagging Visuals)
+    FISH!TUNE — Authentic Tropical Fishing × Rhythm Minigame UI (100% Matching Stagging Image)
 ]]
 
 local Players = game:GetService("Players")
@@ -32,33 +32,33 @@ local function buildDynamicGui(playerGui)
 	screenGui.Enabled = false
 	screenGui.Parent = playerGui
 
-	-- Main Layout Container (Holds Left Wood Board, Center Water Arena, Right Vertical Bar)
+	-- Main Layout Container
 	local container = Instance.new("Frame")
 	container.Name = "ArenaContainer"
-	container.Size = UDim2.new(0, 520, 0, 480)
-	container.Position = UDim2.new(0.5, -260, 0.5, -240)
+	container.Size = UDim2.new(0, 520, 0, 500)
+	container.Position = UDim2.new(0.5, -260, 0.5, -250)
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel = 0
 	container.Parent = screenGui
 
 	-- ==================================================
-	-- LEFT WOOD PANEL (Song & Cast Info)
+	-- 1. LEFT WOOD PANEL (Song & Cast Info)
 	-- ==================================================
 	local woodPanel = Instance.new("Frame")
 	woodPanel.Name = "WoodPanel"
-	woodPanel.Size = UDim2.new(0, 140, 0, 230)
+	woodPanel.Size = UDim2.new(0, 160, 0, 260)
 	woodPanel.Position = UDim2.new(0, 0, 0, 20)
-	woodPanel.BackgroundColor3 = Color3.fromRGB(112, 74, 46)
+	woodPanel.BackgroundColor3 = Color3.fromRGB(112, 74, 46) -- Authentic Wood Plank Brown
 	woodPanel.BorderSizePixel = 0
 	woodPanel.Parent = container
-	Instance.new("UICorner", woodPanel).CornerRadius = UDim.new(0, 16)
+	Instance.new("UICorner", woodPanel).CornerRadius = UDim.new(0, 18)
 
 	local woodStroke = Instance.new("UIStroke")
 	woodStroke.Color = Color3.fromRGB(68, 42, 24)
-	woodStroke.Thickness = 3
+	woodStroke.Thickness = 3.5
 	woodStroke.Parent = woodPanel
 
-	-- Decorative Wood Plank Stripes
+	-- Vertical Plank Dividers
 	for p = 1, 3 do
 		local stripe = Instance.new("Frame")
 		stripe.Name = "PlankStripe" .. p
@@ -72,13 +72,13 @@ local function buildDynamicGui(playerGui)
 
 	local castBonus = Instance.new("TextLabel")
 	castBonus.Name = "CastBonusLabel"
-	castBonus.Size = UDim2.new(0.9, 0, 0, 26)
-	castBonus.Position = UDim2.new(0.05, 0, 0, 12)
+	castBonus.Size = UDim2.new(0.88, 0, 0, 28)
+	castBonus.Position = UDim2.new(0.06, 0, 0, 14)
 	castBonus.BackgroundTransparency = 1
 	castBonus.Text = "✨ PERFECT CAST"
 	castBonus.TextColor3 = Color3.fromRGB(255, 255, 255)
 	castBonus.Font = Enum.Font.FredokaOne
-	castBonus.TextSize = 14
+	castBonus.TextSize = 16
 	castBonus.TextXAlignment = Enum.TextXAlignment.Left
 	castBonus.Parent = woodPanel
 
@@ -89,13 +89,13 @@ local function buildDynamicGui(playerGui)
 
 	local song = Instance.new("TextLabel")
 	song.Name = "SongLabel"
-	song.Size = UDim2.new(0.9, 0, 0, 60)
-	song.Position = UDim2.new(0.05, 0, 0, 42)
+	song.Size = UDim2.new(0.88, 0, 0, 70)
+	song.Position = UDim2.new(0.06, 0, 0, 48)
 	song.BackgroundTransparency = 1
 	song.Text = "🎵 RIVER FLOWS IN YOU"
 	song.TextColor3 = Color3.fromRGB(255, 255, 255)
 	song.Font = Enum.Font.FredokaOne
-	song.TextSize = 13
+	song.TextSize = 15
 	song.TextWrapped = true
 	song.TextXAlignment = Enum.TextXAlignment.Left
 	song.TextYAlignment = Enum.TextYAlignment.Top
@@ -108,8 +108,8 @@ local function buildDynamicGui(playerGui)
 
 	local combo = Instance.new("TextLabel")
 	combo.Name = "ComboLabel"
-	combo.Size = UDim2.new(0.9, 0, 0, 28)
-	combo.Position = UDim2.new(0.05, 0, 0, 185)
+	combo.Size = UDim2.new(0.88, 0, 0, 28)
+	combo.Position = UDim2.new(0.06, 0, 0, 215)
 	combo.BackgroundTransparency = 1
 	combo.Text = "COMBO x0"
 	combo.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -124,24 +124,24 @@ local function buildDynamicGui(playerGui)
 	comboStroke.Parent = combo
 
 	-- ==================================================
-	-- CENTER ARENA (4 Water Lanes)
+	-- 2. CENTER ARENA (4 Water Lanes)
 	-- ==================================================
 	local arena = Instance.new("Frame")
 	arena.Name = "ArenaFrame"
-	arena.Size = UDim2.new(0, 280, 0, 420)
-	arena.Position = UDim2.new(0, 155, 0, 20)
-	arena.BackgroundColor3 = Color3.fromRGB(56, 172, 224)
+	arena.Size = UDim2.new(0, 280, 0, 440)
+	arena.Position = UDim2.new(0, 175, 0, 20)
+	arena.BackgroundColor3 = Color3.fromRGB(56, 172, 224) -- Tropical Water Blue
 	arena.BorderSizePixel = 0
 	arena.ClipsDescendants = true
 	arena.Parent = container
-	Instance.new("UICorner", arena).CornerRadius = UDim.new(0, 14)
+	Instance.new("UICorner", arena).CornerRadius = UDim.new(0, 16)
 
 	local arenaStroke = Instance.new("UIStroke")
 	arenaStroke.Color = Color3.fromRGB(255, 255, 255)
 	arenaStroke.Thickness = 2.5
 	arenaStroke.Parent = arena
 
-	-- Water gradient depth
+	-- Water gradient
 	local aGrad = Instance.new("UIGradient")
 	aGrad.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, Color3.fromRGB(64, 185, 235)),
@@ -176,9 +176,9 @@ local function buildDynamicGui(playerGui)
 	-- Bottom Wooden Dock
 	local bottomDock = Instance.new("Frame")
 	bottomDock.Name = "BottomDock"
-	bottomDock.Size = UDim2.new(1, 0, 0, 56)
-	bottomDock.Position = UDim2.new(0, 0, Config.HIT_LINE + 0.05, 0)
-	bottomDock.BackgroundColor3 = Color3.fromRGB(112, 74, 46)
+	bottomDock.Size = UDim2.new(1, 0, 0, 68)
+	bottomDock.Position = UDim2.new(0, 0, 1, -68)
+	bottomDock.BackgroundColor3 = Color3.fromRGB(112, 74, 46) -- Dark Wood Dock
 	bottomDock.BorderSizePixel = 0
 	bottomDock.ZIndex = 9
 	bottomDock.Parent = arena
@@ -196,7 +196,7 @@ local function buildDynamicGui(playerGui)
 	local hLine = Instance.new("Frame")
 	hLine.Name = "HitLine"
 	hLine.Size = UDim2.new(1, 0, 0, 2)
-	hLine.Position = UDim2.new(0, 0, Config.HIT_LINE, 0)
+	hLine.Position = UDim2.new(0, 0, 1, -68)
 	hLine.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
 	hLine.BorderSizePixel = 0
 	hLine.ZIndex = 14
@@ -230,22 +230,50 @@ local function buildDynamicGui(playerGui)
 	for i = 1, Config.COLUMN_COUNT do
 		local col = arena:FindFirstChild("Column" .. i)
 		if col then
-			-- Fishing Hook Visual
-			local hookIcon = Instance.new("TextLabel")
-			hookIcon.Name = "HookIcon"
-			hookIcon.Size = UDim2.new(0, 24, 0, 28)
-			hookIcon.Position = UDim2.new(0.5, -12, Config.HIT_LINE - 0.02, 0)
-			hookIcon.BackgroundTransparency = 1
-			hookIcon.Text = "🪝"
-			hookIcon.TextSize = 22
-			hookIcon.ZIndex = 11
-			hookIcon.Parent = col
+			-- Metallic Fishing Hook looping from dock into receptor
+			local hookHolder = Instance.new("Frame")
+			hookHolder.Name = "FishingHook" .. i
+			hookHolder.Size = UDim2.new(0, 24, 0, 36)
+			hookHolder.Position = UDim2.new(0.5, -12, 1, -82)
+			hookHolder.BackgroundTransparency = 1
+			hookHolder.ZIndex = 11
+			hookHolder.Parent = col
 
+			local eyelet = Instance.new("Frame")
+			eyelet.Size = UDim2.new(0, 8, 0, 8)
+			eyelet.Position = UDim2.new(0.5, -4, 0, 0)
+			eyelet.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
+			eyelet.BorderSizePixel = 0
+			eyelet.ZIndex = 11
+			eyelet.Parent = hookHolder
+			Instance.new("UICorner", eyelet).CornerRadius = UDim.new(1, 0)
+
+			local shank = Instance.new("Frame")
+			shank.Size = UDim2.new(0, 3, 0, 20)
+			shank.Position = UDim2.new(0.5, -1.5, 0, 6)
+			shank.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
+			shank.BorderSizePixel = 0
+			shank.ZIndex = 11
+			shank.Parent = hookHolder
+
+			local bend = Instance.new("Frame")
+			bend.Size = UDim2.new(0, 16, 0, 14)
+			bend.Position = UDim2.new(0.5, -8, 0, 20)
+			bend.BackgroundTransparency = 1
+			bend.ZIndex = 11
+			bend.Parent = hookHolder
+			local bendStroke = Instance.new("UIStroke")
+			bendStroke.Color = Color3.fromRGB(240, 245, 255)
+			bendStroke.Thickness = 2.5
+			bendStroke.Parent = bend
+			Instance.new("UICorner", bend).CornerRadius = UDim.new(0, 7)
+
+			-- Square Blue Key Button
 			local receptor = Instance.new("Frame")
 			receptor.Name = "ReceptorPad"
-			receptor.Size = UDim2.new(0.76, 0, 0.125, 0)
-			receptor.Position = UDim2.new(0.12, 0, Config.HIT_LINE + 0.045, 0)
-			receptor.BackgroundColor3 = Color3.fromRGB(0, 150, 220)
+			receptor.Size = UDim2.new(0.72, 0, 0, 44)
+			receptor.Position = UDim2.new(0.14, 0, 1, -54)
+			receptor.BackgroundColor3 = Color3.fromRGB(0, 162, 232)
 			receptor.BorderSizePixel = 0
 			receptor.ZIndex = 12
 			receptor.Parent = col
@@ -277,7 +305,7 @@ local function buildDynamicGui(playerGui)
 			keyText.Text = keyLabels[i] or tostring(i)
 			keyText.TextColor3 = Color3.fromRGB(255, 255, 255)
 			keyText.Font = Enum.Font.FredokaOne
-			keyText.TextSize = 18
+			keyText.TextSize = 20
 			keyText.ZIndex = 13
 			keyText.Parent = receptor
 
@@ -307,17 +335,17 @@ local function buildDynamicGui(playerGui)
 	cjStroke.Parent = centerJudge
 
 	-- ==================================================
-	-- RIGHT VERTICAL WATER PROGRESS BAR
+	-- 3. RIGHT VERTICAL WATER PROGRESS BAR
 	-- ==================================================
 	local pBar = Instance.new("Frame")
 	pBar.Name = "ProgressBar"
-	pBar.Size = UDim2.new(0, 36, 0, 420)
-	pBar.Position = UDim2.new(0, 448, 0, 20)
+	pBar.Size = UDim2.new(0, 34, 0, 440)
+	pBar.Position = UDim2.new(0, 468, 0, 20)
 	pBar.BackgroundColor3 = Color3.fromRGB(56, 172, 224)
 	pBar.BorderSizePixel = 0
 	pBar.ClipsDescendants = true
 	pBar.Parent = container
-	Instance.new("UICorner", pBar).CornerRadius = UDim.new(0, 18)
+	Instance.new("UICorner", pBar).CornerRadius = UDim.new(0, 17)
 
 	local pStroke = Instance.new("UIStroke")
 	pStroke.Color = Color3.fromRGB(255, 255, 255)
@@ -342,28 +370,30 @@ local function buildDynamicGui(playerGui)
 	pFill.BorderSizePixel = 0
 	pFill.Parent = pBar
 
-	local fishIcon = Instance.new("TextLabel")
+	local fishIcon = Instance.new("ImageLabel")
 	fishIcon.Name = "Fish"
-	fishIcon.Size = UDim2.new(0, 28, 0, 28)
-	fishIcon.Position = UDim2.new(0.5, -14, 0.92, -14)
+	fishIcon.Size = UDim2.new(0, 26, 0, 26)
+	fishIcon.Position = UDim2.new(0.5, -13, 0.92, -13)
 	fishIcon.BackgroundTransparency = 1
-	fishIcon.Text = "🐟"
-	fishIcon.TextSize = 20
+	fishIcon.Image = "rbxassetid://81497165860027"
+	fishIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+	fishIcon.ScaleType = Enum.ScaleType.Fit
 	fishIcon.ZIndex = 5
 	fishIcon.Parent = pBar
 
 	-- ==================================================
-	-- BOTTOM PROGRESS TEXT
+	-- 4. BOTTOM PROGRESS TEXT
 	-- ==================================================
 	local pLabel = Instance.new("TextLabel")
 	pLabel.Name = "ProgressLabel"
-	pLabel.Size = UDim2.new(0, 300, 0, 26)
-	pLabel.Position = UDim2.new(0, 145, 0, 446)
+	pLabel.Size = UDim2.new(0, 320, 0, 26)
+	pLabel.Position = UDim2.new(0, 185, 0, 468)
 	pLabel.BackgroundTransparency = 1
 	pLabel.Text = "🎣 PROGRES: 0% • 0/30 NOT"
 	pLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	pLabel.Font = Enum.Font.FredokaOne
-	pLabel.TextSize = 14
+	pLabel.TextSize = 15
+	pLabel.TextXAlignment = Enum.TextXAlignment.Right
 	pLabel.Parent = container
 
 	local plStroke = Instance.new("UIStroke")
@@ -372,7 +402,7 @@ local function buildDynamicGui(playerGui)
 	plStroke.Parent = pLabel
 
 	-- ==================================================
-	-- RESULT OVERLAY
+	-- 5. RESULT OVERLAY
 	-- ==================================================
 	local result = Instance.new("Frame")
 	result.Name = "ResultOverlay"
@@ -383,7 +413,7 @@ local function buildDynamicGui(playerGui)
 	result.Visible = false
 	result.ZIndex = 30
 	result.Parent = arena
-	Instance.new("UICorner", result).CornerRadius = UDim.new(0, 14)
+	Instance.new("UICorner", result).CornerRadius = UDim.new(0, 16)
 
 	local resLabel = Instance.new("TextLabel")
 	resLabel.Name = "ResultLabel"
@@ -513,7 +543,7 @@ function PianoUI.CreateTile(column, y)
 	local glow = Instance.new("UIStroke")
 	glow.Name = "TileGlow"
 	glow.Color = Color3.fromRGB(255, 255, 255)
-	glow.Thickness = 2
+	glow.Thickness = 2.5
 	glow.Transparency = 0
 	glow.Parent = tile
 
@@ -539,7 +569,7 @@ function PianoUI.MoveTile(tile, y)
 			else
 				-- Normal State: Crisp White Outline
 				glow.Color = Color3.fromRGB(255, 255, 255)
-				glow.Thickness = 2
+				glow.Thickness = 2.5
 				glow.Transparency = 0
 			end
 		end
@@ -559,7 +589,7 @@ function PianoUI.TriggerReceptorPress(column, ratingKey)
 	pad.BackgroundTransparency = 0.2
 
 	TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		BackgroundColor3 = Color3.fromRGB(0, 150, 220),
+		BackgroundColor3 = Color3.fromRGB(0, 162, 232),
 		BackgroundTransparency = 0,
 	}):Play()
 end
@@ -678,7 +708,7 @@ function PianoUI.UpdateHUD(progress, combo, currentNotes, targetNotes, liveMetri
 	if fish and progressContainer then
 		local targetY = (1 - percent) * 0.88 + 0.04
 		TweenService:Create(fish, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0.5, -14, targetY, -14)
+			Position = UDim2.new(0.5, -13, targetY, -13)
 		}):Play()
 	end
 
@@ -698,7 +728,7 @@ function PianoUI.UpdateHeader(castLabel, castColor, melodyName)
 		castBonusLabel.TextColor3 = castColor or Color3.fromRGB(255, 255, 255)
 	end
 	if songLabel then
-		songLabel.Text = "🎵 " .. tostring(melodyName or "MELODI PIANO")
+		songLabel.Text = "🎵 " .. tostring(melodyName or "RIVER FLOWS IN YOU"):upper()
 	end
 end
 
