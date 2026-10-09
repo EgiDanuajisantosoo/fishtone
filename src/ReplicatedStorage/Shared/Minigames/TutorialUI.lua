@@ -726,7 +726,7 @@ local HELP_TABS = {
 		content = {
 			{
 				header = "1. Lemparan Kail (Casting Meter)",
-				body = "Arahkan kamera ke air dan tahan tombol mancing. Meter lemparan memiliki 3 zona: <b>GOOD (Biru)</b>, <b>GREAT (Cyan)</b>, dan <b>PERFECT (Hijau)</b>. Lepaskan saat indikator di zona PERFECT untuk jangkauan terjauh dan bonus Luck!",
+				body = "Arahkan kamera ke air dan tahan tombol mancing. Meter lemparan memiliki 3 zona: <b>GOOD (Biru)</b>, <b>GREAT (Cyan)</b>, dan <b>PERFECT (Hijau)</b>. Lepaskan saat indikator di zona PERFECT untuk jangkauan terjauh, sambaran kilat, dan bonus progress awal minigame ritme +35%!",
 			},
 			{
 				header = "2. Waktu Tunggu & Sambaran (Bite)",
