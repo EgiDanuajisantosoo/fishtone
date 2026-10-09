@@ -2349,6 +2349,7 @@ if remote then
 			local pityState = arg4 or {}
 
 			print(string.format("[FishingClient] 🎉 CatchSuccess diterima dari Server! Ikan: %s (%s) | Bobot: %.1f Kg | Koin: +%d", tostring(fishData.name or "Ikan"), tostring(fishData.rarity or "COMMON"), tonumber(fishData.weight or 1) or 1, tonumber(rewardInfo.coins or 0) or 0))
+			showMessage(string.format("🎉 TANGKAPAN BERHASIL: %s (%s) • +%d Koin • +%d EXP", tostring(fishData.name or "Ikan"), tostring(fishData.rarity or "COMMON"), tonumber(rewardInfo.coins or 15) or 15, tonumber(rewardInfo.exp or 10) or 10), Color3.fromRGB(50, 255, 130), 4.0)
 
 			clientPity = pityState
 
