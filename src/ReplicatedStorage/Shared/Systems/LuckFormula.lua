@@ -2,17 +2,18 @@
 	LuckFormula (ModuleScript)
 	FISH!TUNE — Central Luck Formula, Diminishing Returns & Drop Multiplier System (FISH-019)
 
-	Sistem Sentral Perhitungan Stat Luck Terintegrasi:
+	Sistem Sentral Perhitungan Stat Luck Terintegrasi (Sesuai Aturan FISH!TUNE Section 7):
 	1. Multi-Source Luck Aggregation:
-	   - Level Progression Luck (0 - 15)
-	   - Equipment / Rod Luck (5 - 75+)
-	   - Precision Cast Luck (PERFECT: +35, GREAT: +15, GOOD: +0)
+	   - Equipment / Rod Luck (5 - 50+)
 	   - Minigame Performance Streak Luck (0 - 25)
 	   - Zone Affinity Luck (Melody Bay: 0, Twin Eye Lagoon: +10, Summit Abyss: +25)
-	   - Active Potions / Temporary Buff Luck (0 - 50+)
-	2. Hyperbolic & Piecewise Diminishing Returns Curve (Anti-Degenerate Scaling).
-	3. Universal Luck Multipliers (Rarity Tiers, Loot Categories, Fish Size/Weight Skew).
-	4. Lucky Mutations (Shiny, Golden, Giant, Albino, Cosmic).
+	   - Active Baits / Potions / Temporary Buff Luck (0 - 30+)
+	   - Catatan: Level dan Cast Quality TIDAK memberikan Luck langsung.
+	     * Level adalah progresi murni (dari TotalXP).
+	     * Cast Quality hanya menentukan starting note progress minigame (PERFECT=35%, GREAT=20%, GOOD=10%).
+	2. Hyperbolic & Piecewise Diminishing Returns Curve [0 - 100].
+	3. Universal Luck Multipliers untuk Rarity Tier Weights & Category Drops.
+	4. Lucky Mutations (Shiny, Golden, Giant, Cosmic).
 	5. Full Audit & Breakdown API untuk Debugging dan UI Feedback Transparan.
 ]]
 
@@ -20,33 +21,33 @@ local LuckFormula = {}
 
 -- ============ CONFIGURATION & CONSTANTS ============
 LuckFormula.CONFIG = {
-	-- Batas Raw & Effective Luck
+	-- Batas Raw & Effective Luck (Dibatasi 0 - 100 untuk Prototipe)
 	MIN_LUCK = 0,
-	SOFT_CAP_1 = 50,    -- Mulai melandai ringan (efisiensi 75%)
-	SOFT_CAP_2 = 120,   -- Mulai melandai tinggi (efisiensi 45%)
-	HARD_CAP = 300,     -- Batas absolut
+	SOFT_CAP_1 = 40,    -- Mulai melandai ringan (efisiensi 70%)
+	SOFT_CAP_2 = 75,    -- Mulai melandai tinggi (efisiensi 40%)
+	HARD_CAP = 100,     -- Batas absolut stat Luck
 
 	-- Multiplier Formula Constants: Multiplier = 1.0 + (Eff / (Eff + K)) * MAX_BONUS
-	CURVE_K = 70,
-	MAX_BONUS_MULT = 0.85, -- Multiplier maksimal: 1.00x - 1.85x
+	CURVE_K = 50,
+	MAX_BONUS_MULT = 0.80, -- Multiplier maksimal: 1.00x - 1.53x pada 100 Luck
 
-	-- Cast Quality Luck Values
+	-- Cast Quality Luck Values (Strictly 0; Cast Quality hanya menentukan start progress minigame)
 	CAST_LUCK = {
-		PERFECT = 35,
-		GREAT = 15,
+		PERFECT = 0,
+		GREAT = 0,
 		GOOD = 0,
 		MISS = 0,
 	},
 
-	-- Level Luck Configuration (Maks +15 pada Level 60)
-	LEVEL_COEFF = 0.25,
-	MAX_LEVEL_LUCK = 15,
+	-- Level Progression (Level adalah progresi murni, tidak memberikan bonus luck langsung)
+	LEVEL_COEFF = 0,
+	MAX_LEVEL_LUCK = 0,
 
-	-- Minigame Performance Luck (Maks +25 pada Skor 100)
+	-- Minigame Performance Streak Luck (Maks +25 pada Skor 100)
 	PERFORMANCE_COEFF = 0.25,
 	MAX_PERF_LUCK = 25,
 
-	-- Rarity Tier Luck Exponents (Seberapa sensitif setiap tier terhadap luck)
+	-- Rarity Tier Luck Exponents (Sensitivitas setiap tier terhadap luck)
 	TIER_EXPONENTS = {
 		SPECIAL = 3.2,
 		MYTHIC = 2.4,
@@ -121,25 +122,24 @@ LuckFormula.CONFIG = {
 function LuckFormula.CalculateRawLuck(sources)
 	sources = sources or {}
 
-	local levelLuck = math.clamp((tonumber(sources.level) or 1) * LuckFormula.CONFIG.LEVEL_COEFF, 0, LuckFormula.CONFIG.MAX_LEVEL_LUCK)
 	local rodLuck = math.max(0, tonumber(sources.rod) or 5)
-	
-	local castQuality = tostring(sources.castQuality or "GOOD"):upper()
-	local castLuck = LuckFormula.CONFIG.CAST_LUCK[castQuality] or 0
-
 	local perfLuck = math.clamp(tonumber(sources.performance) or 0, 0, LuckFormula.CONFIG.MAX_PERF_LUCK)
 	local zoneLuck = math.max(0, tonumber(sources.zone) or 0)
 	local buffLuck = math.max(0, tonumber(sources.buffs) or 0)
 
-	local rawLuck = levelLuck + rodLuck + castLuck + perfLuck + zoneLuck + buffLuck
+	-- Cast Quality dan Level tidak memberikan direct luck (strictly 0)
+	local castLuck = 0
+	local levelLuck = 0
+
+	local rawLuck = rodLuck + perfLuck + zoneLuck + buffLuck
 
 	return math.clamp(rawLuck, LuckFormula.CONFIG.MIN_LUCK, LuckFormula.CONFIG.HARD_CAP), {
-		level = levelLuck,
 		rod = rodLuck,
-		cast = castLuck,
 		performance = perfLuck,
 		zone = zoneLuck,
 		buffs = buffLuck,
+		cast = castLuck,
+		level = levelLuck,
 	}
 end
 
@@ -149,17 +149,18 @@ function LuckFormula.CalculateEffectiveLuck(rawLuck)
 	local cfg = LuckFormula.CONFIG
 
 	if rawLuck <= cfg.SOFT_CAP_1 then
-		-- Zona Linear (0 - 50 Luck -> 100% Efisiensi)
+		-- Zona Linear (0 - 40 Luck -> 100% Efisiensi)
 		return rawLuck
 	elseif rawLuck <= cfg.SOFT_CAP_2 then
-		-- Zona Melandai Ringan (50 - 120 Luck -> 75% Efisiensi)
+		-- Zona Melandai Ringan (40 - 75 Luck -> 70% Efisiensi)
 		local excess = rawLuck - cfg.SOFT_CAP_1
-		return cfg.SOFT_CAP_1 + (excess * 0.75)
+		return cfg.SOFT_CAP_1 + (excess * 0.70)
 	else
-		-- Zona Melandai Tinggi (120+ Luck -> 45% Efisiensi)
-		local baseEff = cfg.SOFT_CAP_1 + ((cfg.SOFT_CAP_2 - cfg.SOFT_CAP_1) * 0.75) -- 50 + 52.5 = 102.5
+		-- Zona Melandai Tinggi (75 - 100 Luck -> 40% Efisiensi, Hard Capped at 100)
+		local baseEff = cfg.SOFT_CAP_1 + ((cfg.SOFT_CAP_2 - cfg.SOFT_CAP_1) * 0.70)
 		local excess = rawLuck - cfg.SOFT_CAP_2
-		return baseEff + (excess * 0.45)
+		local eff = baseEff + (excess * 0.40)
+		return math.clamp(eff, cfg.MIN_LUCK, cfg.HARD_CAP)
 	end
 end
 
@@ -178,7 +179,7 @@ function LuckFormula.RollMutation(effectiveLuck)
 	effectiveLuck = math.clamp(tonumber(effectiveLuck) or 0, LuckFormula.CONFIG.MIN_LUCK, LuckFormula.CONFIG.HARD_CAP)
 	local mutations = LuckFormula.CONFIG.MUTATIONS
 
-	-- Roll urutan: COSMIC -> GOLDEN -> GIANT -> SHINY
+	-- Roll urutan hierarki mutasi: COSMIC -> GOLDEN -> GIANT -> SHINY
 	local order = { "COSMIC", "GOLDEN", "GIANT", "SHINY" }
 
 	for _, key in ipairs(order) do
@@ -218,13 +219,13 @@ end
 function LuckFormula.GetLuckTitle(effectiveLuck)
 	effectiveLuck = tonumber(effectiveLuck) or 0
 
-	if effectiveLuck >= 90 then
+	if effectiveLuck >= 75 then
 		return "👑 Keberuntungan Kosmik", Color3.fromRGB(255, 60, 200)
-	elseif effectiveLuck >= 60 then
+	elseif effectiveLuck >= 50 then
 		return "✨ Keberuntungan Dewa Laut", Color3.fromRGB(255, 215, 0)
-	elseif effectiveLuck >= 35 then
+	elseif effectiveLuck >= 30 then
 		return "🌟 Sangat Beruntung", Color3.fromRGB(0, 225, 255)
-	elseif effectiveLuck >= 15 then
+	elseif effectiveLuck >= 12 then
 		return "🍀 Cukup Beruntung", Color3.fromRGB(80, 220, 120)
 	else
 		return "🌱 Netral", Color3.fromRGB(180, 190, 205)
@@ -245,12 +246,12 @@ function LuckFormula.CalculateBreakdown(sources)
 		title = luckTitle,
 		titleColor = titleColor,
 		sources = {
-			level = { name = "Level Karakter", value = math.floor(srcBreakdown.level * 10) / 10 },
 			rod = { name = "Joran Pancing", value = srcBreakdown.rod },
-			cast = { name = "Akurasi Lemparan (" .. tostring(sources.castQuality or "GOOD"):upper() .. ")", value = srcBreakdown.cast },
 			performance = { name = "Bonus Performa Lalu", value = math.floor(srcBreakdown.performance * 10) / 10 },
 			zone = { name = "Afinitas Wilayah", value = srcBreakdown.zone },
-			buffs = { name = "Efek Potion / Buff", value = srcBreakdown.buffs },
+			buffs = { name = "Efek Umpan / Potion", value = srcBreakdown.buffs },
+			cast = { name = "Akurasi Lemparan (Progress Only)", value = 0 },
+			level = { name = "Level Karakter (Progression Only)", value = 0 },
 		},
 		mutationOdds = {
 			cosmic = math.min(LuckFormula.CONFIG.MUTATIONS.COSMIC.maxChance, LuckFormula.CONFIG.MUTATIONS.COSMIC.baseChance + (effectiveLuck * LuckFormula.CONFIG.MUTATIONS.COSMIC.luckScale)),

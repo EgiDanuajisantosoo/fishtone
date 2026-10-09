@@ -223,29 +223,9 @@ function FishingRaritySystem.GetLuckMultiplier(effectiveLuck)
 	return LuckFormula.GetLuckMultiplier(effectiveLuck)
 end
 
--- ============ 3. SOFT LEVEL GATING MULTIPLIER ============
+-- ============ 3. LEVEL MULTIPLIER (PROGRESSION COMPLIANCE) ============
 function FishingRaritySystem.GetLevelMultiplier(level, rarity)
-	level = math.max(1, tonumber(level) or 1)
-	rarity = tostring(rarity):upper()
-
-	if rarity == "SPECIAL" or rarity == "EX" then
-		if level < 15 then return 0.05 end
-		if level < 25 then return 0.35 end
-		return 1.00
-	elseif rarity == "MYTHIC" or rarity == "UR" then
-		if level < 10 then return 0.10 end
-		if level < 20 then return 0.50 end
-		return 1.00
-	elseif rarity == "LEGENDARY" or rarity == "SSR" then
-		if level < 5 then return 0.20 end
-		if level < 10 then return 0.50 end
-		if level < 20 then return 0.80 end
-		return 1.00
-	elseif rarity == "SUPER_RARE" or rarity == "SR" then
-		if level < 3 then return 0.60 end
-		return 1.00
-	end
-
+	-- Sesuai FISH!TUNE Rules Section 7: Level adalah progresi murni, bukan direct luck atau rarity gate.
 	return 1.00
 end
 

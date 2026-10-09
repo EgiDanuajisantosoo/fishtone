@@ -99,24 +99,24 @@ InstrumentConfig.HIT_RATINGS = {
 	},
 }
 
--- ============ CAST BONUSES ============
+-- ============ CAST BONUSES (STARTING NOTE PROGRESSION ONLY) ============
 InstrumentConfig.CAST_BONUSES = {
 	PERFECT = {
-		startRatio = 0.50,
+		startRatio = 0.35, -- 35% Minigame Starting Progress
 		gainBonus = 0.02,
-		penaltyMult = 0.50,
+		penaltyMult = 0.70,
 		label = "PERFECT CAST",
 		color = Color3.fromRGB(255, 215, 0),
 	},
 	GREAT = {
-		startRatio = 0.35,
+		startRatio = 0.20, -- 20% Minigame Starting Progress
 		gainBonus = 0.01,
-		penaltyMult = 0.75,
+		penaltyMult = 0.85,
 		label = "GREAT CAST",
 		color = Color3.fromRGB(0, 220, 255),
 	},
 	GOOD = {
-		startRatio = 0.25,
+		startRatio = 0.10, -- 10% Minigame Starting Progress
 		gainBonus = 0.00,
 		penaltyMult = 1.00,
 		label = "GOOD CAST",
