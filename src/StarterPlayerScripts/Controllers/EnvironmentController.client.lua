@@ -347,8 +347,11 @@ local function init()
 
 	-- Set default Melody Bay atmosphere
 	local defaultZone = ZoneConfig.ZONES.MELODY_BAY
-	applyZoneLighting(defaultZone, 1.0)
-	applyZoneSoundscape(defaultZone, 1.0)
+	currentZoneId = defaultZone and defaultZone.id or "MELODY_BAY"
+	if defaultZone then
+		applyZoneLighting(defaultZone, 1.0)
+		applyZoneSoundscape(defaultZone, 1.0)
+	end
 
 	-- Detection loop for current zone
 	task.spawn(function()

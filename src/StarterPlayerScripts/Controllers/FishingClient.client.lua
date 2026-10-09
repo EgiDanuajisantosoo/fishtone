@@ -83,9 +83,9 @@ local function mergePlayerData(newData)
 	end
 end
 
-local function syncFromLeaderstats()
-	local stats = player and player:FindFirstChild("leaderstats")
-	if stats then
+local function hookLeaderstatsFolder(stats)
+	if not stats then return end
+	local function updateStats()
 		local lvl = stats:FindFirstChild("Level")
 		local exp = stats:FindFirstChild("Exp")
 		local koin = stats:FindFirstChild("Koin") or stats:FindFirstChild("Coins")
@@ -98,9 +98,32 @@ local function syncFromLeaderstats()
 		if koin and tonumber(koin.Value) ~= nil then
 			lastPlayerData.coins = tonumber(koin.Value)
 		end
-		if lastPlayerData.totalExp == nil and lastPlayerData.level ~= nil then
+		if lastPlayerData.level ~= nil then
 			lastPlayerData.totalExp = XPProgressionSystem.ReconcileToTotalExp(lastPlayerData.level or 1, lastPlayerData.exp or 0)
 		end
+		if EconomyHUD and EconomyHUD.Update then
+			EconomyHUD.Update(lastPlayerData)
+		end
+	end
+
+	for _, v in ipairs(stats:GetChildren()) do
+		if v:IsA("ValueBase") then
+			v:GetPropertyChangedSignal("Value"):Connect(updateStats)
+		end
+	end
+	stats.ChildAdded:Connect(function(v)
+		if v:IsA("ValueBase") then
+			v:GetPropertyChangedSignal("Value"):Connect(updateStats)
+		end
+		updateStats()
+	end)
+	updateStats()
+end
+
+local function syncFromLeaderstats()
+	local stats = player and player:FindFirstChild("leaderstats")
+	if stats then
+		hookLeaderstatsFolder(stats)
 	end
 end
 
@@ -108,7 +131,7 @@ syncFromLeaderstats()
 if player then
 	player.ChildAdded:Connect(function(child)
 		if child.Name == "leaderstats" then
-			task.defer(syncFromLeaderstats)
+			task.defer(function() hookLeaderstatsFolder(child) end)
 		end
 	end)
 end
@@ -1164,10 +1187,11 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 		RemoteContract.Client.StartFishing(waterPos, castQuality, finalPower)
 	end
 
-	-- Fallback Timer: HANYA berjalan jika server tidak merespon dalam 3.5 detik dan belum menerima sesi server
-	task.delay(3.5, function()
+	-- Timeout pelindung jika server tidak merespon dalam 10 detik
+	task.delay(10.0, function()
 		if sessionToken == currentToken and fsm:Is(FishingStateMachine.States.CASTING) and not serverSessionReceived then
-			onSessionStarted("LOCAL_FALLBACK", 1.6, castQuality)
+			showMessage("⚠️ Server tidak merespons lemparan kail. Silakan coba lempar kembali.", Color3.fromRGB(255, 140, 140), 3.0)
+			fsm:ForceReset("CastTimeout")
 		end
 	end)
 end)
@@ -1217,9 +1241,7 @@ executeCastAfterMeter = function()
 end
 
 onSessionStarted = function(sessionId, waitDuration, castQuality)
-	if sessionId ~= "LOCAL_FALLBACK" then
-		serverSessionReceived = true
-	end
+	serverSessionReceived = true
 
 	-- Batalkan jika status bukan CASTING atau WAITING_FOR_BITE yang cocok
 	if not fsm:Is(FishingStateMachine.States.CASTING) and not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) then
@@ -1319,7 +1341,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 		animateFishLeap(waterPos, catchTarget, 0.9, 7)
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.9, 1.8)
 
-		if remote and activeSessionId and activeSessionId ~= "LOCAL_FALLBACK" then
+		if remote and activeSessionId and activeSessionId ~= "" then
 			RemoteContract.Client.SubmitCatch(activeSessionId, metrics)
 		else
 			showMessage("🎉 TANGKAPAN BERHASIL! Skor: " .. tostring(metrics.score or 0), Color3.fromRGB(50, 255, 130), 4.0)
@@ -1334,7 +1356,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
-		if remote and activeSessionId and activeSessionId ~= "LOCAL_FALLBACK" then
+		if remote and activeSessionId and activeSessionId ~= "" then
 			RemoteContract.Client.CancelFishing(activeSessionId)
 		end
 
