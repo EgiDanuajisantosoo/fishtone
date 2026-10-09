@@ -6,10 +6,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-
-local Config = require(Shared:WaitForChild("Config"):WaitForChild("PianoConfig"))
-local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
+local Config = require(ReplicatedStorage:WaitForChild("PianoTilesConfig"))
 
 local PianoUI = {}
 
@@ -24,214 +21,93 @@ local function getPlayerGui()
 	return player and (player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 5))
 end
 
-local function buildDynamicGui(playerGui)
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "PianoTilesGui"
-	screenGui.ResetOnSpawn = false
-	screenGui.DisplayOrder = 20
-	screenGui.Enabled = false
-	screenGui.Parent = playerGui
+local DEFAULT_RATINGS = {
+	GOOD = { flashColor = Color3.fromRGB(0, 220, 255), color = Color3.fromRGB(0, 220, 255), symbol = "GOOD", scale = 1 },
+	MISS = { flashColor = Color3.fromRGB(255, 70, 70), color = Color3.fromRGB(255, 70, 70), symbol = "MISS", scale = 1 },
+}
 
-	-- Main Layout Container
-	local container = Instance.new("Frame")
-	container.Name = "ArenaContainer"
-	container.Size = UDim2.new(0, 520, 0, 500)
-	container.Position = UDim2.new(0.5, -260, 0.5, -250)
-	container.BackgroundTransparency = 1
-	container.BorderSizePixel = 0
-	container.Parent = screenGui
+local function getRatingData(ratingKey)
+	local ratings = Config.HIT_RATINGS or DEFAULT_RATINGS
+	return ratings[ratingKey or "GOOD"] or ratings.GOOD or DEFAULT_RATINGS.GOOD
+end
 
-	-- ==================================================
-	-- 1. LEFT WOOD PANEL (Song & Cast Info)
-	-- ==================================================
-	local woodPanel = Instance.new("Frame")
-	woodPanel.Name = "WoodPanel"
-	woodPanel.Size = UDim2.new(0, 160, 0, 260)
-	woodPanel.Position = UDim2.new(0, 0, 0, 20)
-	woodPanel.BackgroundColor3 = Color3.fromRGB(112, 74, 46) -- Authentic Wood Plank Brown
-	woodPanel.BorderSizePixel = 0
-	woodPanel.Parent = container
-	Instance.new("UICorner", woodPanel).CornerRadius = UDim.new(0, 18)
+local function buildHybridGui(playerGui)
+	-- =========================================================
+	-- HYBRID GUI MODE
+	-- 1. Pakai object yang SUDAH dibuat manual oleh user.
+	-- 2. Kalau object fitur teman belum ada, baru dibuat sementara.
+	-- 3. Tidak pernah Destroy() / replace PianoTilesGui milik user.
+	-- =========================================================
 
-	local woodStroke = Instance.new("UIStroke")
-	woodStroke.Color = Color3.fromRGB(68, 42, 24)
-	woodStroke.Thickness = 3.5
-	woodStroke.Parent = woodPanel
-
-	-- Vertical Plank Dividers
-	for p = 1, 3 do
-		local stripe = Instance.new("Frame")
-		stripe.Name = "PlankStripe" .. p
-		stripe.Size = UDim2.new(0, 1, 1, 0)
-		stripe.Position = UDim2.new(p * 0.25, 0, 0, 0)
-		stripe.BackgroundColor3 = Color3.fromRGB(75, 48, 28)
-		stripe.BackgroundTransparency = 0.5
-		stripe.BorderSizePixel = 0
-		stripe.Parent = woodPanel
+	local screenGui = playerGui:FindFirstChild("PianoTilesGui")
+	if not screenGui then
+		warn("[PianoUI] PianoTilesGui tidak ditemukan di PlayerGui. Pastikan GUI manual sudah dibuat di StarterGui.")
+		return nil
 	end
 
-	local castBonus = Instance.new("TextLabel")
-	castBonus.Name = "CastBonusLabel"
-	castBonus.Size = UDim2.new(0.88, 0, 0, 28)
-	castBonus.Position = UDim2.new(0.06, 0, 0, 14)
-	castBonus.BackgroundTransparency = 1
-	castBonus.Text = "✨ PERFECT CAST"
-	castBonus.TextColor3 = Color3.fromRGB(255, 255, 255)
-	castBonus.Font = Enum.Font.FredokaOne
-	castBonus.TextSize = 16
-	castBonus.TextXAlignment = Enum.TextXAlignment.Left
-	castBonus.Parent = woodPanel
-
-	local castStroke = Instance.new("UIStroke")
-	castStroke.Color = Color3.fromRGB(45, 25, 12)
-	castStroke.Thickness = 1.5
-	castStroke.Parent = castBonus
-
-	local song = Instance.new("TextLabel")
-	song.Name = "SongLabel"
-	song.Size = UDim2.new(0.88, 0, 0, 70)
-	song.Position = UDim2.new(0.06, 0, 0, 48)
-	song.BackgroundTransparency = 1
-	song.Text = "🎵 RIVER FLOWS IN YOU"
-	song.TextColor3 = Color3.fromRGB(255, 255, 255)
-	song.Font = Enum.Font.FredokaOne
-	song.TextSize = 15
-	song.TextWrapped = true
-	song.TextXAlignment = Enum.TextXAlignment.Left
-	song.TextYAlignment = Enum.TextYAlignment.Top
-	song.Parent = woodPanel
-
-	local songStroke = Instance.new("UIStroke")
-	songStroke.Color = Color3.fromRGB(45, 25, 12)
-	songStroke.Thickness = 1.5
-	songStroke.Parent = song
-
-	local combo = Instance.new("TextLabel")
-	combo.Name = "ComboLabel"
-	combo.Size = UDim2.new(0.88, 0, 0, 28)
-	combo.Position = UDim2.new(0.06, 0, 0, 215)
-	combo.BackgroundTransparency = 1
-	combo.Text = "COMBO x0"
-	combo.TextColor3 = Color3.fromRGB(255, 215, 0)
-	combo.Font = Enum.Font.FredokaOne
-	combo.TextSize = 16
-	combo.Visible = false
-	combo.Parent = woodPanel
-
-	local comboStroke = Instance.new("UIStroke")
-	comboStroke.Color = Color3.fromRGB(0, 0, 0)
-	comboStroke.Thickness = 2
-	comboStroke.Parent = combo
-
-	-- ==================================================
-	-- 2. CENTER ARENA (4 Water Lanes)
-	-- ==================================================
-	local arena = Instance.new("Frame")
-	arena.Name = "ArenaFrame"
-	arena.Size = UDim2.new(0, 280, 0, 440)
-	arena.Position = UDim2.new(0, 175, 0, 20)
-	arena.BackgroundColor3 = Color3.fromRGB(56, 172, 224) -- Tropical Water Blue
-	arena.BorderSizePixel = 0
-	arena.ClipsDescendants = true
-	arena.Parent = container
-	Instance.new("UICorner", arena).CornerRadius = UDim.new(0, 16)
-
-	local arenaStroke = Instance.new("UIStroke")
-	arenaStroke.Color = Color3.fromRGB(255, 255, 255)
-	arenaStroke.Thickness = 2.5
-	arenaStroke.Parent = arena
-
-	-- Water gradient
-	local aGrad = Instance.new("UIGradient")
-	aGrad.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(64, 185, 235)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(42, 148, 204)),
-	})
-	aGrad.Rotation = 90
-	aGrad.Parent = arena
-
-	for i = 1, Config.COLUMN_COUNT do
-		local col = Instance.new("Frame")
-		col.Name = "Column" .. i
-		col.Size = UDim2.new(1 / Config.COLUMN_COUNT, 0, 1, 0)
-		col.Position = UDim2.new((i - 1) / Config.COLUMN_COUNT, 0, 0, 0)
-		col.BackgroundTransparency = (i % 2 == 0) and 0.96 or 1
-		col.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		col.BorderSizePixel = 0
-		col.Parent = arena
-
-		if i < Config.COLUMN_COUNT then
-			local divider = Instance.new("Frame")
-			divider.Name = "Divider" .. i
-			divider.Size = UDim2.new(0, 2, 1, 0)
-			divider.Position = UDim2.new(i / Config.COLUMN_COUNT, -1, 0, 0)
-			divider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-			divider.BackgroundTransparency = 0.15
-			divider.BorderSizePixel = 0
-			divider.ZIndex = 8
-			divider.Parent = arena
-		end
+	local container = screenGui:FindFirstChild("ArenaContainer")
+	if not container then
+		warn("[PianoUI] ArenaContainer tidak ditemukan. GUI manual user harus memiliki ArenaContainer.")
+		return nil
 	end
 
-	-- Bottom Wooden Dock
-	local bottomDock = Instance.new("Frame")
-	bottomDock.Name = "BottomDock"
-	bottomDock.Size = UDim2.new(1, 0, 0, 68)
-	bottomDock.Position = UDim2.new(0, 0, 1, -68)
-	bottomDock.BackgroundColor3 = Color3.fromRGB(112, 74, 46) -- Dark Wood Dock
-	bottomDock.BorderSizePixel = 0
-	bottomDock.ZIndex = 9
-	bottomDock.Parent = arena
+	local arena = container:FindFirstChild("ArenaFrame")
+	if not arena then
+		warn("[PianoUI] ArenaFrame tidak ditemukan. GUI manual user harus memiliki ArenaFrame.")
+		return nil
+	end
 
-	local dockTopBorder = Instance.new("Frame")
-	dockTopBorder.Name = "DockTopBorder"
-	dockTopBorder.Size = UDim2.new(1, 0, 0, 3)
-	dockTopBorder.Position = UDim2.new(0, 0, 0, 0)
-	dockTopBorder.BackgroundColor3 = Color3.fromRGB(68, 42, 24)
-	dockTopBorder.BorderSizePixel = 0
-	dockTopBorder.ZIndex = 10
-	dockTopBorder.Parent = bottomDock
 
-	-- PERFECT Laser Line & Badge
-	local hLine = Instance.new("Frame")
-	hLine.Name = "HitLine"
-	hLine.Size = UDim2.new(1, 0, 0, 2)
-	hLine.Position = UDim2.new(0, 0, 1, -68)
-	hLine.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-	hLine.BorderSizePixel = 0
-	hLine.ZIndex = 14
-	hLine.Parent = arena
+	-- =========================================================
+	-- EXISTING USER UI: HEADER
+	-- Tidak membuat ulang kalau sudah ada.
+	-- =========================================================
+	local header = container:FindFirstChild("Header")
+	if header then
+		-- Semua label ini dicari dari Header milik user.
+		-- Tidak ada styling/layout yang ditimpa.
+	end
 
-	local hLineStroke = Instance.new("UIStroke")
-	hLineStroke.Color = Color3.fromRGB(255, 245, 150)
-	hLineStroke.Thickness = 1.5
-	hLineStroke.Transparency = 0.2
-	hLineStroke.Parent = hLine
+	-- =========================================================
+	-- EXISTING USER UI: ARENA COLUMNS
+	-- =========================================================
+	table.clear(columns)
+	table.clear(columnFlashes)
+	table.clear(receptorPads)
+	table.clear(receptorLabels)
 
-	local perfectBadge = Instance.new("TextLabel")
-	perfectBadge.Name = "PerfectBadge"
-	perfectBadge.Size = UDim2.new(0, 70, 0, 14)
-	perfectBadge.Position = UDim2.new(0, 6, 0, -15)
-	perfectBadge.BackgroundTransparency = 1
-	perfectBadge.Text = "★ PERFECT"
-	perfectBadge.TextColor3 = Color3.fromRGB(255, 215, 0)
-	perfectBadge.Font = Enum.Font.FredokaOne
-	perfectBadge.TextSize = 10
-	perfectBadge.TextXAlignment = Enum.TextXAlignment.Left
-	perfectBadge.ZIndex = 15
-	perfectBadge.Parent = hLine
+	local columnCount = Config.COLUMN_COUNT or 4
 
-	local pbStroke = Instance.new("UIStroke")
-	pbStroke.Color = Color3.fromRGB(0, 0, 0)
-	pbStroke.Thickness = 1.5
-	pbStroke.Parent = perfectBadge
-
-	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
-	for i = 1, Config.COLUMN_COUNT do
+	for i = 1, columnCount do
 		local col = arena:FindFirstChild("Column" .. i)
-		if col then
-			-- Metallic Fishing Hook looping from dock into receptor
-			local hookHolder = Instance.new("Frame")
+		
+		columns[i] = col
+
+		-- =====================================================
+		-- FEATURE TEMAN: ColumnFlash
+		-- Belum ada di GUI user -> dibuat sementara.
+		-- =====================================================
+		local flash = col:FindFirstChild("ColumnFlash")
+		if not flash then
+			flash = Instance.new("Frame")
+			flash.Name = "ColumnFlash"
+			flash.Size = UDim2.fromScale(1, 1)
+			flash.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			flash.BackgroundTransparency = 1
+			flash.BorderSizePixel = 0
+			flash.Visible = false
+			flash.ZIndex = 20
+			flash.Parent = col
+		end
+		columnFlashes[i] = flash
+
+		-- =====================================================
+		-- FEATURE TEMAN: FishingHook
+		-- Kalau belum ada, buat sementara.
+		-- =====================================================
+		local hookHolder = col:FindFirstChild("FishingHook" .. i)
+		if not hookHolder then
+			hookHolder = Instance.new("Frame")
 			hookHolder.Name = "FishingHook" .. i
 			hookHolder.Size = UDim2.new(0, 24, 0, 36)
 			hookHolder.Position = UDim2.new(0.5, -12, 1, -82)
@@ -240,6 +116,7 @@ local function buildDynamicGui(playerGui)
 			hookHolder.Parent = col
 
 			local eyelet = Instance.new("Frame")
+			eyelet.Name = "Eyelet"
 			eyelet.Size = UDim2.new(0, 8, 0, 8)
 			eyelet.Position = UDim2.new(0.5, -4, 0, 0)
 			eyelet.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
@@ -249,6 +126,7 @@ local function buildDynamicGui(playerGui)
 			Instance.new("UICorner", eyelet).CornerRadius = UDim.new(1, 0)
 
 			local shank = Instance.new("Frame")
+			shank.Name = "Shank"
 			shank.Size = UDim2.new(0, 3, 0, 20)
 			shank.Position = UDim2.new(0.5, -1.5, 0, 6)
 			shank.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
@@ -257,6 +135,7 @@ local function buildDynamicGui(playerGui)
 			shank.Parent = hookHolder
 
 			local bend = Instance.new("Frame")
+			bend.Name = "Bend"
 			bend.Size = UDim2.new(0, 16, 0, 14)
 			bend.Position = UDim2.new(0.5, -8, 0, 20)
 			bend.BackgroundTransparency = 1
@@ -267,9 +146,15 @@ local function buildDynamicGui(playerGui)
 			bendStroke.Thickness = 2.5
 			bendStroke.Parent = bend
 			Instance.new("UICorner", bend).CornerRadius = UDim.new(0, 7)
+		end
 
-			-- Square Blue Key Button
-			local receptor = Instance.new("Frame")
+		-- =====================================================
+		-- FEATURE TEMAN: ReceptorPad + KeyLabel
+		-- Kalau belum ada, dibuat sementara.
+		-- =====================================================
+		local receptor = col:FindFirstChild("ReceptorPad")
+		if not receptor then
+			receptor = Instance.new("Frame")
 			receptor.Name = "ReceptorPad"
 			receptor.Size = UDim2.new(0.72, 0, 0, 44)
 			receptor.Position = UDim2.new(0.14, 0, 1, -54)
@@ -287,8 +172,11 @@ local function buildDynamicGui(playerGui)
 			rStroke.Color = Color3.fromRGB(255, 255, 255)
 			rStroke.Thickness = 2.5
 			rStroke.Parent = receptor
+		end
 
-			local targetNotch = Instance.new("Frame")
+		local targetNotch = receptor:FindFirstChild("PerfectTargetNotch")
+		if not targetNotch then
+			targetNotch = Instance.new("Frame")
 			targetNotch.Name = "PerfectTargetNotch"
 			targetNotch.Size = UDim2.new(0.6, 0, 0, 2)
 			targetNotch.Position = UDim2.new(0.2, 0, 0.5, -1)
@@ -297,135 +185,139 @@ local function buildDynamicGui(playerGui)
 			targetNotch.BorderSizePixel = 0
 			targetNotch.ZIndex = 14
 			targetNotch.Parent = receptor
+		end
 
-			local keyText = Instance.new("TextLabel")
+		local keyText = receptor:FindFirstChild("KeyLabel")
+		if not keyText then
+			keyText = Instance.new("TextLabel")
 			keyText.Name = "KeyLabel"
 			keyText.Size = UDim2.fromScale(1, 1)
 			keyText.BackgroundTransparency = 1
-			keyText.Text = keyLabels[i] or tostring(i)
+			keyText.Text = (Config.KEY_LABELS and Config.KEY_LABELS[i]) or ({"A", "W", "S", "D"})[i]
 			keyText.TextColor3 = Color3.fromRGB(255, 255, 255)
 			keyText.Font = Enum.Font.FredokaOne
 			keyText.TextSize = 20
 			keyText.ZIndex = 13
 			keyText.Parent = receptor
-
-			local ktStroke = Instance.new("UIStroke")
-			ktStroke.Color = Color3.fromRGB(0, 100, 160)
-			ktStroke.Thickness = 1.5
-			ktStroke.Parent = keyText
 		end
+
+		receptorPads[i] = receptor
+		receptorLabels[i] = keyText
 	end
 
-	local centerJudge = Instance.new("TextLabel")
-	centerJudge.Name = "CenterJudgementLabel"
-	centerJudge.Size = UDim2.new(0.9, 0, 0, 38)
-	centerJudge.Position = UDim2.new(0.5, 0, 0.44, 0)
-	centerJudge.AnchorPoint = Vector2.new(0.5, 0.5)
-	centerJudge.BackgroundTransparency = 1
-	centerJudge.Font = Enum.Font.FredokaOne
-	centerJudge.TextSize = 26
-	centerJudge.TextColor3 = Color3.fromRGB(255, 215, 0)
-	centerJudge.Text = ""
-	centerJudge.ZIndex = 40
-	centerJudge.Parent = arena
+	-- =========================================================
+	-- FEATURE TEMAN: HitLine / PerfectBadge
+	-- HitLine milik user diprioritaskan.
+	-- =========================================================
+	hitLine = arena:FindFirstChild("HitLine")
+	if not hitLine then
+		hitLine = Instance.new("Frame")
+		hitLine.Name = "HitLine"
+		hitLine.Size = UDim2.new(1, 0, 0, 2)
+		hitLine.Position = UDim2.new(0, 0, 0.78, 0)
+		hitLine.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+		hitLine.BorderSizePixel = 0
+		hitLine.ZIndex = 14
+		hitLine.Parent = arena
+	end
 
-	local cjStroke = Instance.new("UIStroke")
-	cjStroke.Color = Color3.fromRGB(0, 0, 0)
-	cjStroke.Thickness = 2
-	cjStroke.Parent = centerJudge
+	local perfectBadge = hitLine:FindFirstChild("PerfectBadge")
+	if not perfectBadge then
+		perfectBadge = Instance.new("TextLabel")
+		perfectBadge.Name = "PerfectBadge"
+		perfectBadge.Size = UDim2.new(0, 70, 0, 14)
+		perfectBadge.Position = UDim2.new(0, 6, 0, -15)
+		perfectBadge.BackgroundTransparency = 1
+		perfectBadge.Text = "★ PERFECT"
+		perfectBadge.TextColor3 = Color3.fromRGB(255, 215, 0)
+		perfectBadge.Font = Enum.Font.FredokaOne
+		perfectBadge.TextSize = 10
+		perfectBadge.TextXAlignment = Enum.TextXAlignment.Left
+		perfectBadge.ZIndex = 15
+		perfectBadge.Parent = hitLine
+	end
 
-	-- ==================================================
-	-- 3. RIGHT VERTICAL WATER PROGRESS BAR
-	-- ==================================================
-	local pBar = Instance.new("Frame")
-	pBar.Name = "ProgressBar"
-	pBar.Size = UDim2.new(0, 34, 0, 440)
-	pBar.Position = UDim2.new(0, 468, 0, 20)
-	pBar.BackgroundColor3 = Color3.fromRGB(56, 172, 224)
-	pBar.BorderSizePixel = 0
-	pBar.ClipsDescendants = true
-	pBar.Parent = container
-	Instance.new("UICorner", pBar).CornerRadius = UDim.new(0, 17)
+	-- =========================================================
+	-- FEATURE TEMAN: CenterJudgementLabel
+	-- Belum ada di GUI user -> dibuat sementara.
+	-- =========================================================
+	centerJudgementLabel = arena:FindFirstChild("CenterJudgementLabel")
+	if not centerJudgementLabel then
+		centerJudgementLabel = Instance.new("TextLabel")
+		centerJudgementLabel.Name = "CenterJudgementLabel"
+		centerJudgementLabel.Size = UDim2.new(0.9, 0, 0, 38)
+		centerJudgementLabel.Position = UDim2.new(0.5, 0, 0.44, 0)
+		centerJudgementLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+		centerJudgementLabel.BackgroundTransparency = 1
+		centerJudgementLabel.Font = Enum.Font.FredokaOne
+		centerJudgementLabel.TextSize = 26
+		centerJudgementLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		centerJudgementLabel.Text = ""
+		centerJudgementLabel.ZIndex = 40
+		centerJudgementLabel.Parent = arena
 
-	local pStroke = Instance.new("UIStroke")
-	pStroke.Color = Color3.fromRGB(255, 255, 255)
-	pStroke.Thickness = 2.5
-	pStroke.Parent = pBar
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 2
+		stroke.Parent = centerJudgementLabel
+	end
 
-	local trackLine = Instance.new("Frame")
-	trackLine.Name = "TrackLine"
-	trackLine.Size = UDim2.new(0, 4, 0.94, 0)
-	trackLine.Position = UDim2.new(0.5, -2, 0.03, 0)
-	trackLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	trackLine.BorderSizePixel = 0
-	trackLine.Parent = pBar
-	Instance.new("UICorner", trackLine).CornerRadius = UDim.new(1, 0)
+	-- =========================================================
+	-- USER PROGRESS BAR
+	-- Jangan replace. Kalau belum ada, baru buat fallback.
+	-- =========================================================
+	local pBar = container:FindFirstChild("ProgressBar")
 
-	local pFill = Instance.new("Frame")
-	pFill.Name = "Fill"
-	pFill.Size = UDim2.new(1, 0, 0, 0)
-	pFill.Position = UDim2.new(0, 0, 1, 0)
-	pFill.BackgroundColor3 = Color3.fromRGB(0, 210, 255)
-	pFill.BackgroundTransparency = 0.4
-	pFill.BorderSizePixel = 0
-	pFill.Parent = pBar
+	local pFill = pBar:FindFirstChild("Fill")
 
-	local fishIcon = Instance.new("ImageLabel")
-	fishIcon.Name = "Fish"
-	fishIcon.Size = UDim2.new(0, 26, 0, 26)
-	fishIcon.Position = UDim2.new(0.5, -13, 0.92, -13)
-	fishIcon.BackgroundTransparency = 1
-	fishIcon.Image = "rbxassetid://81497165860027"
-	fishIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-	fishIcon.ScaleType = Enum.ScaleType.Fit
-	fishIcon.ZIndex = 5
-	fishIcon.Parent = pBar
+	local fishIcon = pBar:FindFirstChild("Fish")
 
-	-- ==================================================
-	-- 4. BOTTOM PROGRESS TEXT
-	-- ==================================================
-	local pLabel = Instance.new("TextLabel")
-	pLabel.Name = "ProgressLabel"
-	pLabel.Size = UDim2.new(0, 320, 0, 26)
-	pLabel.Position = UDim2.new(0, 185, 0, 468)
-	pLabel.BackgroundTransparency = 1
-	pLabel.Text = "🎣 PROGRES: 0% • 0/30 NOT"
-	pLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	pLabel.Font = Enum.Font.FredokaOne
-	pLabel.TextSize = 15
-	pLabel.TextXAlignment = Enum.TextXAlignment.Right
-	pLabel.Parent = container
 
-	local plStroke = Instance.new("UIStroke")
-	plStroke.Color = Color3.fromRGB(0, 100, 180)
-	plStroke.Thickness = 2
-	plStroke.Parent = pLabel
+	-- =========================================================
+	-- USER PROGRESS LABEL / RESULT OVERLAY
+	-- =========================================================
+	local pLabel = container:FindFirstChild("ProgressLabel")
+	if not pLabel then
+		pLabel = Instance.new("TextLabel")
+		pLabel.Name = "ProgressLabel"
+		pLabel.Size = UDim2.new(0, 320, 0, 26)
+		pLabel.Position = UDim2.new(0, 185, 0, 468)
+		pLabel.BackgroundTransparency = 1
+		pLabel.Text = "🎣 PROGRES: 0% • 0/30 NOT"
+		pLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		pLabel.Font = Enum.Font.FredokaOne
+		pLabel.TextSize = 15
+		pLabel.TextXAlignment = Enum.TextXAlignment.Right
+		pLabel.Parent = container
+	end
 
-	-- ==================================================
-	-- 5. RESULT OVERLAY
-	-- ==================================================
-	local result = Instance.new("Frame")
-	result.Name = "ResultOverlay"
-	result.Size = UDim2.fromScale(1, 1)
-	result.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
-	result.BackgroundTransparency = 0.12
-	result.BorderSizePixel = 0
-	result.Visible = false
-	result.ZIndex = 30
-	result.Parent = arena
-	Instance.new("UICorner", result).CornerRadius = UDim.new(0, 16)
+	local result = arena:FindFirstChild("ResultOverlay") or container:FindFirstChild("ResultOverlay")
+	if not result then
+		result = Instance.new("Frame")
+		result.Name = "ResultOverlay"
+		result.Size = UDim2.fromScale(1, 1)
+		result.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
+		result.BackgroundTransparency = 0.12
+		result.BorderSizePixel = 0
+		result.Visible = false
+		result.ZIndex = 30
+		result.Parent = arena
+	end
 
-	local resLabel = Instance.new("TextLabel")
-	resLabel.Name = "ResultLabel"
-	resLabel.Size = UDim2.new(1, 0, 0, 36)
-	resLabel.Position = UDim2.new(0, 0, 0.12, 0)
-	resLabel.BackgroundTransparency = 1
-	resLabel.Text = "BERHASIL DITANGKAP!"
-	resLabel.TextColor3 = Color3.fromRGB(60, 240, 140)
-	resLabel.Font = Enum.Font.FredokaOne
-	resLabel.TextSize = 22
-	resLabel.ZIndex = 32
-	resLabel.Parent = result
+	local resLabel = result:FindFirstChild("ResultLabel")
+	if not resLabel then
+		resLabel = Instance.new("TextLabel")
+		resLabel.Name = "ResultLabel"
+		resLabel.Size = UDim2.new(1, 0, 0, 36)
+		resLabel.Position = UDim2.new(0, 0, 0.12, 0)
+		resLabel.BackgroundTransparency = 1
+		resLabel.Text = "BERHASIL DITANGKAP!"
+		resLabel.TextColor3 = Color3.fromRGB(60, 240, 140)
+		resLabel.Font = Enum.Font.FredokaOne
+		resLabel.TextSize = 22
+		resLabel.ZIndex = 32
+		resLabel.Parent = result
+	end
 
 	return screenGui
 end
@@ -434,11 +326,9 @@ function PianoUI.Create()
 	local playerGui = getPlayerGui()
 	if not playerGui then return false end
 
-	local existing = playerGui:FindFirstChild("PianoTilesGui")
-	if existing then
-		existing:Destroy()
-	end
-	gui = buildDynamicGui(playerGui)
+	-- Jangan Destroy GUI user. Ambil GUI yang sudah ada dan hanya
+	-- tambahkan fitur tambahan yang belum tersedia.
+	gui = buildHybridGui(playerGui)
 	if not gui then return false end
 
 	arenaContainer = gui:FindFirstChild("ArenaContainer")
@@ -447,40 +337,9 @@ function PianoUI.Create()
 	arenaFrame = arenaContainer:FindFirstChild("ArenaFrame")
 	if not arenaFrame then return false end
 
-	hitLine = arenaFrame:FindFirstChild("HitLine")
+	hitLine = arenaContainer:FindFirstChild("HitLine")
 	perfectZoneGuide = arenaFrame:FindFirstChild("PerfectZoneGuide")
 	centerJudgementLabel = arenaFrame:FindFirstChild("CenterJudgementLabel")
-
-	table.clear(columns)
-	table.clear(columnFlashes)
-	table.clear(receptorPads)
-	table.clear(receptorLabels)
-
-	for i = 1, Config.COLUMN_COUNT do
-		local col = arenaFrame:WaitForChild("Column" .. i, 3)
-		if col then
-			columns[i] = col
-			local flash = col:FindFirstChild("ColumnFlash")
-			if not flash then
-				flash = Instance.new("Frame")
-				flash.Name = "ColumnFlash"
-				flash.Size = UDim2.fromScale(1, 1)
-				flash.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-				flash.BackgroundTransparency = 1
-				flash.BorderSizePixel = 0
-				flash.Visible = false
-				flash.ZIndex = 20
-				flash.Parent = col
-			end
-			columnFlashes[i] = flash
-
-			local receptor = col:FindFirstChild("ReceptorPad")
-			if receptor then
-				receptorPads[i] = receptor
-				receptorLabels[i] = receptor:FindFirstChild("KeyLabel")
-			end
-		end
-	end
 
 	castBonusLabel = arenaContainer:FindFirstChild("CastBonusLabel", true)
 	songLabel = arenaContainer:FindFirstChild("SongLabel", true)
@@ -531,10 +390,10 @@ function PianoUI.CreateTile(column, y)
 
 	local fishImg = Instance.new("ImageLabel")
 	fishImg.Name = "FishImage"
-	fishImg.Size = UDim2.new(0.75, 0, 0.75, 0)
-	fishImg.Position = UDim2.new(0.125, 0, 0.125, 0)
+	fishImg.Size = UDim2.new(1, 0, 1, 0)
+	fishImg.Position = UDim2.new(0, 0, 0, 0)
 	fishImg.BackgroundTransparency = 1
-	fishImg.Image = Config.TILE_IMAGES[column] or "rbxassetid://81497165860027"
+	fishImg.Image = (Config.TILE_IMAGES and Config.TILE_IMAGES[column]) or "rbxassetid://81497165860027"
 	fishImg.ScaleType = Enum.ScaleType.Fit
 	fishImg.BorderSizePixel = 0
 	fishImg.ZIndex = 16
@@ -584,7 +443,7 @@ function PianoUI.TriggerReceptorPress(column, ratingKey)
 	local pad = receptorPads[column]
 	if not pad then return end
 
-	local ratingData = Config.HIT_RATINGS[ratingKey or "GOOD"] or Config.HIT_RATINGS.GOOD
+	local ratingData = getRatingData(ratingKey)
 	pad.BackgroundColor3 = ratingData.flashColor
 	pad.BackgroundTransparency = 0.2
 
@@ -596,7 +455,7 @@ end
 
 function PianoUI.ShowHitRating(ratingKey, column, y)
 	if not arenaFrame then return end
-	local ratingData = Config.HIT_RATINGS[ratingKey or "GOOD"] or Config.HIT_RATINGS.GOOD
+	local ratingData = getRatingData(ratingKey)
 
 	if centerJudgementLabel then
 		centerJudgementLabel.Text = ratingData.symbol
@@ -671,7 +530,7 @@ end
 function PianoUI.FlashColumn(column, ratingKey)
 	local flash = columnFlashes[column]
 	if not flash then return end
-	local ratingData = Config.HIT_RATINGS[ratingKey or "MISS"] or Config.HIT_RATINGS.MISS
+	local ratingData = getRatingData(ratingKey or "MISS")
 
 	flash.BackgroundColor3 = ratingData.flashColor
 	flash.BackgroundTransparency = (ratingKey == "MISS" and 0.40 or 0.60)
@@ -699,26 +558,72 @@ function PianoUI.UpdateHUD(progress, combo, currentNotes, targetNotes, liveMetri
 	local percent = math.clamp(progress or 0, 0, 1)
 
 	if progressFill then
-		TweenService:Create(progressFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.new(1, 0, percent, 0),
-			Position = UDim2.new(0, 0, 1 - percent, 0),
-		}):Play()
+		local percent = math.clamp(progress or 0, 0, 1)
+
+		-- JANGAN ubah posisi X
+		-- Fill tetap berada di posisi desain Studio
+
+		progressFill.AnchorPoint = Vector2.new(0, 0)
+		progressFill.Position = UDim2.new(
+			0.45, 0,
+			0, 0
+		)
+
+		TweenService:Create(
+			progressFill,
+			TweenInfo.new(
+				0.4,
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.Out
+			),
+			{
+				Size = UDim2.new(
+					0.07, 0,
+					1 - percent, 0
+				),
+			}
+		):Play()
 	end
 
-	if fish and progressContainer then
-		local targetY = (1 - percent) * 0.88 + 0.04
-		TweenService:Create(fish, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0.5, -13, targetY, -13)
-		}):Play()
+
+	if fish then
+
+		TweenService:Create(
+			fish,
+
+			TweenInfo.new(
+				0.4,
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.Out
+			),
+
+			{
+				Position = UDim2.fromScale(
+					fish.Position.X.Scale,
+					1 - percent
+				)
+			}
+
+		):Play()
+
 	end
 
 	if progressLabel then
-		local pText = math.floor(percent * 100)
-		if liveMetrics and liveMetrics.accuracy then
-			progressLabel.Text = string.format("🎣 PROGRES: %d%% • %d/%d NOT • 🎯 %.1f%%", pText, currentNotes or 0, targetNotes or 0, liveMetrics.accuracy)
-		else
-			progressLabel.Text = string.format("🎣 PROGRES: %d%% • %d/%d NOT", pText, currentNotes or 0, targetNotes or 0)
-		end
+
+		local percent =
+			math.clamp(progress, 0, 1)
+
+		local percentInt =
+			math.floor(percent * 100)
+
+		progressLabel.Text =
+			string.format(
+				"%d%% \n\n%d/%d",
+				percentInt,
+				currentNotes or 0,
+				targetNotes or 0
+			)
+
 	end
 end
 
