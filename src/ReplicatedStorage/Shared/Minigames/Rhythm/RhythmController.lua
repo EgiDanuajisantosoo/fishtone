@@ -80,9 +80,9 @@ function RhythmController.Start(config, onWin, onLose)
 end
 
 function RhythmController.Cancel()
-	if activeController and activeController.Cancel then
-		activeController.Cancel()
-	end
+	pcall(function() PianoController.Cancel() end)
+	pcall(function() GuitarController.Cancel() end)
+	pcall(function() DrumController.Cancel() end)
 	activeController = nil
 	activeInstrumentType = nil
 end

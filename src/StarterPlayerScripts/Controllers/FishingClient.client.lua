@@ -911,6 +911,26 @@ end
 -- ============ ALUR MEMANCING DENGAN STATE MACHINE ============
 local executeCastAfterMeter = nil
 local activeBobber = nil
+local sessionToken = 0
+local serverSessionReceived = false
+
+local function destroyBobberSafely()
+	if activeBobber then
+		pcall(function()
+			activeBobber:Destroy()
+		end)
+		activeBobber = nil
+	end
+	AnimSystem.RemoveFishingLine()
+
+	-- Bersihkan part bobber liar milik player di workspace
+	for _, child in ipairs(workspace:GetChildren()) do
+		if (child.Name == "BobberTemplate" or child.Name == "ActiveBobber" or child.Name == "FishingBobber")
+			and child:GetAttribute("OwnerUserId") == player.UserId then
+			pcall(function() child:Destroy() end)
+		end
+	end
+end
 
 -- FSM Lifecycle: Hook saat kembali ke status IDLE (Pembersihan Total)
 fsm:OnEnter(FishingStateMachine.States.IDLE, function()
@@ -920,10 +940,8 @@ fsm:OnEnter(FishingStateMachine.States.IDLE, function()
 		meterConn:Disconnect()
 		meterConn = nil
 	end
-	if activeBobber then
-		activeBobber:Destroy()
-		activeBobber = nil
-	end
+	destroyBobberSafely()
+	RhythmController.Cancel()
 	AnimSystem.ResetJoints()
 	freezePlayer(false)
 end)
@@ -969,9 +987,6 @@ fsm:OnEnter(FishingStateMachine.States.CHARGING_CAST, function(payload)
 	end)
 end)
 
--- Track unique session token to prevent timer race conditions
-local sessionToken = 0
-
 -- FSM Lifecycle: Hook saat melempar kail ke air (CASTING)
 fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	local waterPos = payload.waterPos
@@ -981,6 +996,7 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	sessionToken += 1
 	local currentToken = sessionToken
 	activeSessionId = nil
+	serverSessionReceived = false
 
 	isCastingMeterActive = false
 	castMeterContainer.Visible = false
@@ -990,8 +1006,10 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	end
 	freezePlayer(true)
 
-	if activeBobber then activeBobber:Destroy() end
+	destroyBobberSafely()
 	activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
+	activeBobber.Name = "ActiveBobber"
+	activeBobber:SetAttribute("OwnerUserId", player.UserId)
 	if activeBobber:IsA("Model") then
 		activeBobber:PivotTo(CFrame.new(waterPos + Vector3.new(0, 0.4, 0)))
 	else
@@ -1018,16 +1036,16 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 		RemoteContract.Client.StartFishing(waterPos, castQuality, finalPower)
 	end
 
-	-- Fallback Timer: Jika server tidak merespon dalam 2.8 detik, jalankan sesi otomatis
-	task.delay(2.8, function()
-		if sessionToken == currentToken and fsm:Is(FishingStateMachine.States.CASTING) then
+	-- Fallback Timer: HANYA berjalan jika server tidak merespon dalam 3.5 detik dan belum menerima sesi server
+	task.delay(3.5, function()
+		if sessionToken == currentToken and fsm:Is(FishingStateMachine.States.CASTING) and not serverSessionReceived then
 			onSessionStarted("LOCAL_FALLBACK", 1.6, castQuality, "COMMON")
 		end
 	end)
 end)
 
 local function startCastingMeter(waterPos)
-	if not fsm:Is(FishingStateMachine.States.IDLE) or PianoTilesGame.IsPlaying() then return end
+	if not fsm:Is(FishingStateMachine.States.IDLE) or RhythmController.IsPlaying() then return end
 
 	if not hasFishingRod() then
 		showMessage("⚠️ Kamu membutuhkan Joran Pancing di inventory untuk memancing!", Color3.fromRGB(255, 80, 80), 3.5)
@@ -1071,6 +1089,15 @@ executeCastAfterMeter = function()
 end
 
 onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
+	if sessionId ~= "LOCAL_FALLBACK" then
+		serverSessionReceived = true
+	end
+
+	-- Batalkan jika status bukan CASTING atau WAITING_FOR_BITE yang cocok
+	if not fsm:Is(FishingStateMachine.States.CASTING) and not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) then
+		return
+	end
+
 	sessionToken += 1
 	local currentToken = sessionToken
 	activeSessionId = sessionId
@@ -1081,14 +1108,12 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		return
 	end
 
-	if not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) then
-		fsm:Transition(FishingStateMachine.States.WAITING_FOR_BITE, {
-			sessionId = sessionId,
-			waitDuration = waitDuration,
-			castQuality = castQuality,
-			rarity = rarity
-		})
-	end
+	fsm:Transition(FishingStateMachine.States.WAITING_FOR_BITE, {
+		sessionId = sessionId,
+		waitDuration = waitDuration,
+		castQuality = castQuality,
+		rarity = rarity
+	})
 
 	if castQuality == "PERFECT" then
 		showMessage("⭐ PERFECT CAST! (+35 Luck) Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 2.5)
@@ -1100,9 +1125,13 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 
 	task.wait(waitDuration)
 
+	-- Validasi kepemilikan token & status setelah durasi tunggu
 	if sessionToken ~= currentToken or not fsm:Is(FishingStateMachine.States.WAITING_FOR_BITE) then
 		return
 	end
+
+	-- Hentikan minigame lama jika ada
+	RhythmController.Cancel()
 
 	fsm:Transition(FishingStateMachine.States.BITING, { waterPos = waterPos })
 	AnimSystem.SetPhase("Biting")
@@ -1145,6 +1174,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		rodId = currentRod,
 	}, function(metrics)
 		fsm:Transition(FishingStateMachine.States.REELING_SUCCESS, { metrics = metrics })
+		destroyBobberSafely()
 		AnimSystem.PlayVictoryLift(char)
 		local catchTarget = hrp and (hrp.Position + Vector3.new(0, 1.5, 0)) or (waterPos + Vector3.new(0, 5, 0))
 		animateFishLeap(waterPos, catchTarget, 0.9, 7)
@@ -1161,6 +1191,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		end)
 	end, function(metrics)
 		fsm:Transition(FishingStateMachine.States.REELING_FAIL, { metrics = metrics })
+		destroyBobberSafely()
 		createWaterSplash(waterPos)
 		showMessage("❌ Ikan terlepas! Irama musik belum tepat.", Color3.fromRGB(255, 75, 75), 3)
 
@@ -1957,22 +1988,29 @@ buildShopHUD()
 local lastTriggerTime = 0
 local function handleInteractionTrigger()
 	local now = os.clock()
-	if now - lastTriggerTime < 0.12 then return end
+	if now - lastTriggerTime < 0.25 then return end
 	lastTriggerTime = now
 
-	if isCastingMeterActive then
+	-- 1. Jika meter lemparan sedang aktif, kunci dan lempar kail
+	if fsm:Is(FishingStateMachine.States.CHARGING_CAST) then
 		if now - meterStartTime < 0.20 then return end
 		executeCastAfterMeter()
 		return
 	end
 
-	if fsm:IsBusy() or PianoTilesGame.IsPlaying() then return end
+	-- 2. Jika sedang memancing atau minigame aktif, abaikan input klik untuk melempar kail
+	if fsm:IsBusy() or RhythmController.IsPlaying() then
+		return
+	end
 
-	local waterPos = findWaterTarget()
-	if waterPos then
-		startCastingMeter(waterPos)
-	else
-		showMessage("Arahkan atau dekati area lautan/air untuk mulai memancing!", Color3.fromRGB(220, 220, 240), 2.5)
+	-- 3. Hanya mulai mengisi bar lemparan jika status benar-benar IDLE
+	if fsm:Is(FishingStateMachine.States.IDLE) then
+		local waterPos = findWaterTarget()
+		if waterPos then
+			startCastingMeter(waterPos)
+		else
+			showMessage("Arahkan atau dekati area lautan/air untuk mulai memancing!", Color3.fromRGB(220, 220, 240), 2.5)
+		end
 	end
 end
 
@@ -2004,6 +2042,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 	if gameProcessed then return end
 
+	-- Jangan tangani interaksi pancing jika minigame sedang berjalan (karena [A,W,S,D] dipakai oleh minigame)
+	if RhythmController.IsPlaying() then return end
+
 	if isCastingMeterActive then
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
 			handleInteractionTrigger()
@@ -2011,7 +2052,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 
-	if isRodEquipped() and not PianoTilesGame.IsPlaying() then
+	if isRodEquipped() then
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
 			handleInteractionTrigger()
 		end
@@ -2020,14 +2061,11 @@ end)
 
 local function hookTool(tool)
 	if not tool or not tool:IsA("Tool") then return end
-	if tool.Name == "FishingRod" or tool.Name == "Pancingan" then
-		tool.Activated:Connect(function()
-			if fsm:Is(FishingStateMachine.States.CHARGING_CAST) or (isRodEquipped() and not PianoTilesGame.IsPlaying()) then
-				handleInteractionTrigger()
-			end
-		end)
+	if tool.Name == "FishingRod" or tool.Name == "Pancingan" or tool:GetAttribute("IsRod") == true then
 		tool.Unequipped:Connect(function()
 			if not fsm:Is(FishingStateMachine.States.IDLE) then
+				destroyBobberSafely()
+				RhythmController.Cancel()
 				fsm:ForceReset("ToolUnequipped")
 			end
 		end)
