@@ -6,6 +6,10 @@
 *.rbxlx.rbxl
 .rojo/
 extract_place.py
+inspect_place_now.py
+
+.__pycache__/
+*.pyc
 
 # OS Files
 Thumbs.db
