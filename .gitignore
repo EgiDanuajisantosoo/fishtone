@@ -17,6 +17,7 @@ Thumbs.db
 *.tmp
 # Agent & IDE config
 .agents/
+.md
 .agent/
 .agent*
 .gemini/

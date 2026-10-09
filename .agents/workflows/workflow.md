@@ -37,6 +37,7 @@ Do not start work while expected behavior or a shared contract is ambiguous.
 - Server fishing sessions/state machine.
 - Rhythm session contract and server-side performance validation.
 - Loot, rarity, Luck, pity, fish selection.
+- Enforce cast-quality rule: PERFECT/GREAT/GOOD set mini-game starting progress to 35%/20%/10%; they must never change Luck or rarity weights.
 - Inventory, economy, player data, persistence.
 - Instrument ownership/equip validation and anti-exploit.
 - Server-side QA.
@@ -92,6 +93,7 @@ Follow the Notion dependency graph. The sequence below reflects gaps found in th
    - Resolve keyboard mismatch: README says D/F/J/K; `PianoTilesConfig.lua` currently uses A/W/S/D.
    - Stop exposing rarity before challenge completion.
    - Remove Level-derived Luck according to approved progression rules.
+   - Remove cast-based Luck bonuses (+35/+15/+0); casting quality only sets mini-game starting progress (PERFECT 35%, GREAT 20%, GOOD 10%).
 2. **FISH-002 — Folder Architecture**
    - Migrate toward `Shared`, `Remotes`, `Services`, `Controllers`.
    - Keep the working loop alive during migration.
@@ -158,6 +160,20 @@ Canonical instrument routing:
 `EquippedInstrument/Rod → validated rhythmType → RhythmController → Piano/Guitar/Drum`
 
 The island/zone affects fish pool and approved difficulty modifiers, not rhythm type. Instrument modules must not implement their own reward pipeline.
+
+## UI/GUI change policy — preserve Roblox Studio work
+
+**Do not replace or recreate existing UI/GUI built in Roblox Studio.** This is a hard constraint for AI agents and developers, including when a script opens, enables, populates, or updates that UI. Existing Studio-authored hierarchy, names, layout, styling, assets, and responsive behavior must be preserved unless the user explicitly requests a specific UI change.
+
+Before editing a UI-related script:
+1. Locate the GUI in Roblox Studio Explorer and inspect the relevant object hierarchy and references.
+2. Identify whether the GUI already exists in Studio or is created by a script. Reuse the existing GUI; do not create a duplicate.
+3. Change only the behavior needed for the task. Prefer updating event connections, state, data binding, or visibility logic over changing the GUI structure.
+4. Never replace a Studio-authored GUI with an `Instance.new()`-generated GUI as a shortcut. Do not rename, delete, reparent, or restyle existing objects without explicit scope approval.
+5. If required UI details cannot be inspected, stop before making structural/visual assumptions. Request an Explorer hierarchy, screenshot, or relevant script, or proceed only with a minimal non-structural logic change.
+6. Test that the existing GUI opens, references resolve, controls work, and no duplicate UI is created. Check PC and mobile layouts where relevant. Record whether Studio testing was actually performed.
+
+A task asking to fix fishing, rhythm, input, rewards, or another gameplay system does **not** grant permission to redesign the UI. UI reconstruction requires explicit approval.
 
 ## 8. Local test workflow
 
