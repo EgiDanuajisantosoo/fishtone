@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local LootDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("LootDefinitions"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 
 local LootTableSystem = {}
 
@@ -94,13 +95,7 @@ function LootTableSystem.GenerateLoot(category, rarity, playerLevel, performance
 	end
 
 	local tierData = FishingRaritySystem.GetTierData(rarity)
-	local perfMult = 1.0
-	for _, entry in ipairs(FishingRaritySystem.CONFIG.XP.PERF_MULTIPLIERS) do
-		if performanceScore <= entry.maxScore then
-			perfMult = entry.mult
-			break
-		end
-	end
+	local perfMult = XPProgressionSystem.GetPerformanceMultiplier(performanceScore)
 
 	-- KATEGORI 2: PETI HARTA KARUN (TREASURE CHEST)
 	if category == "TREASURE" then

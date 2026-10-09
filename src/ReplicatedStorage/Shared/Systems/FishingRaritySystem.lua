@@ -335,14 +335,8 @@ function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore,
 	local coins = math.floor(baseCoins * weightFactor)
 
 	-- 3. EXP berdasarkan Rarity, Bobot & Performance Rhythm
-	local baseExp = template.baseExp or (FishingRaritySystem.CONFIG.XP.BASE_XP[tierKey] or 10)
-	local perfMult = 1.0
-	for _, entry in ipairs(FishingRaritySystem.CONFIG.XP.PERF_MULTIPLIERS) do
-		if performanceScore <= entry.maxScore then
-			perfMult = entry.mult
-			break
-		end
-	end
+	local baseExp = template.baseExp or (FishingRaritySystem.CONFIG.XP.BASE_XP and FishingRaritySystem.CONFIG.XP.BASE_XP[tierKey]) or 10
+	local perfMult = XPProgressionSystem.GetPerformanceMultiplier(performanceScore)
 
 	local weightExpMult = 0.85 + (0.30 * normWeight)
 	local exp = math.floor(baseExp * weightExpMult * perfMult)
