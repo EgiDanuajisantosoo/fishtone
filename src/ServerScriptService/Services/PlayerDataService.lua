@@ -252,6 +252,8 @@ function PlayerDataService.LoadData(player)
 		else
 			print(string.format("[PlayerDataService] Data baru dibuat untuk %s", player.Name))
 		end
+	end
+
 	-- Studio Testing Helper: Berikan saldo koin & joran jika sedang testing di Studio
 	if RunService:IsStudio() then
 		profile.coins = math.max(profile.coins or 0, 50000)
