@@ -1,13 +1,17 @@
 --[[
 	PlayerDataSchema (ModuleScript)
-	FISH!TUNE — Central Player Data Schema & Migration Pipeline (FISH-005)
+	FISH!TUNE — Central Player Data Schema & Migration Pipeline (FISH-005 / FISH-029)
 
 	Satu sumber kebenaran (Single Source of Truth) untuk struktur data pemain:
-	1. Definisi Schema Lengkap (Level, EXP, Koin, Pity, Rods, Journal, Stats, Settings).
+	1. Definisi Schema Lengkap (Level, EXP, Koin, Pity, Rods, Instrument, Journal, Stats, Settings).
 	2. Versioning & Migration Pipeline (Mendukung upgrade format data otomatis di masa depan).
 	3. Deep Reconciler (Memastikan field baru otomatis terisi ke data pemain lama tanpa merusak data yang ada).
 	4. Schema Invariant Validator (Mencegah data corrupt / nilai negatif / tipe data salah).
 ]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 
 local PlayerDataSchema = {}
 
@@ -32,8 +36,9 @@ PlayerDataSchema.DEFAULT_DATA = {
 		SPECIAL = 0,
 	},
 
-	-- Alat, Umpan & Kapasitas Inventaris
+	-- Alat, Instrumen, Umpan & Kapasitas Inventaris
 	equippedRod = "StarterRod",
+	equippedInstrument = "PIANO",
 	unlockedRods = { "StarterRod" },
 	equippedBait = nil,
 	baits = {}, -- [baitId] = count (e.g. { StandardWorm = 0 })
@@ -118,6 +123,11 @@ function PlayerDataSchema.Reconcile(target, template)
 		end
 	end
 
+	-- Pastikan equippedInstrument selalu sinkron dengan equippedRod
+	if not target.equippedInstrument or not InstrumentDefinitions.IsValidInstrumentType(target.equippedInstrument) then
+		target.equippedInstrument = InstrumentDefinitions.GetInstrumentTypeForRod(target.equippedRod or "StarterRod")
+	end
+
 	return target
 end
 
@@ -180,6 +190,14 @@ function PlayerDataSchema.Validate(data)
 	-- Validasi table pity
 	if typeof(data.pity) ~= "table" then
 		return false, "Table pity tidak ditemukan"
+	end
+
+	-- Validasi joran & instrumen
+	if typeof(data.equippedRod) ~= "string" or #data.equippedRod == 0 then
+		return false, "Equipped rod tidak valid"
+	end
+	if typeof(data.unlockedRods) ~= "table" then
+		return false, "Unlocked rods harus berupa table"
 	end
 
 	return true, nil

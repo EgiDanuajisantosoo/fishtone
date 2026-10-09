@@ -21,6 +21,7 @@ local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local LootTableSystem = require(Shared:WaitForChild("Systems"):WaitForChild("LootTableSystem"))
 local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
+local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
@@ -172,14 +173,21 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	-- Beri waktu leluasa: minimal 120 detik, atau (targetNotes * 1.5 detik) + 45 detik
 	local sessionTTL = math.max(BASE_SESSION_TTL, math.ceil(targetNotes * 1.5) + 45)
 
-	-- 7. Bangun Session ID Unik
+	-- 7. Bangun Session ID Unik & Bind Instrument Authoritative
 	local sessionId = string.format("%d_%d_%d", player.UserId, os.time(), math.random(1000, 9999))
 	local now = os.clock()
+
+	local equippedRod = (pData and pData.equippedRod) or "StarterRod"
+	local instrumentType = (pData and pData.equippedInstrument) or InstrumentDefinitions.GetInstrumentTypeForRod(equippedRod)
+	local rodMapping = InstrumentDefinitions.GetRodMapping(equippedRod)
 
 	local sessionData = {
 		sessionId = sessionId,
 		player = player,
 		userId = player.UserId,
+		rodId = equippedRod,
+		instrumentType = instrumentType,
+		instrumentVariant = rodMapping.instrumentVariant or "DEFAULT",
 		waterPos = waterPos,
 		castQuality = castQuality,
 		castPower = castPower,

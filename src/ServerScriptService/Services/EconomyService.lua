@@ -17,6 +17,7 @@ local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
+local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
@@ -99,11 +100,16 @@ function EconomyService.CreateRodTool(rodData)
 	tool.RequiresHandle = true
 	tool.CanBeDropped = false
 
+	local rodMapping = InstrumentDefinitions.GetRodMapping(rodData.id)
+	local instType = rodData.instrumentType or rodMapping.instrumentType or "PIANO"
+	local instVariant = rodMapping.instrumentVariant or "DEFAULT"
+
 	-- Attributes
 	tool:SetAttribute("IsRod", true)
 	tool:SetAttribute("RodId", rodData.id)
 	tool:SetAttribute("RodName", rodData.name)
-	tool:SetAttribute("InstrumentType", rodData.instrumentType or "PIANO")
+	tool:SetAttribute("InstrumentType", instType)
+	tool:SetAttribute("InstrumentVariant", instVariant)
 	tool:SetAttribute("Luck", rodData.luckBonus or 5)
 	tool:SetAttribute("CastPower", rodData.castPowerMultiplier or 1.0)
 	tool:SetAttribute("ReelSpeed", rodData.reelSpeedMultiplier or 1.0)
@@ -111,7 +117,6 @@ function EconomyService.CreateRodTool(rodData)
 	tool:SetAttribute("Description", rodData.description or "")
 
 	local scale = rodData.scale or 1.0
-	local instType = rodData.instrumentType or "PIANO"
 
 	-- Gagang Utama (Handle)
 	local handle = Instance.new("Part")
@@ -277,6 +282,10 @@ function EconomyService.SpawnEquippedRod(player)
 	local equippedRodId = (pData and pData.equippedRod) or "StarterRod"
 	local rodData = EconomyConfig.GetRod(equippedRodId)
 
+	if pData then
+		pData.equippedInstrument = rodData.instrumentType or InstrumentDefinitions.GetInstrumentTypeForRod(equippedRodId)
+	end
+
 	removeExistingRods(player)
 
 	local backpack = player:FindFirstChild("Backpack")
@@ -331,12 +340,13 @@ function EconomyService.BuyRod(player, rodId)
 	-- 4. Tambahkan ke Unlocked Rods & Auto-Equip
 	table.insert(pData.unlockedRods, rodId)
 	pData.equippedRod = rodId
+	pData.equippedInstrument = rodData.instrumentType or InstrumentDefinitions.GetInstrumentTypeForRod(rodId)
 
 	EconomyService.SpawnEquippedRod(player)
 
 	RemoteContract.Server.ShopTransactionSuccess(player, "ROD", rodId, rodData.name, pData.coins)
 	RemoteContract.Server.RodEquipped(player, rodId, rodData)
-	RemoteContract.Server.Notify(player, string.format("🎉 Selamat! Kamu berhasil membeli & menggunakan %s!", rodData.name))
+	RemoteContract.Server.Notify(player, string.format("🎉 Selamat! Kamu berhasil membeli & menggunakan %s (%s)!", rodData.name, rodData.badge or "JORAN"))
 
 	PlayerDataService.SyncLeaderstats(player)
 	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
@@ -362,10 +372,12 @@ function EconomyService.EquipRod(player, rodId)
 	end
 
 	pData.equippedRod = rodId
+	pData.equippedInstrument = rodData.instrumentType or InstrumentDefinitions.GetInstrumentTypeForRod(rodId)
+
 	EconomyService.SpawnEquippedRod(player)
 
 	RemoteContract.Server.RodEquipped(player, rodId, rodData)
-	RemoteContract.Server.Notify(player, string.format("🎣 Berhasil memasang %s (+%d Luck)!", rodData.name, rodData.luckBonus))
+	RemoteContract.Server.Notify(player, string.format("🎣 Berhasil memasang %s (%s | +%d Luck)!", rodData.name, rodData.badge or "JORAN", rodData.luckBonus))
 	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
 
 	return true, rodData

@@ -30,6 +30,7 @@ end
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local remote = RemoteContract.GetRemote()
+local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RhythmController = require(Shared:WaitForChild("Minigames"):WaitForChild("Rhythm"):WaitForChild("RhythmController"))
 local PianoTilesGame = RhythmController
 local FishingResultUI = require(Shared:WaitForChild("Minigames"):WaitForChild("FishingResultUI"))
@@ -43,6 +44,26 @@ local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild(
 local fsm = FishingStateMachine.new()
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
+
+local function getEquippedRodTool()
+	local char = player.Character
+	if char then
+		for _, item in ipairs(char:GetChildren()) do
+			if item:IsA("Tool") and (item:GetAttribute("IsRod") == true or item.Name:lower():find("rod") or item.Name:lower():find("pancing") or item.Name:lower():find("joran")) then
+				return item
+			end
+		end
+	end
+	local backpack = player:FindFirstChild("Backpack")
+	if backpack then
+		for _, item in ipairs(backpack:GetChildren()) do
+			if item:IsA("Tool") and (item:GetAttribute("IsRod") == true or item.Name:lower():find("rod") or item.Name:lower():find("pancing") or item.Name:lower():find("joran")) then
+				return item
+			end
+		end
+	end
+	return nil
+end
 
 local clientPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
 local lastPlayerData = {}
@@ -1160,8 +1181,15 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		end)
 	end
 
-	local currentRod = (lastPlayerData and lastPlayerData.equippedRod) or "StarterRod"
-	showMessage("🎵 IKAN MENYAMBAR! Mainkan Irama Instrumen [A, W, S, D]!", Color3.fromRGB(255, 220, 50), 3.5)
+	local rodTool = getEquippedRodTool()
+	local currentRod = (rodTool and rodTool:GetAttribute("RodId")) or (lastPlayerData and lastPlayerData.equippedRod) or "StarterRod"
+	local instType = (rodTool and rodTool:GetAttribute("InstrumentType"))
+		or (lastPlayerData and lastPlayerData.equippedInstrument)
+		or InstrumentDefinitions.GetInstrumentTypeForRod(currentRod)
+	local instData = InstrumentDefinitions.GetInstrumentData(instType)
+	local hint = InstrumentDefinitions.GetInstrumentHint(instType)
+
+	showMessage(string.format("%s IKAN MENYAMBAR! %s", instData.icon or "🎵", hint), instData.color or Color3.fromRGB(255, 220, 50), 3.5)
 	AnimSystem.SetPhase("Reeling")
 
 	fsm:Transition(FishingStateMachine.States.MINIGAME, { sessionId = sessionId })
@@ -1173,6 +1201,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, rarity)
 		castQuality = castQuality,
 		tier = rarity,
 		rodId = currentRod,
+		instrumentType = instType,
 	}, function(metrics)
 		fsm:Transition(FishingStateMachine.States.REELING_SUCCESS, { metrics = metrics })
 		destroyBobberSafely()
@@ -2269,8 +2298,11 @@ if remote then
 			local rodData = arg2
 			local rodName = (rodData and rodData.name) or rodId or "Joran"
 			local luckVal = (rodData and rodData.luckBonus) or 5
+			local instType = (rodData and rodData.instrumentType) or InstrumentDefinitions.GetInstrumentTypeForRod(rodId)
 			lastPlayerData.equippedRod = rodId
-			showMessage(string.format("🎣 Berhasil memasang %s (+%d Luck)!", rodName, luckVal), Color3.fromRGB(0, 230, 255), 3.5)
+			lastPlayerData.equippedInstrument = instType
+			local instData = InstrumentDefinitions.GetInstrumentData(instType)
+			showMessage(string.format("🎣 Berhasil memasang %s (%s | +%d Luck)!", rodName, instData.badge or "JORAN", luckVal), instData.color or Color3.fromRGB(0, 230, 255), 3.5)
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 1.5)
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			RemoteContract.Client.GetShopCatalog()
