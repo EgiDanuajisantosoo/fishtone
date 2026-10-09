@@ -2287,8 +2287,15 @@ if remote then
 		elseif action == RemoteContract.S2C.SHOP_CATALOG_DATA then
 			local catalog = arg1
 			ShopUI.UpdateCatalogData(catalog)
-			if catalog and catalog.coins then
-				lastPlayerData.coins = catalog.coins
+			if catalog and typeof(catalog) == "table" then
+				if catalog.coins ~= nil then
+					lastPlayerData.coins = catalog.coins
+				end
+				if catalog.totalExp ~= nil then
+					lastPlayerData.totalExp = catalog.totalExp
+					lastPlayerData.exp = catalog.exp or lastPlayerData.exp
+					lastPlayerData.level = catalog.level or lastPlayerData.level
+				end
 				EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			end
 			if catalog and catalog.openModal and not ShopUI.IsOpen() then

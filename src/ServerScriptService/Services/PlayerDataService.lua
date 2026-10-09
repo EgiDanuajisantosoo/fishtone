@@ -312,7 +312,12 @@ function PlayerDataService.LoadData(player)
 	-- Studio Testing Helper: Berikan saldo koin & joran jika sedang testing di Studio
 	if RunService:IsStudio() then
 		profile.coins = math.max(profile.coins or 0, 50000)
-		profile.level = math.max(profile.level or 1, 20)
+		if (profile.totalExp or 0) == 0 then
+			profile.totalExp = XPProgressionSystem.GetTotalExpForLevel(profile.level or 1)
+		end
+		local prog = XPProgressionSystem.DeriveProgression(profile.totalExp)
+		profile.level = prog.level
+		profile.exp = prog.currentLevelExp
 		profile.unlockedRods = {
 			-- Piano Rods
 			"StarterRod",

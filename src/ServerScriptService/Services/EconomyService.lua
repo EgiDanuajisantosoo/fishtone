@@ -604,6 +604,8 @@ function EconomyService.GetShopCatalog(player)
 	return {
 		coins = pCoins,
 		level = pLevel,
+		exp = pData and pData.exp or 0,
+		totalExp = pData and pData.totalExp or 0,
 		equippedRod = equippedRod,
 		equippedInstrument = pData and pData.equippedInstrument or "PIANO",
 		unlockedInstruments = pData and pData.unlockedInstruments or { "PIANO" },

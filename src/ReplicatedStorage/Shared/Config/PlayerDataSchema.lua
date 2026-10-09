@@ -130,7 +130,7 @@ function PlayerDataSchema.Reconcile(target, template)
 	end
 
 	-- 1. Rekonsiliasi TotalXP & Progresi Level (FISH-030)
-	if target.totalExp == nil or typeof(target.totalExp) ~= "number" or target.totalExp < 0 then
+	if target.totalExp == nil or typeof(target.totalExp) ~= "number" or target.totalExp < 0 or (target.totalExp == 0 and (target.level or 1) > 1) then
 		target.totalExp = XPProgressionSystem.ReconcileToTotalExp(target.level or 1, target.exp or 0)
 	end
 
