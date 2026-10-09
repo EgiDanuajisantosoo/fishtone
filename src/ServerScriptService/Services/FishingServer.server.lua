@@ -73,7 +73,49 @@ local function onCharacterAdded(character, player)
 	end)
 end
 
+-- ============ DEVELOPER / STUDIO TESTING CHAT COMMANDS ============
+local function setupChatCommands(player)
+	player.Chatted:Connect(function(msg)
+		if not RunService:IsStudio() and player.UserId ~= game.CreatorId then return end
+		local parts = string.split(string.lower(msg), " ")
+		local cmd = parts[1]
+		local arg1 = tonumber(parts[2])
+
+		if cmd == "/setlevel" or cmd == "!setlevel" then
+			local lvl = arg1 or 10
+			PlayerDataService.SetLevel(player, lvl)
+			RemoteContract.Server.Notify(player, string.format("⚡ [TESTING] Level diset ke Level %d!", lvl))
+		elseif cmd == "/addlevel" or cmd == "!addlevel" then
+			local add = arg1 or 1
+			local pData = PlayerDataService.Get(player)
+			local newLvl = (pData and pData.level or 1) + add
+			PlayerDataService.SetLevel(player, newLvl)
+			RemoteContract.Server.Notify(player, string.format("⚡ [TESTING] +%d Level! Sekarang Level %d", add, newLvl))
+		elseif cmd == "/addexp" or cmd == "!addexp" then
+			local exp = arg1 or 2000
+			PlayerDataService.AddExp(player, exp)
+			RemoteContract.Server.Notify(player, string.format("⚡ [TESTING] +%d EXP berhasil ditambahkan!", exp))
+		elseif cmd == "/addcoins" or cmd == "!addcoins" then
+			local coins = arg1 or 10000
+			PlayerDataService.AddCoins(player, coins)
+			RemoteContract.Server.Notify(player, string.format("⚡ [TESTING] +%d Koin berhasil ditambahkan!", coins))
+		elseif cmd == "/unlockall" or cmd == "!unlockall" then
+			local pData = PlayerDataService.Get(player)
+			if pData then
+				pData.unlockedRods = {
+					"StarterRod", "HarmonicTuningRod", "CrystalSonataRod",
+					"BambooRod", "CarbonFiberRod", "AbyssalTridentRod",
+					"TribalPercussionRod", "SynthwaveDrumRod", "CelestialMelodyRod",
+				}
+				RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+				RemoteContract.Server.Notify(player, "⚡ [TESTING] Semua joran Piano, Gitar & Drum telah terbuka!")
+			end
+		end
+	end)
+end
+
 local function onPlayerAdded(player)
+	setupChatCommands(player)
 	player.CharacterAdded:Connect(function(char)
 		onCharacterAdded(char, player)
 	end)

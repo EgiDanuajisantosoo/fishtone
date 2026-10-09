@@ -151,6 +151,17 @@ function PlayerDataService.AddExp(player, amount)
 	return leveledUp
 end
 
+function PlayerDataService.SetLevel(player, targetLevel)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return 1 end
+	pData.level = math.max(1, math.floor(tonumber(targetLevel) or 1))
+	pData.exp = 0
+	PlayerDataService.SyncLeaderstats(player)
+	RemoteContract.Server.LevelUp(player, pData.level)
+	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+	return pData.level
+end
+
 function PlayerDataService.GetPity(player)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return PlayerDataSchema.DeepCopy(PlayerDataSchema.DEFAULT_DATA.pity) end
