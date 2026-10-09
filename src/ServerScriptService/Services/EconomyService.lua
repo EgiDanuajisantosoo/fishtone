@@ -340,7 +340,11 @@ function EconomyService.BuyRod(player, rodId)
 	-- 4. Tambahkan ke Unlocked Rods & Auto-Equip
 	table.insert(pData.unlockedRods, rodId)
 	pData.equippedRod = rodId
-	pData.equippedInstrument = rodData.instrumentType or InstrumentDefinitions.GetInstrumentTypeForRod(rodId)
+	local instType = rodData.instrumentType or InstrumentDefinitions.GetInstrumentTypeForRod(rodId)
+	pData.equippedInstrument = instType
+
+	-- Buka instrumen jika belum terbuka (FISH-031)
+	PlayerDataService.UnlockInstrument(player, instType)
 
 	EconomyService.SpawnEquippedRod(player)
 
@@ -601,6 +605,8 @@ function EconomyService.GetShopCatalog(player)
 		coins = pCoins,
 		level = pLevel,
 		equippedRod = equippedRod,
+		equippedInstrument = pData and pData.equippedInstrument or "PIANO",
+		unlockedInstruments = pData and pData.unlockedInstruments or { "PIANO" },
 		equippedBait = equippedBait,
 		bagTier = bagTier,
 		maxSlots = maxSlots,

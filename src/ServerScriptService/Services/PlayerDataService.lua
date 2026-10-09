@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
+local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local PlayerDataSchema = require(Shared:WaitForChild("Config"):WaitForChild("PlayerDataSchema"))
 
@@ -125,6 +126,30 @@ function PlayerDataService.AddFish(player, amount)
 	PlayerDataService.SyncLeaderstats(player)
 end
 
+function PlayerDataService.UnlockInstrument(player, instrumentType)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return false end
+	if not InstrumentDefinitions.IsValidInstrumentType(instrumentType) then return false end
+
+	pData.unlockedInstruments = pData.unlockedInstruments or { "PIANO" }
+	if not table.find(pData.unlockedInstruments, instrumentType) then
+		table.insert(pData.unlockedInstruments, instrumentType)
+		local instData = InstrumentDefinitions.GetInstrumentData(instrumentType)
+		RemoteContract.Server.InstrumentUnlocked(player, instrumentType, instData)
+		RemoteContract.Server.Notify(player, string.format("🎉 %s TERBUKA! Kamu sekarang dapat memainkan minigame %s!", instData.badge or instrumentType, instData.name or instrumentType))
+		RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+		return true
+	end
+	return false
+end
+
+function PlayerDataService.IsInstrumentUnlocked(player, instrumentType)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return instrumentType == "PIANO" end
+	pData.unlockedInstruments = pData.unlockedInstruments or { "PIANO" }
+	return table.find(pData.unlockedInstruments, instrumentType) ~= nil
+end
+
 function PlayerDataService.AddExp(player, amount)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return false, 1 end
@@ -140,6 +165,14 @@ function PlayerDataService.AddExp(player, amount)
 
 	local leveledUp = prog.level > oldLevel
 	PlayerDataService.SyncLeaderstats(player)
+
+	-- Cek pembukaan instrumen milestone berdasarkan level baru (FISH-031)
+	if pData.level >= 2 and not PlayerDataService.IsInstrumentUnlocked(player, "GUITAR") then
+		PlayerDataService.UnlockInstrument(player, "GUITAR")
+	end
+	if pData.level >= 4 and not PlayerDataService.IsInstrumentUnlocked(player, "DRUM") then
+		PlayerDataService.UnlockInstrument(player, "DRUM")
+	end
 
 	if leveledUp then
 		RemoteContract.Server.LevelUp(player, pData.level)
@@ -160,6 +193,15 @@ function PlayerDataService.SetLevel(player, targetLevel)
 	pData.exp = prog.currentLevelExp
 
 	PlayerDataService.SyncLeaderstats(player)
+
+	-- Cek pembukaan instrumen milestone berdasarkan level baru (FISH-031)
+	if pData.level >= 2 and not PlayerDataService.IsInstrumentUnlocked(player, "GUITAR") then
+		PlayerDataService.UnlockInstrument(player, "GUITAR")
+	end
+	if pData.level >= 4 and not PlayerDataService.IsInstrumentUnlocked(player, "DRUM") then
+		PlayerDataService.UnlockInstrument(player, "DRUM")
+	end
+
 	if pData.level ~= oldLevel then
 		RemoteContract.Server.LevelUp(player, pData.level)
 	end

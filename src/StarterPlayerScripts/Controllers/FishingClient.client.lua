@@ -2328,6 +2328,22 @@ if remote then
 			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
 			RemoteContract.Client.GetShopCatalog()
+		elseif action == RemoteContract.S2C.INSTRUMENT_UNLOCKED then
+			local instType = arg1
+			local instData = arg2 or InstrumentDefinitions.GetInstrumentData(instType)
+			lastPlayerData.unlockedInstruments = lastPlayerData.unlockedInstruments or {}
+			if not table.find(lastPlayerData.unlockedInstruments, instType) then
+				table.insert(lastPlayerData.unlockedInstruments, instType)
+			end
+			local badge = instData and instData.badge or ("🎵 " .. tostring(instType))
+			local name = instData and instData.name or tostring(instType)
+			local desc = instData and instData.desc or "Minigame ritme baru telah terbuka!"
+			local color = instData and instData.color or Color3.fromRGB(255, 215, 0)
+			showMessage(string.format("🎉 INSTRUMEN TERBUKA: %s (%s)!", name, badge), color, 5.0)
+			EconomyHUD.ShowTransactionNotification("🌟 INSTRUMEN BARU", string.format("%s • %s", name, desc), false)
+			playSound("rbxasset://sounds/electronicpingshort.wav", 1.0, 2.0)
+			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
+			RemoteContract.Client.GetShopCatalog()
 		elseif action == RemoteContract.S2C.NOTIFICATION then
 			showMessage(arg1, Color3.fromRGB(255, 200, 80), 3.5)
 			if tostring(arg1):find("❌") or tostring(arg1):find("tidak valid") or tostring(arg1):find("Gagal") then

@@ -228,14 +228,17 @@ local function renderRodsTab(parent)
 		badge.Parent = card
 		Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 4)
 
-		-- Badge Instrumen (FISH-027 / FISH!TUNE)
+		-- Badge Instrumen (FISH-027 / FISH-031 / FISH!TUNE)
+		local unlockedInstruments = cachedCatalog and cachedCatalog.unlockedInstruments or { "PIANO" }
+		local isInstUnlocked = table.find(unlockedInstruments, instType) ~= nil
+
 		local instBadge = Instance.new("TextLabel")
-		instBadge.Size = UDim2.new(0, 95, 0, 16)
+		instBadge.Size = UDim2.new(0, isInstUnlocked and 95 or 115, 0, 16)
 		instBadge.Position = UDim2.new(0, 190, 0, 34)
-		instBadge.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
+		instBadge.BackgroundColor3 = isInstUnlocked and Color3.fromRGB(20, 26, 40) or Color3.fromRGB(35, 20, 25)
 		instBadge.BorderSizePixel = 0
-		instBadge.Text = instData and instData.badge or "🎹 PIANO"
-		instBadge.TextColor3 = instData and instData.color or Color3.fromRGB(56, 189, 248)
+		instBadge.Text = isInstUnlocked and (instData and instData.badge or "🎹 PIANO") or string.format("🔒 %s (Lv.%d)", instData and instData.id or instType, InstrumentDefinitions.GetUnlockLevel(instType))
+		instBadge.TextColor3 = isInstUnlocked and (instData and instData.color or Color3.fromRGB(56, 189, 248)) or Color3.fromRGB(251, 146, 60)
 		instBadge.Font = Enum.Font.GothamBold
 		instBadge.TextSize = 9
 		instBadge.ZIndex = 45
@@ -243,7 +246,7 @@ local function renderRodsTab(parent)
 		Instance.new("UICorner", instBadge).CornerRadius = UDim.new(0, 4)
 
 		local instBadgeStroke = Instance.new("UIStroke")
-		instBadgeStroke.Color = instData and instData.color or Color3.fromRGB(56, 189, 248)
+		instBadgeStroke.Color = isInstUnlocked and (instData and instData.color or Color3.fromRGB(56, 189, 248)) or Color3.fromRGB(251, 146, 60)
 		instBadgeStroke.Thickness = 0.8
 		instBadgeStroke.Parent = instBadge
 

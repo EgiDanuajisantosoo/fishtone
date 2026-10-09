@@ -53,6 +53,7 @@ RemoteContract.S2C = {
 	BAIT_UPDATED             = "BaitUpdated",
 	BAG_UPGRADED             = "BagUpgraded",
 	SHOP_CATALOG_DATA        = "ShopCatalogData",
+	INSTRUMENT_UNLOCKED      = "InstrumentUnlocked",
 }
 
 -- ============ REMOTE PROVIDER ============
@@ -238,6 +239,18 @@ function RemoteContract.Server.ShopCatalogData(player, catalogData)
 			player,
 			RemoteContract.S2C.SHOP_CATALOG_DATA,
 			catalogData
+		)
+	end
+end
+
+function RemoteContract.Server.InstrumentUnlocked(player, instrumentType, instData)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(
+			player,
+			RemoteContract.S2C.INSTRUMENT_UNLOCKED,
+			instrumentType,
+			instData
 		)
 	end
 end

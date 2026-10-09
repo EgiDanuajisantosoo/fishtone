@@ -1,6 +1,6 @@
 --[[
     InstrumentDefinitions (ModuleScript)
-    FISH!TUNE — Central Instrument & Rhythm Gameplay Mechanics Registry (FISH-029)
+    FISH!TUNE — Central Instrument & Rhythm Gameplay Mechanics Registry (FISH-029 / FISH-031)
 
     Menetapkan Single Source of Truth untuk:
     1. Instrument Types (PIANO, GUITAR, DRUM).
@@ -9,7 +9,8 @@
        - GUITAR: Fretboard Pattern / Sequence combo rhythm [A, S, D / 1, 2, 3].
        - DRUM  : Concentric Beat Pulse / Reaction timing [SPACE / D / K / Click].
     3. Rod to Instrument Mapping (StarterRod, BambooRod, CarbonFiberRod, dll).
-    4. Comprehensive Helper Methods untuk validasi, lookup, dan integrasi UI/Gameplay.
+    4. Instrument Progression & Unlock Requirements (Level Requirements & Starter Rods).
+    5. Comprehensive Helper Methods untuk validasi, lookup, dan integrasi UI/Gameplay.
 ]]
 
 local InstrumentDefinitions = {}
@@ -34,6 +35,9 @@ InstrumentDefinitions.Instruments = {
 		description = "Tekan tuts piano saat not jatuh melintasi garis target presisi.",
 		hintText = "Tekan [A, W, S, D] / Tuts Piano saat not melintasi garis target!",
 		defaultKeybinds = { "A", "W", "S", "D" },
+		levelReq = 1,
+		defaultUnlocked = true,
+		starterRod = "StarterRod",
 		color = Color3.fromRGB(0, 210, 255),
 		glowColor = Color3.fromRGB(180, 245, 255),
 		basePitch = 0.85,
@@ -51,6 +55,9 @@ InstrumentDefinitions.Instruments = {
 		description = "Ikuti pola petikan senar dan ritem fretboard untuk menghasilkan melodi.",
 		hintText = "Petik senar [A, S, D] / [1, 2, 3] atau klik senar saat not tiba!",
 		defaultKeybinds = { "A", "S", "D" },
+		levelReq = 2,
+		defaultUnlocked = false,
+		starterRod = "BambooRod",
 		color = Color3.fromRGB(245, 158, 11),
 		glowColor = Color3.fromRGB(253, 230, 138),
 		basePitch = 1.0,
@@ -68,6 +75,9 @@ InstrumentDefinitions.Instruments = {
 		description = "Pukul pad drum tepat saat gelombang ketukan lingkaran menyatu.",
 		hintText = "Tekan [SPACE / D / K] atau klik Pad Drum saat lingkaran ketukan menyatu!",
 		defaultKeybinds = { "Space", "D", "K" },
+		levelReq = 4,
+		defaultUnlocked = false,
+		starterRod = "TribalPercussionRod",
 		color = Color3.fromRGB(239, 68, 68),
 		glowColor = Color3.fromRGB(254, 202, 202),
 		basePitch = 1.0,
@@ -232,6 +242,17 @@ end
 function InstrumentDefinitions.GetInstrumentHint(instrumentType)
 	local data = InstrumentDefinitions.GetInstrumentData(instrumentType)
 	return data and data.hintText or "Mainkan irama musik saat not tiba!"
+end
+
+function InstrumentDefinitions.GetUnlockLevel(instrumentType)
+	local data = InstrumentDefinitions.GetInstrumentData(instrumentType)
+	return data and data.levelReq or 1
+end
+
+function InstrumentDefinitions.IsLevelEligible(instrumentType, level)
+	level = tonumber(level) or 1
+	local req = InstrumentDefinitions.GetUnlockLevel(instrumentType)
+	return level >= req
 end
 
 return InstrumentDefinitions

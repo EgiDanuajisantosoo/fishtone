@@ -1,9 +1,9 @@
 --[[
 	PlayerDataSchema (ModuleScript)
-	FISH!TUNE — Central Player Data Schema & Migration Pipeline (FISH-005 / FISH-029 / FISH-030)
+	FISH!TUNE — Central Player Data Schema & Migration Pipeline (FISH-005 / FISH-029 / FISH-030 / FISH-031)
 
 	Satu sumber kebenaran (Single Source of Truth) untuk struktur data pemain:
-	1. Definisi Schema Lengkap (TotalXP, Level, EXP, Koin, Pity, Rods, Instrument, Journal, Stats, Settings).
+	1. Definisi Schema Lengkap (TotalXP, Level, EXP, Koin, Pity, Rods, Instruments, Journal, Stats, Settings).
 	2. Versioning & Migration Pipeline (Mendukung upgrade format data otomatis di masa depan).
 	3. Deep Reconciler (Memastikan field baru otomatis terisi ke data pemain lama tanpa merusak data yang ada).
 	4. Schema Invariant Validator (Mencegah data corrupt / nilai negatif / tipe data salah).
@@ -42,6 +42,7 @@ PlayerDataSchema.DEFAULT_DATA = {
 	equippedRod = "StarterRod",
 	equippedInstrument = "PIANO",
 	unlockedRods = { "StarterRod" },
+	unlockedInstruments = { "PIANO" },
 	equippedBait = nil,
 	baits = {}, -- [baitId] = count (e.g. { StandardWorm = 0 })
 	maxInventorySlots = 35,
@@ -138,7 +139,33 @@ function PlayerDataSchema.Reconcile(target, template)
 	target.level = prog.level
 	target.exp = prog.currentLevelExp
 
-	-- 2. Pastikan equippedInstrument selalu sinkron dengan equippedRod
+	-- 2. Rekonsiliasi Unlocked Instruments (FISH-031)
+	if typeof(target.unlockedInstruments) ~= "table" then
+		target.unlockedInstruments = { "PIANO" }
+	end
+	if not table.find(target.unlockedInstruments, "PIANO") then
+		table.insert(target.unlockedInstruments, "PIANO")
+	end
+
+	-- Pastikan instrumen dari joran yang dimiliki otomatis terbuka
+	if typeof(target.unlockedRods) == "table" then
+		for _, rodId in ipairs(target.unlockedRods) do
+			local inst = InstrumentDefinitions.GetInstrumentTypeForRod(rodId)
+			if inst and not table.find(target.unlockedInstruments, inst) then
+				table.insert(target.unlockedInstruments, inst)
+			end
+		end
+	end
+
+	-- Milestone level unlock (Level 2: Guitar, Level 4: Drum)
+	if target.level >= 2 and not table.find(target.unlockedInstruments, "GUITAR") then
+		table.insert(target.unlockedInstruments, "GUITAR")
+	end
+	if target.level >= 4 and not table.find(target.unlockedInstruments, "DRUM") then
+		table.insert(target.unlockedInstruments, "DRUM")
+	end
+
+	-- 3. Pastikan equippedInstrument selalu sinkron dengan equippedRod
 	if not target.equippedInstrument or not InstrumentDefinitions.IsValidInstrumentType(target.equippedInstrument) then
 		target.equippedInstrument = InstrumentDefinitions.GetInstrumentTypeForRod(target.equippedRod or "StarterRod")
 	end
@@ -216,6 +243,9 @@ function PlayerDataSchema.Validate(data)
 	end
 	if typeof(data.unlockedRods) ~= "table" then
 		return false, "Unlocked rods harus berupa table"
+	end
+	if typeof(data.unlockedInstruments) ~= "table" then
+		return false, "Unlocked instruments harus berupa table"
 	end
 
 	return true, nil

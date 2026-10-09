@@ -108,6 +108,7 @@ local function setupChatCommands(player)
 					"BambooRod", "CarbonFiberRod", "AbyssalTridentRod",
 					"TribalPercussionRod", "SynthwaveDrumRod", "CelestialMelodyRod",
 				}
+				pData.unlockedInstruments = { "PIANO", "GUITAR", "DRUM" }
 				RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
 				RemoteContract.Server.Notify(player, "⚡ [TESTING] Semua joran Piano, Gitar & Drum telah terbuka!")
 			end
