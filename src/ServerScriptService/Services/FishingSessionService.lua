@@ -25,8 +25,8 @@ local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFor
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
-local PlayerDataService = require(script.Parent.PlayerDataService)
-local EconomyService = require(script.Parent.EconomyService)
+local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
+local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 
 local FishingSessionService = {}
 

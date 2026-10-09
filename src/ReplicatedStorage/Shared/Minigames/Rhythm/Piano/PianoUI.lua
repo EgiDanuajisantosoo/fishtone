@@ -6,7 +6,10 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(ReplicatedStorage:WaitForChild("PianoTilesConfig"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = ReplicatedStorage:FindFirstChild("PianoTilesConfig")
+	and require(ReplicatedStorage.PianoTilesConfig)
+	or require(Shared:WaitForChild("Config"):WaitForChild("PianoTilesConfig"))
 
 local PianoUI = {}
 
@@ -22,8 +25,35 @@ local function getPlayerGui()
 end
 
 local DEFAULT_RATINGS = {
-	GOOD = { flashColor = Color3.fromRGB(0, 220, 255), color = Color3.fromRGB(0, 220, 255), symbol = "GOOD", scale = 1 },
-	MISS = { flashColor = Color3.fromRGB(255, 70, 70), color = Color3.fromRGB(255, 70, 70), symbol = "MISS", scale = 1 },
+
+	PERFECT = {
+		flashColor = Color3.fromRGB(255, 215, 0),
+		color = Color3.fromRGB(255, 215, 0),
+		symbol = "PERFECT",
+		scale = 1.25,
+	},
+
+	GREAT = {
+		flashColor = Color3.fromRGB(0, 240, 255),
+		color = Color3.fromRGB(0, 240, 255),
+		symbol = "GREAT",
+		scale = 1.15,
+	},
+
+	GOOD = {
+		flashColor = Color3.fromRGB(0, 220, 255),
+		color = Color3.fromRGB(0, 220, 255),
+		symbol = "GOOD",
+		scale = 1,
+	},
+
+	MISS = {
+		flashColor = Color3.fromRGB(255, 70, 70),
+		color = Color3.fromRGB(255, 70, 70),
+		symbol = "MISS",
+		scale = 1,
+	},
+
 }
 
 local function getRatingData(ratingKey)
@@ -80,7 +110,7 @@ local function buildHybridGui(playerGui)
 
 	for i = 1, columnCount do
 		local col = arena:FindFirstChild("Column" .. i)
-		
+
 		columns[i] = col
 
 		-- =====================================================
@@ -209,7 +239,7 @@ local function buildHybridGui(playerGui)
 	-- FEATURE TEMAN: HitLine / PerfectBadge
 	-- HitLine milik user diprioritaskan.
 	-- =========================================================
-	hitLine = arena:FindFirstChild("HitLine")
+	hitLine = container:FindFirstChild("HitLine")
 	if not hitLine then
 		hitLine = Instance.new("Frame")
 		hitLine.Name = "HitLine"
@@ -241,26 +271,9 @@ local function buildHybridGui(playerGui)
 	-- FEATURE TEMAN: CenterJudgementLabel
 	-- Belum ada di GUI user -> dibuat sementara.
 	-- =========================================================
-	centerJudgementLabel = arena:FindFirstChild("CenterJudgementLabel")
-	if not centerJudgementLabel then
-		centerJudgementLabel = Instance.new("TextLabel")
-		centerJudgementLabel.Name = "CenterJudgementLabel"
-		centerJudgementLabel.Size = UDim2.new(0.9, 0, 0, 38)
-		centerJudgementLabel.Position = UDim2.new(0.5, 0, 0.44, 0)
-		centerJudgementLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-		centerJudgementLabel.BackgroundTransparency = 1
-		centerJudgementLabel.Font = Enum.Font.FredokaOne
-		centerJudgementLabel.TextSize = 26
-		centerJudgementLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-		centerJudgementLabel.Text = ""
-		centerJudgementLabel.ZIndex = 40
-		centerJudgementLabel.Parent = arena
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(0, 0, 0)
-		stroke.Thickness = 2
-		stroke.Parent = centerJudgementLabel
-	end
+	centerJudgementLabel = header
+		and header:FindFirstChild("CenterJudgementLabel")
+		or nil
 
 	-- =========================================================
 	-- USER PROGRESS BAR
@@ -454,57 +467,21 @@ function PianoUI.TriggerReceptorPress(column, ratingKey)
 end
 
 function PianoUI.ShowHitRating(ratingKey, column, y)
-	if not arenaFrame then return end
-	local ratingData = getRatingData(ratingKey)
+	print("Rating diterima:", ratingKey)
+	print("Label yang dipakai:", centerJudgementLabel)
 
-	if centerJudgementLabel then
-		centerJudgementLabel.Text = ratingData.symbol
-		centerJudgementLabel.TextColor3 = ratingData.color
-		centerJudgementLabel.TextTransparency = 0
-		TweenService:Create(centerJudgementLabel, TweenInfo.new(0.08, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			TextSize = math.floor(27 * ratingData.scale)
-		}):Play()
-
-		task.delay(0.42, function()
-			if centerJudgementLabel and centerJudgementLabel.Text == ratingData.symbol then
-				TweenService:Create(centerJudgementLabel, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					TextTransparency = 1
-				}):Play()
-			end
-		end)
+	if not centerJudgementLabel then
+		warn("CenterJudgementLabel tidak ditemukan!")
+		return
 	end
 
-	local posX = column and ((column - 0.5) / Config.COLUMN_COUNT) or 0.5
-	local posY = (y or Config.HIT_LINE) - 0.08
+	local ratingData = getRatingData(ratingKey)
+	print("Teks yang akan ditampilkan:", ratingData.symbol)
 
-	local popup = Instance.new("TextLabel")
-	popup.Name = "HitRatingPopup"
-	popup.Size = UDim2.new(0, 130, 0, 34)
-	popup.Position = UDim2.new(posX, 0, posY, 0)
-	popup.AnchorPoint = Vector2.new(0.5, 0.5)
-	popup.BackgroundTransparency = 1
-	popup.Font = Enum.Font.FredokaOne
-	popup.Text = ratingData.symbol
-	popup.TextColor3 = ratingData.color
-	popup.TextSize = math.floor(13 * ratingData.scale)
-	popup.ZIndex = 50
-	popup.Parent = arenaFrame
-
-	local popTween = TweenService:Create(popup, TweenInfo.new(0.08, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		TextSize = math.floor(19 * ratingData.scale),
-		Position = UDim2.new(posX, 0, posY - 0.03, 0),
-	})
-	popTween:Play()
-	popTween.Completed:Once(function()
-		local floatTween = TweenService:Create(popup, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(posX, 0, posY - 0.09, 0),
-			TextTransparency = 1,
-		})
-		floatTween:Play()
-		floatTween.Completed:Once(function()
-			if popup and popup.Parent then popup:Destroy() end
-		end)
-	end)
+	centerJudgementLabel.Text = ratingData.symbol
+	centerJudgementLabel.TextColor3 = ratingData.color
+	centerJudgementLabel.TextTransparency = 0
+	centerJudgementLabel.Visible = true
 end
 
 function PianoUI.PlayHitEffect(tile, y, ratingKey, column)
@@ -548,7 +525,7 @@ end
 function PianoUI.UpdateHUD(progress, combo, currentNotes, targetNotes, liveMetrics)
 	if comboLabel then
 		if combo and combo >= 2 then
-			comboLabel.Text = string.format("🔥 COMBO x%d", combo)
+			comboLabel.Text = string.format("x%d", combo)
 			comboLabel.Visible = true
 		else
 			comboLabel.Visible = false

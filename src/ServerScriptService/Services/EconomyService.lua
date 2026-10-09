@@ -19,7 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
-local PlayerDataService = require(script.Parent.PlayerDataService)
+local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
 
 local EconomyService = {}
 

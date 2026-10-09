@@ -18,7 +18,7 @@ local HttpService = game:GetService("HttpService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
-local PlayerDataService = require(script.Parent.PlayerDataService)
+local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
 
 local InventoryService = {}
 
