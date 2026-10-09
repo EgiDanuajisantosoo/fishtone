@@ -216,8 +216,26 @@ function ProgressionRoadmapUI.Show(targetGui, playerData)
 
 	playerData = playerData or {}
 	local totalExp = tonumber(playerData.totalExp)
+	local level = tonumber(playerData.level)
+	local exp = tonumber(playerData.exp)
+
+	if totalExp == nil and (level == nil or level <= 1) and (exp == nil or exp == 0) then
+		local lp = Players.LocalPlayer
+		local stats = lp and lp:FindFirstChild("leaderstats")
+		if stats then
+			local lLevel = stats:FindFirstChild("Level")
+			local lExp = stats:FindFirstChild("Exp")
+			if lLevel and tonumber(lLevel.Value) ~= nil and tonumber(lLevel.Value) > 0 then
+				level = tonumber(lLevel.Value)
+			end
+			if lExp and tonumber(lExp.Value) ~= nil and tonumber(lExp.Value) > 0 then
+				exp = tonumber(lExp.Value)
+			end
+		end
+	end
+
 	if totalExp == nil then
-		totalExp = XPProgressionSystem.ReconcileToTotalExp(playerData.level or 1, playerData.exp or 0)
+		totalExp = XPProgressionSystem.ReconcileToTotalExp(level or 1, exp or 0)
 	end
 
 	local prog = XPProgressionSystem.DeriveProgression(totalExp)

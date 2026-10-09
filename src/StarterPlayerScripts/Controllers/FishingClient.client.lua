@@ -42,6 +42,7 @@ local EconomyHUD = require(Shared:WaitForChild("Minigames"):WaitForChild("Econom
 local TutorialUI = require(Shared:WaitForChild("Minigames"):WaitForChild("TutorialUI"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
+local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
 local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
 local fsm = FishingStateMachine.new()
@@ -71,6 +72,46 @@ end
 local clientPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
 local lastPlayerData = {}
 local activeSessionId = nil
+
+local function mergePlayerData(newData)
+	if not newData or typeof(newData) ~= "table" then return end
+	for k, v in pairs(newData) do
+		lastPlayerData[k] = v
+	end
+	if lastPlayerData.totalExp == nil and lastPlayerData.level ~= nil then
+		lastPlayerData.totalExp = XPProgressionSystem.ReconcileToTotalExp(lastPlayerData.level or 1, lastPlayerData.exp or 0)
+	end
+end
+
+local function syncFromLeaderstats()
+	local stats = player and player:FindFirstChild("leaderstats")
+	if stats then
+		local lvl = stats:FindFirstChild("Level")
+		local exp = stats:FindFirstChild("Exp")
+		local koin = stats:FindFirstChild("Koin") or stats:FindFirstChild("Coins")
+		if lvl and tonumber(lvl.Value) ~= nil then
+			lastPlayerData.level = tonumber(lvl.Value)
+		end
+		if exp and tonumber(exp.Value) ~= nil then
+			lastPlayerData.exp = tonumber(exp.Value)
+		end
+		if koin and tonumber(koin.Value) ~= nil then
+			lastPlayerData.coins = tonumber(koin.Value)
+		end
+		if lastPlayerData.totalExp == nil and lastPlayerData.level ~= nil then
+			lastPlayerData.totalExp = XPProgressionSystem.ReconcileToTotalExp(lastPlayerData.level or 1, lastPlayerData.exp or 0)
+		end
+	end
+end
+
+syncFromLeaderstats()
+if player then
+	player.ChildAdded:Connect(function(child)
+		if child.Name == "leaderstats" then
+			task.defer(syncFromLeaderstats)
+		end
+	end)
+end
 
 -- ============ STATE & HELPER TUTORIAL (FISH-033) ============
 local hasShownWelcomeTutorial = false
@@ -2316,7 +2357,7 @@ if remote then
 			end)
 
 			if pData and typeof(pData) == "table" then
-				lastPlayerData = pData
+				mergePlayerData(pData)
 				if pData.journal then
 					FishDexUI.UpdateJournalData(pData.journal)
 				end
@@ -2399,7 +2440,7 @@ if remote then
 		elseif action == RemoteContract.S2C.PLAYER_DATA_UPDATE then
 			local pData = arg1 or {}
 			local pityState = arg2 or pData.pity or {}
-			lastPlayerData = pData
+			mergePlayerData(pData)
 			clientPity = pityState
 			if pData.journal then
 				FishDexUI.UpdateJournalData(pData.journal)

@@ -11,6 +11,7 @@
 ]]
 
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -342,10 +343,23 @@ end
 function EconomyHUD.Update(playerData, optLootCount)
 	if not hudContainer then return end
 	playerData = playerData or {}
-	cachedPlayerData = playerData
 
-	-- 1. Update Coins
-	local coins = math.max(0, tonumber(playerData.coins) or 0)
+	-- 1. Coins with robust fallback to cache and leaderstats
+	local rawCoins = playerData.coins
+	if rawCoins == nil then
+		rawCoins = cachedPlayerData.coins
+	end
+	if rawCoins == nil then
+		local lp = Players.LocalPlayer
+		local stats = lp and lp:FindFirstChild("leaderstats")
+		local kVal = stats and (stats:FindFirstChild("Koin") or stats:FindFirstChild("Coins"))
+		if kVal and tonumber(kVal.Value) ~= nil then
+			rawCoins = tonumber(kVal.Value)
+		end
+	end
+	local coins = math.max(0, tonumber(rawCoins) or 0)
+	cachedPlayerData.coins = coins
+
 	if coins ~= targetCoins then
 		pulseCoinPill(coins > targetCoins)
 		animateCoinsTo(coins)
@@ -356,15 +370,49 @@ function EconomyHUD.Update(playerData, optLootCount)
 		end
 	end
 
-	-- 2. Update Level & EXP (FISH-030)
+	-- 2. Level & EXP with robust fallback (FISH-030)
 	local totalExp = tonumber(playerData.totalExp)
+	local level = tonumber(playerData.level)
+	local exp = tonumber(playerData.exp)
+
+	-- Fallback ke cachedPlayerData jika partial update
+	if totalExp == nil and cachedPlayerData.totalExp ~= nil then
+		totalExp = tonumber(cachedPlayerData.totalExp)
+	end
+	if level == nil and cachedPlayerData.level ~= nil then
+		level = tonumber(cachedPlayerData.level)
+	end
+	if exp == nil and cachedPlayerData.exp ~= nil then
+		exp = tonumber(cachedPlayerData.exp)
+	end
+
+	-- Fallback ke leaderstats jika belum terisi di cache maupun data
+	if (totalExp == nil or totalExp == 0) and (level == nil or level <= 1) and (exp == nil or exp == 0) then
+		local lp = Players.LocalPlayer
+		local stats = lp and lp:FindFirstChild("leaderstats")
+		if stats then
+			local lLevel = stats:FindFirstChild("Level")
+			local lExp = stats:FindFirstChild("Exp")
+			if lLevel and tonumber(lLevel.Value) ~= nil and tonumber(lLevel.Value) > 0 then
+				level = tonumber(lLevel.Value)
+			end
+			if lExp and tonumber(lExp.Value) ~= nil and tonumber(lExp.Value) > 0 then
+				exp = tonumber(lExp.Value)
+			end
+		end
+	end
+
 	if totalExp == nil then
-		totalExp = XPProgressionSystem.ReconcileToTotalExp(playerData.level or 1, playerData.exp or 0)
+		totalExp = XPProgressionSystem.ReconcileToTotalExp(level or 1, exp or 0)
 	end
 
 	local prog = XPProgressionSystem.DeriveProgression(totalExp)
 	currentLevel = prog.level
 	currentExp = prog.currentLevelExp
+
+	cachedPlayerData.totalExp = totalExp
+	cachedPlayerData.level = prog.level
+	cachedPlayerData.exp = prog.currentLevelExp
 
 	if levelBadge then
 		levelBadge.Text = string.format("Lv. %d", prog.level)
@@ -379,15 +427,18 @@ function EconomyHUD.Update(playerData, optLootCount)
 	end
 
 	-- 3. Update Active Luck
-	local equippedRodId = playerData.equippedRod or "StarterRod"
+	local equippedRodId = playerData.equippedRod or cachedPlayerData.equippedRod or "StarterRod"
+	cachedPlayerData.equippedRod = equippedRodId
 	local rodData = EconomyConfig.GetRod(equippedRodId)
 	local rodLuck = rodData and rodData.luckBonus or 5
 
-	local equippedBaitId = playerData.equippedBait
+	local equippedBaitId = (playerData.equippedBait ~= nil) and playerData.equippedBait or cachedPlayerData.equippedBait
+	cachedPlayerData.equippedBait = equippedBaitId
 	local baitData = equippedBaitId and EconomyConfig.GetBait(equippedBaitId)
 	local baitLuck = baitData and baitData.luckBonus or 0
 
-	local streakLuck = math.floor((tonumber(playerData.prevPerformanceLuckBonus) or 0) * 10) / 10
+	local streakLuck = math.floor((tonumber(playerData.prevPerformanceLuckBonus or cachedPlayerData.prevPerformanceLuckBonus) or 0) * 10) / 10
+	cachedPlayerData.prevPerformanceLuckBonus = streakLuck
 	local totalLuck = rodLuck + baitLuck + streakLuck
 
 	if luckPillLabel then
@@ -395,7 +446,8 @@ function EconomyHUD.Update(playerData, optLootCount)
 	end
 
 	-- 4. Update Bag Capacity Pill
-	local maxSlots = tonumber(playerData.maxInventorySlots) or 35
+	local maxSlots = tonumber(playerData.maxInventorySlots or cachedPlayerData.maxInventorySlots) or 35
+	cachedPlayerData.maxInventorySlots = maxSlots
 	local count = tonumber(optLootCount) or 0
 	if bagPillLabel then
 		bagPillLabel.Text = string.format("🎒 <b>%d/%d</b>", count, maxSlots)
