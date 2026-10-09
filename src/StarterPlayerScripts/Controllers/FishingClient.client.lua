@@ -1267,11 +1267,11 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 	advanceTutorial(2)
 
 	if castQuality == "PERFECT" then
-		showMessage("⭐ PERFECT CAST! (+35% Minigame Progress) Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 2.5)
+		showMessage("⭐ PERFECT CAST! Sambaran Kilat!", Color3.fromRGB(255, 215, 0), 2.5)
 	elseif castQuality == "GREAT" then
-		showMessage("✨ GREAT CAST! (+20% Minigame Progress) Sambaran Cepat!", Color3.fromRGB(0, 220, 255), 2.5)
+		showMessage("✨ GREAT CAST! Sambaran Cepat!", Color3.fromRGB(0, 220, 255), 2.5)
 	else
-		showMessage("🎣 Kail di air... (+10% Minigame Progress) Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 2.5)
+		showMessage("🎣 Kail di air... Menunggu ikan menyambar...", Color3.fromRGB(150, 220, 255), 2.5)
 	end
 
 	task.wait(waitDuration)
