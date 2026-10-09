@@ -11,4 +11,8 @@ extract_place.py
 Thumbs.db
 .DS_Store
 *.tmp
-
+# Agent & IDE config
+.agents/
+.agent/
+.agent*
+.gemini/
