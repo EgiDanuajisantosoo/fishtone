@@ -148,10 +148,11 @@ local function setupBobberWatcher()
 			task.spawn(function()
 				for _ = 1, 10 do
 					task.wait(0.5)
+					if not bobber or not bobber.Parent then break end
 					otherPlayer = Players:GetPlayerByUserId(ownerUserId)
 					if otherPlayer then break end
 				end
-				if otherPlayer and bobber.Parent then
+				if otherPlayer and bobber and bobber.Parent then
 					attachOtherPlayerLine(otherPlayer, bobber)
 				end
 			end)

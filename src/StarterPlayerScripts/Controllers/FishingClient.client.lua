@@ -570,6 +570,11 @@ local function animateFishLeap(startPos, endPos, duration, height)
 	local startTime = os.clock()
 	local conn
 	conn = RunService.Heartbeat:Connect(function()
+		if not fish or not fish.Parent then
+			conn:Disconnect()
+			return
+		end
+
 		local elapsed = os.clock() - startTime
 		local t = math.clamp(elapsed / duration, 0, 1)
 		
@@ -1102,7 +1107,13 @@ fsm:OnEnter(FishingStateMachine.States.CHARGING_CAST, function(payload)
 
 	if meterConn then meterConn:Disconnect() end
 	meterConn = RunService.RenderStepped:Connect(function()
-		if not fsm:Is(FishingStateMachine.States.CHARGING_CAST) then return end
+		if not fsm:Is(FishingStateMachine.States.CHARGING_CAST) then
+			if meterConn then
+				meterConn:Disconnect()
+				meterConn = nil
+			end
+			return
+		end
 		local elapsed = os.clock() - meterStartTime
 		local pingPong = (math.sin(elapsed * meterSpeed - math.pi / 2) + 1) / 2
 		currentCastPower = pingPong
