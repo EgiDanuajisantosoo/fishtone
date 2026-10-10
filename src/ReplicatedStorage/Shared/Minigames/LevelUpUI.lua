@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local LevelUpUI = {}
 local activeModal = nil
@@ -198,6 +199,9 @@ function LevelUpUI.Show(targetGui, newLevel, oldLevel, playerData, onAction)
 	card.Parent = overlay
 	activeModal = card
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
+
+	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(card, 520, 480)
 
 	local cardStroke = Instance.new("UIStroke")
 	cardStroke.Color = Color3.fromRGB(234, 179, 8)

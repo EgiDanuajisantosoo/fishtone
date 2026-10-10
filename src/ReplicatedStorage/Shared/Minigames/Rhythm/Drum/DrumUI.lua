@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("DrumConfig"))
 local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local DrumUI = {}
 
@@ -39,6 +40,9 @@ local function buildDynamicGui(playerGui)
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel = 0
 	container.Parent = screenGui
+
+	-- Auto-fit ArenaContainer untuk layar HP/Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(container, 520, 480, 1.0, 20)
 
 	-- ==================================================
 	-- LEFT WOOD PANEL (Song & Cast Info)

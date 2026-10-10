@@ -20,6 +20,7 @@ local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("Econom
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local player = Players.LocalPlayer
 
@@ -1129,6 +1130,9 @@ function ShopUI.Show(targetGui, catalogData, initialTab)
 	card.Parent = overlay
 	activeModal = card
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
+
+	-- Responsive Auto-Fit untuk Smartphone & Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(card, 800, 580)
 
 	local cardStroke = Instance.new("UIStroke")
 	cardStroke.Color = Color3.fromRGB(26, 40, 60)

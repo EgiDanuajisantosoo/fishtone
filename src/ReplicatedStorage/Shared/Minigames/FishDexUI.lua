@@ -23,6 +23,7 @@ local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("Fish
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local player = Players.LocalPlayer
 
@@ -211,6 +212,9 @@ local function showFishDetailModal(parentContainer, fish)
 	modal.ZIndex = 61
 	modal.Parent = detailOverlay
 	Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 18)
+
+	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(modal, 520, 480)
 
 	local mStroke = Instance.new("UIStroke")
 	mStroke.Color = isDiscovered and rColor or Color3.fromRGB(70, 85, 110)
@@ -777,6 +781,9 @@ function FishDexUI.Show(targetGui, pData)
 	card.Parent = overlay
 	activeModal = card
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
+
+	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(card, 840, 620)
 
 	local cardStroke = Instance.new("UIStroke")
 	cardStroke.Color = Color3.fromRGB(26, 40, 60)

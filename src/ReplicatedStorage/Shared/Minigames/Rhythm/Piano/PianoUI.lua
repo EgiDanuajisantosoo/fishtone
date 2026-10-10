@@ -11,6 +11,7 @@ local Config = ReplicatedStorage:FindFirstChild("PianoTilesConfig")
 	and require(ReplicatedStorage.PianoTilesConfig)
 	or require(Shared:WaitForChild("Config"):WaitForChild("PianoTilesConfig"))
 local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local PianoUI = {}
 
@@ -81,6 +82,9 @@ local function buildHybridGui(playerGui)
 		warn("[PianoUI] ArenaContainer tidak ditemukan. GUI manual user harus memiliki ArenaContainer.")
 		return nil
 	end
+
+	-- Auto-fit ArenaContainer untuk layar HP/Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(container, 520, 480, 1.0, 20)
 
 	local arena = container:FindFirstChild("ArenaFrame")
 	if not arena then

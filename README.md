@@ -175,5 +175,17 @@ FishTune-Roblox/
 
 ---
 
-=======
->>>>>>> 5f60c8fa8d8527695c546669777d8802ceebb527
+## 📱 7. Optimasi Mobile & Tablet (FISH-037)
+
+Game FISH!TUNE dirancang dengan responsivitas lintas platform (PC, Laptop, Smartphone & Tablet):
+1. **Dedicated Touch Action Button**:
+   - Tombol sentuh melingkar modern di sisi kanan bawah layar (`🎣 LEMPAR` → `⭐ KUNCI` → `🌊 TUNGGU` → `⚡ TARIK!`).
+   - Mencegah lemparan kail yang tidak disengaja saat pemain mobile menggerakkan atau memutar kamera (*camera panning*).
+2. **Adaptive HUD & Bersih dari Hotkey PC**:
+   - Label tombol HUD otomatis menyembunyikan bracket hotkey PC seperti `[B]`, `[J]`, `[K]`, `[H]` saat mendeteksi layar sentuh.
+   - Petunjuk meter lemparan otomatis beradaptasi menjadi *"Sentuh Layar / KUNCI!"*.
+3. **Dynamic Viewport Auto-Fitting (`UIScale`)**:
+   - Modals & Minigame Arena (`ShopUI`, `FishDexUI`, `FishingResultUI`, `ProgressionRoadmapUI`, `LevelUpUI`, `TutorialUI`, `PianoUI`, `GuitarUI`, `DrumUI`) otomatis menyesuaikan skala secara proporsional sesuai resolusi viewport layar HP/Tablet tanpa terpotong (overflow).
+4. **Toleransi Area Sentuh Minigame Irama**:
+   - Deteksi sentuhan pada tuts/senar/pad minigame diperluas (-10px s/d +10px horizontal, -20px s/d +80px vertikal) untuk mengakomodasi tap jempol cepat pemain mobile tanpa dropped inputs.
+

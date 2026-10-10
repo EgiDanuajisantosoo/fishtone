@@ -20,6 +20,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local TutorialUI = {}
 
@@ -297,6 +298,9 @@ function TutorialUI.ShowWelcomeModal(targetGui, onStartCallback, onSkipCallback)
 	modal.Parent = overlay
 	Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 18)
 
+	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(modal, 520, 420)
+
 	local mStroke = Instance.new("UIStroke")
 	mStroke.Color = Color3.fromRGB(56, 189, 248)
 	mStroke.Thickness = 2
@@ -571,6 +575,9 @@ function TutorialUI.ShowCelebrationModal(targetGui, rewardData, onClaimCallback)
 	modal.ZIndex = 66
 	modal.Parent = overlay
 	Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 18)
+
+	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(modal, 480, 360)
 
 	local mStroke = Instance.new("UIStroke")
 	mStroke.Color = Color3.fromRGB(245, 158, 11)
@@ -877,6 +884,9 @@ function TutorialUI.ShowHelpGuide(targetGui, initialTab)
 	modal.ZIndex = 71
 	modal.Parent = overlay
 	Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 16)
+
+	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(modal, 720, 480)
 
 	local mStroke = Instance.new("UIStroke")
 	mStroke.Color = Color3.fromRGB(56, 189, 248)

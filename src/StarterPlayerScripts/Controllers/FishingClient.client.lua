@@ -46,8 +46,10 @@ local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
 local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
 local VisualEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("VisualEffectsSystem"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 local FishingStateMachine = require(Shared:WaitForChild("Systems"):WaitForChild("FishingStateMachine"))
 local fsm = FishingStateMachine.new()
+local mobileActionCtrl = nil
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
 
@@ -324,10 +326,10 @@ indStroke.Parent = indicator
 
 local castHint = Instance.new("TextLabel")
 castHint.Name = "CastHint"
-castHint.Size = UDim2.new(0, 190, 0, 24)
-castHint.Position = UDim2.new(0.5, -95, 1.05, 0)
+castHint.Size = UDim2.new(0, 220, 0, 24)
+castHint.Position = UDim2.new(0.5, -110, 1.05, 0)
 castHint.BackgroundTransparency = 1
-castHint.Text = "Tekan [E] / Klik untuk Kunci!"
+castHint.Text = MobileResponsiveHelper.IsTouchDevice() and "Sentuh Layar / KUNCI!" or "Tekan [E] / Klik untuk Kunci!"
 castHint.TextColor3 = Color3.fromRGB(220, 240, 255)
 castHint.Font = Enum.Font.GothamBold
 castHint.TextSize = 13
@@ -1054,6 +1056,19 @@ end)
 fsm:OnStateChanged(function(newState, oldState)
 	if newState == FishingStateMachine.States.IDLE then
 		freezePlayer(false)
+		if mobileActionCtrl then mobileActionCtrl.SetState("IDLE") end
+	elseif newState == FishingStateMachine.States.CHARGING_CAST then
+		freezePlayer(true)
+		if mobileActionCtrl then mobileActionCtrl.SetState("CHARGING_CAST") end
+	elseif newState == FishingStateMachine.States.WAITING_FOR_BITE or newState == FishingStateMachine.States.CASTING then
+		freezePlayer(true)
+		if mobileActionCtrl then mobileActionCtrl.SetState("WAITING_FOR_BITE") end
+	elseif newState == FishingStateMachine.States.BITING then
+		freezePlayer(true)
+		if mobileActionCtrl then mobileActionCtrl.SetState("BITING") end
+	elseif newState == FishingStateMachine.States.MINIGAME or newState == FishingStateMachine.States.REELING_SUCCESS or newState == FishingStateMachine.States.REELING_FAIL then
+		freezePlayer(true)
+		if mobileActionCtrl then mobileActionCtrl.SetState("MINIGAME") end
 	else
 		freezePlayer(true)
 	end
@@ -1637,7 +1652,7 @@ local function buildInventoryUI()
 	invToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	invToggleBtn.BackgroundTransparency = 0.25
 	invToggleBtn.BorderSizePixel = 0
-	invToggleBtn.Text = "🎒 INVENTORY [B]"
+	invToggleBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("🎒 INVENTORY [B]")
 	invToggleBtn.TextColor3 = Color3.fromRGB(0, 220, 255)
 	invToggleBtn.Font = Enum.Font.GothamBlack
 	invToggleBtn.TextSize = 12
@@ -1680,6 +1695,7 @@ local function buildInventoryUI()
 	inventoryFrame.Visible = false
 	inventoryFrame.Parent = gui
 	Instance.new("UICorner", inventoryFrame).CornerRadius = UDim.new(0, 16)
+	MobileResponsiveHelper.AttachResponsiveScale(inventoryFrame, 540, 480)
 
 	local frameStroke = Instance.new("UIStroke")
 	frameStroke.Color = Color3.fromRGB(0, 200, 255)
@@ -1945,6 +1961,7 @@ local function buildPityTrackerUI()
 	pityFrame.Visible = false
 	pityFrame.Parent = gui
 	Instance.new("UICorner", pityFrame).CornerRadius = UDim.new(0, 14)
+	MobileResponsiveHelper.AttachResponsiveScale(pityFrame, 260, 200)
 
 	local frameStroke = Instance.new("UIStroke")
 	frameStroke.Color = Color3.fromRGB(255, 200, 50)
@@ -2064,7 +2081,7 @@ local function buildFishDexHUD()
 	fishDexBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	fishDexBtn.BackgroundTransparency = 0.25
 	fishDexBtn.BorderSizePixel = 0
-	fishDexBtn.Text = "📖 FISHDEX [J]"
+	fishDexBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("📖 FISHDEX [J]")
 	fishDexBtn.TextColor3 = Color3.fromRGB(0, 230, 255)
 	fishDexBtn.Font = Enum.Font.GothamBlack
 	fishDexBtn.TextSize = 12
@@ -2099,7 +2116,7 @@ local function buildShopHUD()
 	shopBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	shopBtn.BackgroundTransparency = 0.25
 	shopBtn.BorderSizePixel = 0
-	shopBtn.Text = "🛒 TOKO [K]"
+	shopBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("🛒 TOKO [K]")
 	shopBtn.TextColor3 = Color3.fromRGB(251, 191, 36)
 	shopBtn.Font = Enum.Font.GothamBlack
 	shopBtn.TextSize = 12
@@ -2134,7 +2151,7 @@ local function buildPanduanHUD()
 	panduanBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
 	panduanBtn.BackgroundTransparency = 0.25
 	panduanBtn.BorderSizePixel = 0
-	panduanBtn.Text = "❓ PANDUAN [H]"
+	panduanBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("❓ PANDUAN [H]")
 	panduanBtn.TextColor3 = Color3.fromRGB(56, 189, 248)
 	panduanBtn.Font = Enum.Font.GothamBlack
 	panduanBtn.TextSize = 12
@@ -2183,6 +2200,14 @@ local function handleInteractionTrigger()
 			showMessage("Arahkan atau dekati area lautan/air untuk mulai memancing!", Color3.fromRGB(220, 220, 240), 2.5)
 		end
 	end
+end
+
+-- Inisialisasi Mobile Action Touch Button Ergonomis (FISH-037)
+mobileActionCtrl = MobileResponsiveHelper.CreateMobileActionButton(gui, function()
+	handleInteractionTrigger()
+end)
+if mobileActionCtrl then
+	mobileActionCtrl.SetState(fsm:GetState() or "IDLE")
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -2236,7 +2261,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 
 	if isRodEquipped() then
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.E then
+			handleInteractionTrigger()
+		elseif input.UserInputType == Enum.UserInputType.Touch and not MobileResponsiveHelper.IsTouchDevice() then
 			handleInteractionTrigger()
 		end
 	end

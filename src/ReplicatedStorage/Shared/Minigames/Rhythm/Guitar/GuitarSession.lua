@@ -393,8 +393,8 @@ function GuitarSession:_bindInput()
 			local mousePos = input.Position
 			local absPos = arena.AbsolutePosition
 			local absSize = arena.AbsoluteSize
-			if mousePos.X >= absPos.X and mousePos.X <= (absPos.X + absSize.X)
-				and mousePos.Y >= absPos.Y and mousePos.Y <= (absPos.Y + absSize.Y) then
+			if mousePos.X >= (absPos.X - 10) and mousePos.X <= (absPos.X + absSize.X + 10)
+				and mousePos.Y >= (absPos.Y - 20) and mousePos.Y <= (absPos.Y + absSize.Y + 80) then
 				local colWidth = absSize.X / Config.COLUMN_COUNT
 				local col = math.clamp(math.floor((mousePos.X - absPos.X) / colWidth) + 1, 1, Config.COLUMN_COUNT)
 				self:HandleColumnInput(col)

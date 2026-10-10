@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local player = Players.LocalPlayer
 
@@ -157,6 +158,9 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	card.Parent = overlay
 	activeModal = card
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
+
+	-- Responsive Auto-Fit untuk Smartphone & Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(card, 540, 480)
 
 	local cardStroke = Instance.new("UIStroke")
 	cardStroke.Color = rarityColor
@@ -687,7 +691,7 @@ function FishingResultUI.Show(targetGui, data, onAction)
 	cardIn:Play()
 
 	-- Audio Fanfare disesuaikan dengan Rarity & Grade (FISH-036)
-	AudioEffectsSystem.PlayCatchFanfare(fish.rarity or "COMMON", grade)
+	AudioEffectsSystem.PlayCatchFanfare((fishData and fishData.rarity) or "COMMON", grade)
 
 	return overlay
 end

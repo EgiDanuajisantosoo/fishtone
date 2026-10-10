@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
+local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
 
 local ProgressionRoadmapUI = {}
 local activeModal = nil
@@ -268,6 +269,9 @@ function ProgressionRoadmapUI.Show(targetGui, playerData)
 	card.Parent = overlay
 	activeModal = card
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
+
+	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
+	MobileResponsiveHelper.AttachResponsiveScale(card, 720, 560)
 
 	local cardStroke = Instance.new("UIStroke")
 	cardStroke.Color = Color3.fromRGB(14, 165, 233)
