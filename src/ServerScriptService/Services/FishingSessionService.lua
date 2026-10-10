@@ -39,6 +39,68 @@ local BASE_SESSION_TTL  = 180 -- Waktu kedaluwarsa sesi dasar (180 detik) setela
 local activeSessions = {} -- [sessionId] = sessionData
 local playerSessions = {} -- [player.UserId] = sessionId
 
+-- Folder Replikasi Bobber Multiplayer di Workspace (FISH-038)
+local bobbersFolder = workspace:FindFirstChild("FishingBobbers")
+if not bobbersFolder then
+	bobbersFolder = Instance.new("Folder")
+	bobbersFolder.Name = "FishingBobbers"
+	bobbersFolder.Parent = workspace
+end
+
+-- ============ REPLICATED BOBBER ENGINE (FISH-038) ============
+function FishingSessionService.SpawnReplicatedBobber(sessionData)
+	if not bobbersFolder or not bobbersFolder.Parent then
+		bobbersFolder = workspace:FindFirstChild("FishingBobbers") or Instance.new("Folder")
+		bobbersFolder.Name = "FishingBobbers"
+		bobbersFolder.Parent = workspace
+	end
+
+	local userId = sessionData.userId
+	FishingSessionService.DespawnReplicatedBobber(userId)
+
+	local bobber = Instance.new("Part")
+	bobber.Name = "Bobber_" .. tostring(userId)
+	bobber.Shape = Enum.PartType.Ball
+	bobber.Size = Vector3.new(0.9, 0.9, 0.9)
+	bobber.Material = Enum.Material.SmoothPlastic
+	bobber.Color = (sessionData.castQuality == "PERFECT" and Color3.fromRGB(255, 215, 0)) or Color3.fromRGB(240, 40, 40)
+	bobber.Anchored = true
+	bobber.CanCollide = false
+	bobber.CanQuery = false
+	bobber.CanTouch = false
+	bobber.Position = sessionData.waterPos + Vector3.new(0, 0.4, 0)
+	bobber:SetAttribute("OwnerUserId", userId)
+	bobber:SetAttribute("Phase", "Waiting")
+	bobber:SetAttribute("CastQuality", sessionData.castQuality)
+	bobber:SetAttribute("SessionId", sessionData.sessionId)
+
+	local att = Instance.new("Attachment")
+	att.Name = "BobberAttachment"
+	att.Position = Vector3.new(0, 0.4, 0)
+	att.Parent = bobber
+
+	bobber.Parent = bobbersFolder
+	sessionData.bobber = bobber
+
+	-- Sinkronisasi fase "Biting" otomatis di server agar tertangkap di seluruh client (FISH-038)
+	local waitDur = sessionData.waitDuration or 2.5
+	task.delay(waitDur, function()
+		if activeSessions[sessionData.sessionId] and bobber and bobber.Parent then
+			bobber:SetAttribute("Phase", "Biting")
+		end
+	end)
+
+	return bobber
+end
+
+function FishingSessionService.DespawnReplicatedBobber(userId)
+	if not bobbersFolder then return end
+	local existing = bobbersFolder:FindFirstChild("Bobber_" .. tostring(userId))
+	if existing then
+		existing:Destroy()
+	end
+end
+
 -- ============ METRICS SANITIZATION & ANTI-EXPLOIT (FISH-014) ============
 local function cleanNumber(val, minVal, maxVal, defaultVal)
 	local num = tonumber(val)
@@ -204,6 +266,9 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	activeSessions[sessionId] = sessionData
 	playerSessions[player.UserId] = sessionId
 
+	-- Spawn Server Replicated Bobber untuk Multiplayer (FISH-038)
+	FishingSessionService.SpawnReplicatedBobber(sessionData)
+
 	return sessionData
 end
 
@@ -295,6 +360,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	if playerSessions[player.UserId] == sessionId then
 		playerSessions[player.UserId] = nil
 	end
+	FishingSessionService.DespawnReplicatedBobber(player.UserId)
 
 	-- 5. Evaluasi Performa Server-Authoritative
 	local pData = PlayerDataService.Get(player)
@@ -400,6 +466,7 @@ function FishingSessionService.CancelSession(player, sessionId)
 	if playerSessions[player.UserId] == sessionId then
 		playerSessions[player.UserId] = nil
 	end
+	FishingSessionService.DespawnReplicatedBobber(player.UserId)
 end
 
 -- ============ GETTERS ============
@@ -418,6 +485,7 @@ function FishingSessionService.CleanupPlayer(player)
 		activeSessions[sId] = nil
 	end
 	playerSessions[player.UserId] = nil
+	FishingSessionService.DespawnReplicatedBobber(player.UserId)
 end
 
 -- ============ INIT & SWEEPER ============
@@ -440,6 +508,17 @@ function FishingSessionService.Init()
 					activeSessions[sId] = nil
 					if playerSessions[sess.userId] == sId then
 						playerSessions[sess.userId] = nil
+					end
+					FishingSessionService.DespawnReplicatedBobber(sess.userId)
+				end
+			end
+
+			-- Bersihkan bobber yatim piatu di FishingBobbers
+			if bobbersFolder then
+				for _, b in ipairs(bobbersFolder:GetChildren()) do
+					local uId = b:GetAttribute("OwnerUserId")
+					if not uId or not playerSessions[uId] then
+						b:Destroy()
 					end
 				end
 			end

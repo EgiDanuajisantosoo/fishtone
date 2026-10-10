@@ -189,3 +189,21 @@ Game FISH!TUNE dirancang dengan responsivitas lintas platform (PC, Laptop, Smart
 4. **Toleransi Area Sentuh Minigame Irama**:
    - Deteksi sentuhan pada tuts/senar/pad minigame diperluas (-10px s/d +10px horizontal, -20px s/d +80px vertikal) untuk mengakomodasi tap jempol cepat pemain mobile tanpa dropped inputs.
 
+---
+
+## 🌐 8. Integrasi Multiplayer & Kehadiran Visual (FISH-038)
+
+Game FISH!TUNE kini memiliki integrasi multiplayer yang hidup, interaktif, dan terproteksi:
+1. **Replikasi Visual Aktivitas Memancing Lintas Pemain**:
+   - Pelampung (Bobber) setiap pemain otomatis direplikasi secara server-side di dalam folder `workspace.FishingBobbers`.
+   - Tali pancing dinamis berkurva (`Beam`) otomatis terhubung dari joran pemain lain ke pelampung mereka sehingga semua orang di sekitar dapat melihat siapa yang sedang memancing.
+   - Hentakan pelampung dan cipratan air saat ikan menyambar kail (`Phase = "Biting"`) tersinkronisasi dan terlihat secara real-time oleh pemain lain.
+2. **Kabar Samudra Raya (Global Rare Catch Broadcast)**:
+   - Tangkapan ikan langka berkategori `LEGENDARY`, `MYTHIC`, `SPECIAL`, atau varian **Mutasi** disiarkan secara serentak ke seluruh pemain di server.
+   - Menampilkan banner pop-up *glassmorphism* modern di bagian atas layar dengan aksen warna rarity, audio fanfare perayaan, dan pesan perayaan di sistem Chat Roblox.
+3. **Isolasi Sesi & Integritas Data Pemain (Server-Authoritative)**:
+   - Setiap sesi memancing terikat secara absolut dengan `UserId` pemain, mencegah bentrokan atau tumpang tindih sesi di spot pemancingan yang sama.
+   - Proteksi anti-hijacking dan anti-duplikasi menolak percobaan pengiriman tangkapan dengan session ID milik pemain lain atau pengiriman berulang.
+   - Pembersihan otomatis (*graceful cleanup*) membersihkan pelampung dan sesi saat pemain menyelesaikan kail, membatalkan, atau keluar dari server (`PlayerRemoving`).
+
+

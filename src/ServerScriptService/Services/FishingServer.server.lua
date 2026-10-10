@@ -195,6 +195,12 @@ if remote then
 
 			print(string.format("[FishingServer] ⭐ Catch Success! Ikan: %s (%s) | Koin: +%d | EXP: +%d | Player: %s", fishData.name, fishData.rarity, rewardInfo.coins or 0, rewardInfo.exp or 0, player.Name))
 			RemoteContract.Server.CatchSuccess(player, fishData, rewardInfo, updatedData, updatedData.pity)
+
+			-- Siarkan pengumuman server-wide jika tangkapan langka / mutasi (FISH-038)
+			local r = tostring(fishData.rarity or "COMMON"):upper()
+			if r == "LEGENDARY" or r == "MYTHIC" or r == "SPECIAL" or fishData.isMutated == true then
+				RemoteContract.Server.BroadcastCatch(player, fishData)
+			end
 			return
 		end
 

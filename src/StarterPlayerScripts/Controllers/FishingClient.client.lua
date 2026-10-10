@@ -1029,11 +1029,19 @@ local function destroyBobberSafely()
 	end
 	AnimSystem.RemoveFishingLine()
 
-	-- Bersihkan part bobber liar milik player di workspace
+	-- Bersihkan part bobber liar milik player di workspace & FishingBobbers
 	for _, child in ipairs(workspace:GetChildren()) do
 		if (child.Name == "BobberTemplate" or child.Name == "ActiveBobber" or child.Name == "FishingBobber")
 			and child:GetAttribute("OwnerUserId") == player.UserId then
 			pcall(function() child:Destroy() end)
+		end
+	end
+
+	local bobbersFolder = workspace:FindFirstChild("FishingBobbers")
+	if bobbersFolder then
+		local myBobber = bobbersFolder:FindFirstChild("Bobber_" .. tostring(player.UserId))
+		if myBobber then
+			pcall(function() myBobber:Destroy() end)
 		end
 	end
 end
@@ -1126,7 +1134,12 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	freezePlayer(true)
 
 	destroyBobberSafely()
-	activeBobber = bobberTemplate and bobberTemplate:Clone() or Instance.new("Part")
+
+	-- Sambungkan ke Bobber server di FishingBobbers jika sudah tereplikasi, atau buat instan lokal (FISH-038)
+	local bobbersFolder = workspace:FindFirstChild("FishingBobbers")
+	local serverBobber = bobbersFolder and (bobbersFolder:FindFirstChild("Bobber_" .. tostring(player.UserId)) or bobbersFolder:WaitForChild("Bobber_" .. tostring(player.UserId), 0.25))
+
+	activeBobber = serverBobber or (bobberTemplate and bobberTemplate:Clone() or Instance.new("Part"))
 	activeBobber.Name = "ActiveBobber"
 	activeBobber:SetAttribute("OwnerUserId", player.UserId)
 	if activeBobber:IsA("Model") then
@@ -1140,7 +1153,9 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 		activeBobber.CanCollide = false
 		activeBobber.Position = waterPos + Vector3.new(0, 0.4, 0)
 	end
-	activeBobber.Parent = workspace
+	if not activeBobber.Parent then
+		activeBobber.Parent = workspace
+	end
 
 	local char = player.Character
 	if char then

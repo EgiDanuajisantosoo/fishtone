@@ -60,6 +60,8 @@ RemoteContract.S2C = {
 	INSTRUMENT_UNLOCKED      = "InstrumentUnlocked",
 	-- Tutorial & FTUE Actions (FISH-033)
 	TUTORIAL_COMPLETED       = "TutorialCompleted",
+	-- Multiplayer Integration & Announcements (FISH-038)
+	GLOBAL_CATCH_ANNOUNCEMENT = "GlobalCatchAnnouncement",
 }
 
 -- ============ REMOTE PROVIDER ============
@@ -268,6 +270,18 @@ function RemoteContract.Server.TutorialCompleted(player, bonusCoins, bonusBaits)
 			RemoteContract.S2C.TUTORIAL_COMPLETED,
 			bonusCoins,
 			bonusBaits
+		)
+	end
+end
+
+function RemoteContract.Server.BroadcastCatch(player, fishData)
+	local remote = RemoteContract.GetRemote()
+	if remote and player and fishData then
+		local displayName = player.DisplayName or player.Name
+		remote:FireAllClients(
+			RemoteContract.S2C.GLOBAL_CATCH_ANNOUNCEMENT,
+			displayName,
+			fishData
 		)
 	end
 end
