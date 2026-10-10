@@ -163,6 +163,7 @@ FishTune-Roblox/
     │           └── FishingStateMachine.lua      -- State Machine siklus memancing
     ├── ServerScriptService/
     │   └── Services/
+    │       ├── AntiExploitService.lua           -- Rate-limiting, speedhack & validasi otoritatif server (FISH-039)
     │       ├── EconomyService.lua               -- Transaksi joran, umpan, tas & jual ikan
     │       ├── FishingServer.server.lua         -- Server listener & Global ProximityPrompt handler
     │       ├── FishingSessionService.lua        -- Validasi sesi memancing anti-exploit
@@ -205,5 +206,32 @@ Game FISH!TUNE kini memiliki integrasi multiplayer yang hidup, interaktif, dan t
    - Setiap sesi memancing terikat secara absolut dengan `UserId` pemain, mencegah bentrokan atau tumpang tindih sesi di spot pemancingan yang sama.
    - Proteksi anti-hijacking dan anti-duplikasi menolak percobaan pengiriman tangkapan dengan session ID milik pemain lain atau pengiriman berulang.
    - Pembersihan otomatis (*graceful cleanup*) membersihkan pelampung dan sesi saat pemain menyelesaikan kail, membatalkan, atau keluar dari server (`PlayerRemoving`).
+
+---
+
+## 🛡️ 9. Keamanan Server & Anti-Exploit QA (FISH-039)
+
+FISH!TUNE menerapkan arsitektur ketat **"Client requests; server decides"** (Rule 5 & Rule 9):
+1. **Per-Player Token Bucket Rate-Limiting & Flood Protection**:
+   - Seluruh remote Client-to-Server (`START_FISHING`, `SUBMIT_CATCH`, `SELL_FISH`, `SELL_ALL_FISH`, `BUY_ROD`, dll.) dilindungi oleh algoritma Token Bucket dinamis.
+   - Mencegah spam packet/flooding dengan batas global (maks 20 req/s) dan cooldown per-action (misal: SubmitCatch maks 1 per 1.2 detik).
+2. **Validasi Fisik & Anti-Teleport Lemparan Kail**:
+   - Memeriksa keabsahan koordinat `waterPos` terhadap `NaN` (Not-a-Number) dan nilai tak hingga (`math.huge`).
+   - Memastikan karakter hidup dan jarak lemparan berada di dalam rentang wajar (1 s/d 150 studs).
+3. **Deteksi Speedhack & Instant-Catch**:
+   - Waktu tunggu ikan menyambar divalidasi di server (`elapsed >= waitDuration * 0.75`).
+   - Waktu penyelesaian minigame ritme memiliki ambang batas fisik minimum (+0.75 detik setelah gigitan). Tangkapan instan sub-detik langsung ditolak.
+4. **Penutupan Total Celah Sesi Palsu (Backdoor Elimination)**:
+   - Menghapus pembuatan sesi pemulihan darurat (*recovery fallback*) di `FishingSessionService` yang sebelumnya dapat disalahgunakan oleh exploiter.
+   - Pengiriman tangkapan dengan ID sesi yang tidak terdaftar langsung ditolak tanpa memberi ikan atau hadiah.
+5. **Sanitasi Metrik Ritme & Anti-Bot/Macro**:
+   - Klaim menang (`won = true`) dengan 0 nada ditekan (`hits = 0`) otomatis ditolak sebagai pelanggaran.
+   - Input tuts/klik yang melampaui batas wajar manusia (> 28 hits/detik) dideteksi sebagai macro/auto-clicker dan digugurkan.
+6. **Logging Pelanggaran & Strike Tracker**:
+   - Setiap anomali dicatat dalam memori server dengan timestamp dan jenis pelanggaran (`RATE_LIMIT_EXCEEDED`, `INVALID_CAST_POSITION`, `SPEEDHACK_OR_PREMATURE_CATCH`, `FAKE_OR_EXPIRED_SESSION_SUBMISSION`).
+   - Pemain yang mengumpulkan strike agresif diberi peringatan khusus pada server console.
+7. **Automated QA Test Suite**:
+   - Seluruh skenario pengujian anti-exploit diverifikasi secara otomatis melalui `test_anti_exploit.py` (19/19 pengujian lulus 100%).
+
 
 

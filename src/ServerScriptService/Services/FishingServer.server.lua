@@ -23,6 +23,7 @@ local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"
 local FishingSessionService = require(script.Parent:WaitForChild("FishingSessionService"))
 local InventoryService = require(script.Parent:WaitForChild("InventoryService"))
 local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
+local AntiExploitService = require(script.Parent:WaitForChild("AntiExploitService"))
 local remote = RemoteContract.GetRemote()
 
 local function isRodTool(tool)
@@ -127,6 +128,10 @@ local function onPlayerAdded(player)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(function(player)
+	AntiExploitService.ClearPlayer(player)
+end)
+
 for _, p in ipairs(Players:GetPlayers()) do
 	task.spawn(function()
 		onPlayerAdded(p)
@@ -136,6 +141,16 @@ end
 -- Handler Komunikasi Client-Server
 if remote then
 	remote.OnServerEvent:Connect(function(player, action, arg1, arg2, arg3)
+		if not player or not player:IsA("Player") then return end
+
+		-- Validasi Rate Limiting & Proteksi Flood Remote (FISH-039 Anti-Exploit)
+		local allowed, retryAfter = AntiExploitService.CheckRateLimit(player, action)
+		if not allowed then
+			AntiExploitService.LogViolation(player, "RATE_LIMIT_EXCEEDED", string.format("Action '%s' throttled (Retry-After: %.2fs)", tostring(action), retryAfter or 0))
+			RemoteContract.Server.Notify(player, "⚠️ Terlalu banyak permintaan! Harap tunggu sebentar.")
+			return
+		end
+
 		local pData = PlayerDataService.Get(player)
 
 		-- 1. Permintaan Memulai Sesi Memancing (StartFishing)

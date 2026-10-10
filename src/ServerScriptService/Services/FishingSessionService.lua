@@ -27,6 +27,7 @@ local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfi
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
 local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
+local AntiExploitService = require(script.Parent:WaitForChild("AntiExploitService"))
 
 local FishingSessionService = {}
 
@@ -101,68 +102,9 @@ function FishingSessionService.DespawnReplicatedBobber(userId)
 	end
 end
 
--- ============ METRICS SANITIZATION & ANTI-EXPLOIT (FISH-014) ============
-local function cleanNumber(val, minVal, maxVal, defaultVal)
-	local num = tonumber(val)
-	if not num or num ~= num or math.abs(num) == math.huge then
-		return defaultVal or minVal
-	end
-	return math.clamp(math.floor(num), minVal, maxVal)
-end
-
+-- ============ METRICS SANITIZATION & ANTI-EXPLOIT (FISH-014 / FISH-039) ============
 function FishingSessionService.SanitizeAndValidateMetrics(rawMetrics, session, now)
-	if typeof(rawMetrics) ~= "table" then
-		rawMetrics = {}
-	end
-
-	local tierData = FishingRaritySystem.GetTierData(session.rarity)
-	local expectedTargetNotes = tierData.targetNotes or 20
-
-	-- 1. Bersihkan dan batasi seluruh parameter numerik (dukung format flat maupun breakdown)
-	local breakdown = (typeof(rawMetrics.breakdown) == "table") and rawMetrics.breakdown or {}
-	local rawPerfect = rawMetrics.perfectHits or breakdown.perfect
-	local rawGreat = rawMetrics.greatHits or breakdown.great
-	local rawGood = rawMetrics.goodHits or breakdown.good
-	local rawMistakes = rawMetrics.mistakes or breakdown.miss
-
-	local won = rawMetrics.won == true or (rawMetrics.won ~= false and (tonumber(rawMetrics.score) or 0) > 0)
-	local perfectHits = cleanNumber(rawPerfect, 0, expectedTargetNotes * 3, 0)
-	local greatHits = cleanNumber(rawGreat, 0, expectedTargetNotes * 3, 0)
-	local goodHits = cleanNumber(rawGood, 0, expectedTargetNotes * 3, 0)
-	local mistakes = cleanNumber(rawMistakes, 0, 999, 0)
-
-	local totalHits = perfectHits + greatHits + goodHits
-	if totalHits == 0 then
-		local altScore = tonumber(rawMetrics.score or breakdown.totalHits or rawMetrics.hits or (won and expectedTargetNotes) or 0) or 0
-		if altScore > 0 then
-			totalHits = cleanNumber(altScore, 1, expectedTargetNotes * 3, expectedTargetNotes)
-			perfectHits = math.floor(totalHits * 0.6)
-			greatHits = math.floor(totalHits * 0.3)
-			goodHits = math.max(1, totalHits - perfectHits - greatHits)
-		elseif won then
-			totalHits = expectedTargetNotes
-			perfectHits = math.floor(totalHits * 0.7)
-			greatHits = math.floor(totalHits * 0.3)
-		end
-	end
-
-	local maxCombo = cleanNumber(rawMetrics.maxCombo or breakdown.maxCombo, 0, math.max(1, totalHits), totalHits)
-	local duration = math.max(0.5, tonumber(rawMetrics.duration or breakdown.duration or (now - (session.startTime or now))) or 2.0)
-
-	local sanitized = {
-		won = won,
-		score = totalHits,
-		hits = totalHits,
-		perfectHits = perfectHits,
-		greatHits = greatHits,
-		goodHits = goodHits,
-		mistakes = mistakes,
-		maxCombo = maxCombo,
-		targetNotes = expectedTargetNotes,
-		duration = duration,
-	}
-
-	return sanitized, nil
+	return AntiExploitService.SanitizeMetrics(rawMetrics, session, now)
 end
 
 -- ============ SESSION CREATION ============
@@ -171,16 +113,11 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		return nil, "Player tidak valid"
 	end
 
-	local char = player.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		return nil, "Karakter player belum dimuat"
-	end
-
-	-- 1. Validasi Jarak Lemparan (Anti-Exploit / Teleport)
-	local distance = (hrp.Position - waterPos).Magnitude
-	if distance > MAX_CAST_DISTANCE or distance < MIN_CAST_DISTANCE then
-		return nil, string.format("Jarak lemparan tidak valid (%.1f studs)", distance)
+	-- 1. Validasi Posisi Lemparan & Integritas Karakter (Anti-Exploit / Teleport / NaN) (FISH-039)
+	local posOk, posErr = AntiExploitService.ValidateCastPosition(player, waterPos, MAX_CAST_DISTANCE, MIN_CAST_DISTANCE)
+	if not posOk then
+		AntiExploitService.LogViolation(player, "INVALID_CAST_POSITION", posErr or "Posisi lemparan tidak valid")
+		return nil, posErr
 	end
 
 	-- 2. Format & Standarisasi Parameter
@@ -299,59 +236,43 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	end
 
 	if not session then
-		-- Jika sesi tidak ditemukan tapi pemain ada di dalam game, buat recovery session on-the-fly
 		if player and player:IsA("Player") then
-			local pData = PlayerDataService.Get(player)
-			local equippedRod = (pData and pData.equippedRod) or "StarterRod"
-			local rolledRarity = FishingRaritySystem.EvaluateWithPity(pData and pData.prevPerformanceLuckBonus or 5, pData and pData.level or 1, pData and pData.pity or {})
-			session = {
-				sessionId = sessionId ~= "" and sessionId or string.format("%d_%d_recovered", player.UserId, os.time()),
-				player = player,
-				userId = player.UserId,
-				rodId = equippedRod,
-				rarity = rolledRarity,
-				zoneId = "MELODY_BAY",
-				lootCategory = "FISH",
-				effectiveLuck = 5,
-				rawLuck = 5,
-				luckTitle = "🌱 Netral",
-				status = "Active",
-				startTime = os.clock() - 5,
-				expireAt = os.clock() + 300,
-			}
-		else
-			return nil, "Sesi memancing tidak ditemukan"
+			AntiExploitService.LogViolation(player, "FAKE_OR_EXPIRED_SESSION_SUBMISSION", string.format("SessionId '%s' tidak ditemukan di activeSessions", tostring(sessionId)))
 		end
+		return nil, "Sesi memancing tidak ditemukan atau sudah selesai"
 	end
 
 	if session.userId ~= player.UserId then
+		AntiExploitService.LogViolation(player, "SESSION_OWNER_MISMATCH", string.format("Session milik %d, diklaim oleh %d", session.userId, player.UserId))
 		return nil, "Sesi tidak cocok dengan pemilik"
 	end
 
 	local now = os.clock()
 
-	-- 1. Validasi Waktu Kadaluarsa (dengan toleransi buffer 300 detik)
-	if session.expireAt and now > (session.expireAt + 300) then
+	-- 1. Validasi Waktu Reaksi & Deteksi Speedhack / Instant Catch (FISH-039)
+	local timingOk, timingErr = AntiExploitService.ValidateCatchTiming(session, now)
+	if not timingOk then
+		AntiExploitService.LogViolation(player, "SPEEDHACK_OR_PREMATURE_CATCH", timingErr or "Waktu tangkapan tidak realistis")
 		activeSessions[sessionId] = nil
-		playerSessions[player.UserId] = nil
-		return nil, "Sesi memancing telah kadaluarsa"
+		if playerSessions[player.UserId] == sessionId then
+			playerSessions[player.UserId] = nil
+		end
+		FishingSessionService.DespawnReplicatedBobber(player.UserId)
+		return nil, timingErr
 	end
 
-	-- 2. Validasi & Sanitasi Metrik Rhythm secara Server-Authoritative
-	local sanitizedMetrics, valErr = FishingSessionService.SanitizeAndValidateMetrics(rawMetrics, session, now)
-	if not sanitizedMetrics then
-		sanitizedMetrics = {
-			won = true,
-			score = 15,
-			hits = 15,
-			perfectHits = 10,
-			greatHits = 5,
-			goodHits = 0,
-			mistakes = 0,
-			maxCombo = 15,
-			targetNotes = 15,
-			duration = 3.0,
-		}
+	-- 2. Validasi & Sanitasi Metrik Rhythm secara Server-Authoritative (FISH-039)
+	local sanitizedMetrics, valErr = AntiExploitService.SanitizeMetrics(rawMetrics, session, now)
+	if not sanitizedMetrics or sanitizedMetrics.won == false or (sanitizedMetrics.hits or 0) <= 0 then
+		if not sanitizedMetrics then
+			AntiExploitService.LogViolation(player, "INVALID_RHYTHM_METRICS", valErr or "Metrik tidak valid")
+		end
+		activeSessions[sessionId] = nil
+		if playerSessions[player.UserId] == sessionId then
+			playerSessions[player.UserId] = nil
+		end
+		FishingSessionService.DespawnReplicatedBobber(player.UserId)
+		return nil, valErr or "Tangkapan tidak berhasil (skor atau irama belum mencukupi)"
 	end
 
 	-- 3. Tandai Selesai & Bersihkan Slot Sesi
@@ -362,7 +283,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 	end
 	FishingSessionService.DespawnReplicatedBobber(player.UserId)
 
-	-- 5. Evaluasi Performa Server-Authoritative
+	-- 4. Evaluasi Performa Server-Authoritative
 	local pData = PlayerDataService.Get(player)
 	local performance = PerformanceCalculator.Calculate(sanitizedMetrics)
 

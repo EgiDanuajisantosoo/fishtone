@@ -412,7 +412,10 @@ end
 RemoteContract.Validator = {}
 
 function RemoteContract.Validator.IsValidVector3(val)
-	return typeof(val) == "Vector3"
+	if typeof(val) ~= "Vector3" then return false end
+	if val.X ~= val.X or val.Y ~= val.Y or val.Z ~= val.Z then return false end
+	if math.abs(val.X) > 50000 or math.abs(val.Y) > 50000 or math.abs(val.Z) > 50000 then return false end
+	return true
 end
 
 function RemoteContract.Validator.IsValidSessionId(val)
@@ -421,6 +424,11 @@ end
 
 function RemoteContract.Validator.IsValidCastQuality(val)
 	return val == "PERFECT" or val == "GREAT" or val == "GOOD"
+end
+
+function RemoteContract.Validator.IsValidCastPower(val)
+	local num = tonumber(val)
+	return num ~= nil and num == num and num >= 0 and num <= 1
 end
 
 function RemoteContract.Validator.IsValidMetrics(val)
