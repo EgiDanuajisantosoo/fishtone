@@ -11,6 +11,10 @@
 4. [Daftar Tombol & Hotkey Lengkap](#-4-daftar-tombol--hotkey-lengkap)
 5. [Mode Testing di Roblox Studio](#-5-mode-testing-di-roblox-studio)
 6. [Struktur Folder & Arsitektur](#-6-struktur-folder--arsitektur)
+7. [Optimasi Mobile & Tablet (FISH-037)](#-7-optimasi-mobile--tablet-fish-037)
+8. [Integrasi Multiplayer & Kehadiran Visual (FISH-038)](#-8-integrasi-multiplayer--kehadiran-visual-fish-038)
+9. [Keamanan Server & Anti-Exploit QA (FISH-039)](#-9-keamanan-server--anti-exploit-qa-fish-039)
+10. [Produksi Persistensi & Integritas Data QA (FISH-040)](#-10-produksi-persistensi--integritas-data-qa-fish-040)
 
 ---
 
@@ -232,6 +236,29 @@ FISH!TUNE menerapkan arsitektur ketat **"Client requests; server decides"** (Rul
    - Pemain yang mengumpulkan strike agresif diberi peringatan khusus pada server console.
 7. **Automated QA Test Suite**:
    - Seluruh skenario pengujian anti-exploit diverifikasi secara otomatis melalui `test_anti_exploit.py` (19/19 pengujian lulus 100%).
+
+---
+
+## 💾 10. Produksi Persistensi & Integritas Data QA (FISH-040)
+
+FISH!TUNE mengimplementasikan pipeline persistensi data kelas produksi sesuai **Rule 7 & Rule 8**:
+1. **Penyimpanan Atomik & Concurrency-Safe (`UpdateAsync`)**:
+   - Seluruh penyimpanan DataStore menggunakan `dataStore:UpdateAsync` dengan transformasi fungsi atomik menggantikan `SetAsync` yang rentan menimpa data.
+   - Dilengkapi proteksi anti-rollback: jika data cloud memiliki nilai `totalExp` atau `coins` yang lebih tinggi dari sesi lain, nilai tertinggi selalu dipertahankan secara atomik.
+2. **Proteksi Anti-Wipe saat Gangguan Cloud (`_failedLoad Guard`)**:
+   - Jika `GetAsync` mengalami kegagalan jaringan atau penolakan API (misal error 502/503), profil ditandai dengan bendera `_failedLoad = true`.
+   - Proses `SaveData` otomatis membatalkan penulisan profil yang gagal dimuat, mencegah risiko klasik terhapusnya data pemain (*data wipe*) akibat menimpa cloud dengan data default kosong.
+3. **Persistensi Penuh Inventaris Ikan & Tangkapan (Backpack Restore)**:
+   - Tangkapan ikan di dalam tas pemain diserialisasikan ke dalam `pData.inventory` lengkap dengan ID item, bobot (`weight`), nilai koin/exp, status kunci (`isLocked`), grade performa, akurasi, dan jenis mutasi.
+   - Saat pemain bergabung kembali ke server atau mengalami *character respawn*, seluruh item tangkapan dipulihkan secara otomatis (`RestorePlayerInventory`) ke dalam Backpack pemain.
+   - Aksi penjualan (`SellItem`, `SellAll`) dan penguncian (`ToggleLockItem`) otomatis tersinkronisasi instan ke dalam `pData.inventory`.
+4. **Pipeline Migrasi Schema (v1 ke v2) & Rekonsiliasi TotalXP**:
+   - Mendukung evolusi struktur data dengan fungsi migrasi otomatis (`PlayerDataSchema.Migrate`).
+   - Sesuai **Rule 7**, `TotalXP` adalah sumber kebenaran tunggal (*source of truth*) untuk progresi level dan EXP.
+5. **Penutupan Server Aman (`game:BindToClose`)**:
+   - Saat server dimatikan atau diperbarui, fungsi shutdown melacak penyimpanan seluruh pemain secara tersinkronisasi hingga tuntas dengan batas waktu aman 20 detik.
+6. **Automated Persistence QA Suite**:
+   - Diverifikasi secara menyeluruh melalui test suite otomatis `test_persistence.py` (11/11 pengujian lulus 100%).
 
 
 

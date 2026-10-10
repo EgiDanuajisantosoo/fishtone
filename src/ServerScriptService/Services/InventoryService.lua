@@ -132,7 +132,7 @@ function InventoryService.CreateLootTool(lootData)
 	tool:SetAttribute("MutationType", lootData.mutationType or "NONE")
 	tool:SetAttribute("MutationName", lootData.mutationName or "")
 	tool:SetAttribute("MutationPrefix", lootData.mutationPrefix or "")
-	tool:SetAttribute("IsLocked", false)
+	tool:SetAttribute("IsLocked", lootData.isLocked == true or lootData.IsLocked == true)
 
 	local scale = math.clamp(lootData.scale or 1.0, 0.6, 3.5)
 
@@ -312,7 +312,83 @@ function InventoryService.CreateLootTool(lootData)
 	return tool
 end
 
--- ============ 5. ADD ITEM TO BACKPACK ============
+-- ============ 5. SYNC & RESTORE PERSISTENT INVENTORY (FISH-040) ============
+function InventoryService.SyncPlayerInventoryData(player)
+	if not player or not player:IsA("Player") then return {} end
+	local pData = PlayerDataService.Get(player)
+	if not pData then return {} end
+
+	local items = InventoryService.GetPlayerLootItems(player)
+	local serializedList = {}
+	for _, tool in ipairs(items) do
+		table.insert(serializedList, {
+			itemId = tool:GetAttribute("ItemId") or tool.Name,
+			itemType = tool:GetAttribute("ItemType") or "FISH",
+			id = tool:GetAttribute("FishId") or "",
+			name = tool:GetAttribute("FishName") or tool.Name,
+			displayName = tool:GetAttribute("DisplayName") or "",
+			description = tool:GetAttribute("Description") or "",
+			rarity = tool:GetAttribute("Rarity") or "COMMON",
+			stars = tool:GetAttribute("Stars") or "⭐",
+			weight = tonumber(tool:GetAttribute("Weight")) or 1.0,
+			coins = tonumber(tool:GetAttribute("Coins")) or 15,
+			exp = tonumber(tool:GetAttribute("Exp")) or 10,
+			grade = tool:GetAttribute("Grade") or "A",
+			accuracy = tonumber(tool:GetAttribute("Accuracy")) or 100,
+			performanceLuck = tonumber(tool:GetAttribute("PerformanceLuck")) or 0,
+			effectiveLuck = tonumber(tool:GetAttribute("EffectiveLuck")) or 0,
+			luckTitle = tool:GetAttribute("LuckTitle") or "",
+			favoriteZone = tool:GetAttribute("FavoriteZone") or "",
+			isMutated = tool:GetAttribute("IsMutated") == true,
+			mutationType = tool:GetAttribute("MutationType") or "NONE",
+			mutationName = tool:GetAttribute("MutationName") or "",
+			mutationPrefix = tool:GetAttribute("MutationPrefix") or "",
+			isLocked = tool:GetAttribute("IsLocked") == true,
+		})
+	end
+
+	pData.inventory = serializedList
+	return serializedList
+end
+
+function InventoryService.RestorePlayerInventory(player)
+	if not player or not player:IsA("Player") then return end
+	local backpack = player:FindFirstChild("Backpack")
+	if not backpack then return end
+
+	local pData = PlayerDataService.Get(player)
+	if not pData or not pData.inventory or typeof(pData.inventory) ~= "table" then return end
+
+	local existingTools = InventoryService.GetPlayerLootItems(player)
+	local existingItemIds = {}
+	for _, tool in ipairs(existingTools) do
+		local id = tool:GetAttribute("ItemId")
+		if id then
+			existingItemIds[id] = true
+		end
+	end
+
+	local restoredCount = 0
+	for _, itemRecord in ipairs(pData.inventory) do
+		if itemRecord and typeof(itemRecord) == "table" and itemRecord.name then
+			local itemId = itemRecord.itemId or itemRecord.ItemId
+			if not itemId or not existingItemIds[itemId] then
+				local tool = InventoryService.CreateLootTool(itemRecord)
+				tool.Parent = backpack
+				if itemId then
+					existingItemIds[itemId] = true
+				end
+				restoredCount = restoredCount + 1
+			end
+		end
+	end
+
+	if restoredCount > 0 then
+		print(string.format("[InventoryService] 🎒 Berhasil memulihkan %d item tangkapan ke Backpack %s dari DataStore!", restoredCount, player.Name))
+	end
+end
+
+-- ============ 6. ADD ITEM TO BACKPACK ============
 function InventoryService.AddItem(player, lootData)
 	if not player or not player:IsA("Player") then return nil, "Player tidak valid" end
 
@@ -322,10 +398,13 @@ function InventoryService.AddItem(player, lootData)
 	local tool = InventoryService.CreateLootTool(lootData)
 	tool.Parent = backpack
 
+	-- Sinkronisasi instan ke profile data persistence (FISH-040)
+	InventoryService.SyncPlayerInventoryData(player)
+
 	return tool, nil
 end
 
--- ============ 6. TOGGLE LOCK / FAVORITE ============
+-- ============ 7. TOGGLE LOCK / FAVORITE ============
 function InventoryService.ToggleLockItem(player, targetArg)
 	if not player then return false, "Player tidak valid" end
 
@@ -347,6 +426,9 @@ function InventoryService.ToggleLockItem(player, targetArg)
 	local newState = not currentState
 	targetTool:SetAttribute("IsLocked", newState)
 
+	-- Sinkronisasi status lock ke profile data persistence (FISH-040)
+	InventoryService.SyncPlayerInventoryData(player)
+
 	local name = targetTool:GetAttribute("FishName") or targetTool.Name
 	local msg = newState and string.format("🔒 %s telah dikunci (Aman dari Jual Massal)!", name)
 		or string.format("🔓 %s telah dibuka kuncinya!", name)
@@ -355,7 +437,7 @@ function InventoryService.ToggleLockItem(player, targetArg)
 	return true, newState
 end
 
--- ============ 7. SELL SINGLE ITEM ============
+-- ============ 8. SELL SINGLE ITEM ============
 function InventoryService.SellItem(player, targetArg)
 	if not player then return false, 0, "Player tidak valid" end
 
@@ -388,6 +470,9 @@ function InventoryService.SellItem(player, targetArg)
 	local itemName = foundTool:GetAttribute("FishName") or foundTool.Name
 	foundTool:Destroy()
 
+	-- Sinkronisasi inventaris tersisa setelah penjualan (FISH-040)
+	InventoryService.SyncPlayerInventoryData(player)
+
 	if pData.stats then
 		pData.stats.totalItemsSold = (pData.stats.totalItemsSold or 0) + 1
 		pData.stats.totalCoinsEarned = (pData.stats.totalCoinsEarned or 0) + coins
@@ -399,7 +484,7 @@ function InventoryService.SellItem(player, targetArg)
 	return true, coins, itemName
 end
 
--- ============ 8. SELL ALL ITEMS (WITH LOCK PROTECTION) ============
+-- ============ 9. SELL ALL ITEMS (WITH LOCK PROTECTION) ============
 function InventoryService.SellAll(player, filterCategory)
 	if not player then return false, 0, 0, "Player tidak valid" end
 
@@ -425,6 +510,9 @@ function InventoryService.SellAll(player, filterCategory)
 	end
 
 	if countSold > 0 then
+		-- Sinkronisasi inventaris tersisa setelah penjualan massal (FISH-040)
+		InventoryService.SyncPlayerInventoryData(player)
+
 		if pData.stats then
 			pData.stats.totalItemsSold = (pData.stats.totalItemsSold or 0) + countSold
 			pData.stats.totalCoinsEarned = (pData.stats.totalCoinsEarned or 0) + totalGained
@@ -446,7 +534,7 @@ function InventoryService.SellAll(player, filterCategory)
 	end
 end
 
--- ============ 9. SELL CATEGORY ============
+-- ============ 10. SELL CATEGORY ============
 function InventoryService.SellCategory(player, category)
 	return InventoryService.SellAll(player, category)
 end

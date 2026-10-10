@@ -17,7 +17,7 @@ local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local PlayerDataSchema = {}
 
 -- ============ SCHEMA VERSION ============
-PlayerDataSchema.SCHEMA_VERSION = 1
+PlayerDataSchema.SCHEMA_VERSION = 2
 
 -- ============ DEFAULT DATA TEMPLATE ============
 PlayerDataSchema.DEFAULT_DATA = {
@@ -47,6 +47,8 @@ PlayerDataSchema.DEFAULT_DATA = {
 	baits = {}, -- [baitId] = count (e.g. { StandardWorm = 0 })
 	maxInventorySlots = 35,
 	bagUpgradeTier = 0,
+	inventory = {}, -- Array of persistent caught loot items (FISH-040)
+	activeSessionToken = "", -- Concurrency & session lock token (FISH-040)
 
 	-- Jurnal / Ensiklopedia Ikan
 	journal = {}, -- [fishName] = { count = 0, maxWeight = 0, firstCaught = 0 }
@@ -182,14 +184,26 @@ function PlayerDataSchema.Reconcile(target, template)
 		target.tutorialCompleted = false
 	end
 
+	-- 5. Rekonsiliasi Inventory & Session Token (FISH-040)
+	if target.inventory == nil or typeof(target.inventory) ~= "table" then
+		target.inventory = {}
+	end
+	if target.activeSessionToken == nil or typeof(target.activeSessionToken) ~= "string" then
+		target.activeSessionToken = ""
+	end
+
 	return target
 end
 
 -- ============ MIGRATION PIPELINE ============
 -- Menangani transformasi data dari versi schema lama ke versi terbaru
 local Migrations = {
-	-- [1] = function(data) return data end,
-	-- [2] = function(data) ... migrasi ke v2 ... return data end,
+	[1] = function(data) return data end,
+	[2] = function(data)
+		data.inventory = data.inventory or {}
+		data.activeSessionToken = data.activeSessionToken or ""
+		return data
+	end,
 }
 
 function PlayerDataSchema.Migrate(data)
@@ -258,6 +272,9 @@ function PlayerDataSchema.Validate(data)
 	end
 	if typeof(data.unlockedInstruments) ~= "table" then
 		return false, "Unlocked instruments harus berupa table"
+	end
+	if data.inventory ~= nil and typeof(data.inventory) ~= "table" then
+		return false, "Inventory harus berupa table"
 	end
 
 	return true, nil

@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
@@ -21,6 +22,20 @@ local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local PlayerDataSchema = require(Shared:WaitForChild("Config"):WaitForChild("PlayerDataSchema"))
+
+-- Lazy-load InventoryService untuk mencegah circular dependency
+local InventoryService = nil
+local function getInventoryService()
+	if not InventoryService then
+		local ok, mod = pcall(function()
+			return require(script.Parent:WaitForChild("InventoryService"))
+		end)
+		if ok and mod then
+			InventoryService = mod
+		end
+	end
+	return InventoryService
+end
 
 local PlayerDataService = {}
 
@@ -322,14 +337,17 @@ end
 
 -- ============ DATA PERSISTENCE ============
 function PlayerDataService.LoadData(player)
+	if not player or not player:IsA("Player") then return nil end
 	local userId = player.UserId
 	local key = "Player_" .. tostring(userId)
 
 	local profile = PlayerDataSchema.CreateDefault()
+	profile.activeSessionToken = HttpService:GenerateGUID(false)
 
 	if dataStoreAvailable then
 		local loadedData = nil
 		local fetchSuccess = false
+		local apiError = false
 
 		for attempt = 1, MAX_RETRIES do
 			local success, res = pcall(function()
@@ -346,30 +364,37 @@ function PlayerDataService.LoadData(player)
 					warn("[PlayerDataService] Studio API Access nonaktif di Game Settings Roblox Studio. Menggunakan in-memory cache.")
 					break
 				end
+				apiError = true
 				warn(string.format("[PlayerDataService] Gagal load data %s (percobaan %d/%d): %s", player.Name, attempt, MAX_RETRIES, errStr))
-				task.wait(1)
+				task.wait(math.pow(2, attempt - 1) * 0.5) -- exponential backoff (0.5s, 1.0s, 2.0s)
 			end
 		end
 
-		if fetchSuccess and loadedData and typeof(loadedData) == "table" then
-			profile = PlayerDataSchema.Migrate(loadedData)
-			local valid, err = PlayerDataSchema.Validate(profile)
-			if not valid then
-				warn(string.format("[PlayerDataService] Data %s tidak valid (%s), merekonsiliasi ulang...", player.Name, tostring(err)))
-				profile = PlayerDataSchema.Reconcile(profile)
+		if fetchSuccess then
+			if loadedData and typeof(loadedData) == "table" then
+				profile = PlayerDataSchema.Migrate(loadedData)
+				local valid, err = PlayerDataSchema.Validate(profile)
+				if not valid then
+					warn(string.format("[PlayerDataService] Data %s tidak valid (%s), merekonsiliasi ulang...", player.Name, tostring(err)))
+					profile = PlayerDataSchema.Reconcile(profile)
+				end
+				profile.activeSessionToken = HttpService:GenerateGUID(false)
+				print(string.format("[PlayerDataService] Data termuat dari DataStore untuk %s (v%d, Level %d, Koin: %d)", player.Name, profile.version or 1, profile.level, profile.coins))
+			else
+				print(string.format("[PlayerDataService] Data baru dibuat untuk %s", player.Name))
 			end
-			print(string.format("[PlayerDataService] Data termuat untuk %s (v%d, Level %d, Koin: %d)", player.Name, profile.version or 1, profile.level, profile.coins))
-		else
-			print(string.format("[PlayerDataService] Data baru dibuat untuk %s", player.Name))
+		elseif apiError then
+			-- Tandai gagal load agar save TIDAK menimpa DataStore dengan data kosong (Data Loss Protection)
+			profile._failedLoad = true
+			warn(string.format("[PlayerDataService] ⚠️ PERINGATAN: Gagal memuat data dari cloud untuk %s. Mode proteksi aktif (Save ditangguhkan).", player.Name))
+			RemoteContract.Server.Notify(player, "⚠️ Gangguan jaringan cloud: Progres sesi ini tidak akan menimpa data lama.")
 		end
 	end
 
-	-- Studio Testing Helper: Berikan saldo koin & joran jika sedang testing di Studio
-	if RunService:IsStudio() then
-		profile.coins = math.max(profile.coins or 0, 50000)
-		if (profile.totalExp or 0) == 0 then
-			profile.totalExp = XPProgressionSystem.GetTotalExpForLevel(profile.level or 1)
-		end
+	-- Studio Testing Helper: Berikan saldo koin & joran HANYA jika profil baru di Studio
+	if RunService:IsStudio() and (profile.totalExp or 0) == 0 and (profile.coins or 0) == 0 then
+		profile.coins = 50000
+		profile.totalExp = XPProgressionSystem.GetTotalExpForLevel(profile.level or 1)
 		local prog = XPProgressionSystem.DeriveProgression(profile.totalExp)
 		profile.level = prog.level
 		profile.exp = prog.currentLevelExp
@@ -387,28 +412,51 @@ function PlayerDataService.LoadData(player)
 			"SynthwaveDrumRod",
 			"CelestialMelodyRod",
 		}
+		profile.unlockedInstruments = { "PIANO", "GUITAR", "DRUM" }
 		profile.baits = profile.baits or {}
-		profile.baits.StandardWorm = math.max(profile.baits.StandardWorm or 0, 20)
-		profile.baits.GoldenLarva = math.max(profile.baits.GoldenLarva or 0, 20)
-		profile.baits.MagnetShrimp = math.max(profile.baits.MagnetShrimp or 0, 20)
-		profile.baits.MelodyJelly = math.max(profile.baits.MelodyJelly or 0, 20)
+		profile.baits.StandardWorm = 20
+		profile.baits.GoldenLarva = 20
+		profile.baits.MagnetShrimp = 20
+		profile.baits.MelodyJelly = 20
 	end
 
 	profiles[userId] = profile
 	PlayerDataService.SyncLeaderstats(player)
 	RemoteContract.Server.PlayerDataUpdate(player, profile, profile.pity)
+
+	-- Pulihkan inventaris tangkapan dari DataStore ke Backpack pemain (FISH-040)
+	local invService = getInventoryService()
+	if invService and invService.RestorePlayerInventory then
+		task.defer(function()
+			invService.RestorePlayerInventory(player)
+		end)
+	end
+
 	return profile
 end
 
 function PlayerDataService.SaveData(player)
-	if not player or not player:IsA("Player") then return end
+	if not player or not player:IsA("Player") then return false, "Player tidak valid" end
 	local userId = player.UserId
 	local profile = profiles[userId]
-	if not profile then return end
+	if not profile then return false, "Profile tidak ditemukan" end
 
-	if isSaving[userId] then return end
+	-- 1. Proteksi Anti-Wipe: Jangan pernah simpan profil jika gagal dimuat saat login!
+	if profile._failedLoad == true then
+		warn(string.format("[PlayerDataService] 🛑 PEMBATALAN SAVE: Data %s ditolak disimpan karena gagal dimuat saat login (mencegah data wipe).", player.Name))
+		return false, "Aborted: Failed load protection"
+	end
+
+	if isSaving[userId] then return false, "Already saving" end
 	isSaving[userId] = true
 
+	-- 2. Sinkronkan item Backpack pemain ke profile.inventory sebelum disimpan (FISH-040)
+	local invService = getInventoryService()
+	if invService and invService.SyncPlayerInventoryData then
+		invService.SyncPlayerInventoryData(player)
+	end
+
+	-- 3. Validasi & Rekonsiliasi sebelum disimpan
 	local valid, valErr = PlayerDataSchema.Validate(profile)
 	if not valid then
 		warn(string.format("[PlayerDataService] Data %s tidak valid sebelum disimpan (%s). Menyelaraskan...", player.Name, tostring(valErr)))
@@ -417,38 +465,93 @@ function PlayerDataService.SaveData(player)
 
 	profile.lastSaved = os.time()
 
+	-- 4. Simpan ke DataStore menggunakan UpdateAsync (Atomic & Concurrency-Safe) (FISH-040)
+	local saveSuccess = false
+	local saveErr = nil
+
 	if dataStoreAvailable then
 		local key = "Player_" .. tostring(userId)
-		local saveSuccess = false
 
 		for attempt = 1, MAX_RETRIES do
-			local success, err = pcall(function()
-				dataStore:SetAsync(key, profile)
+			local success, res = pcall(function()
+				return dataStore:UpdateAsync(key, function(oldData)
+					if oldData and typeof(oldData) == "table" then
+						-- Rollback Protection: Pertahankan totalExp & coins tertinggi jika oldData lebih baru
+						if (oldData.totalExp or 0) > (profile.totalExp or 0) then
+							profile.totalExp = oldData.totalExp
+							local prog = XPProgressionSystem.DeriveProgression(profile.totalExp)
+							profile.level = prog.level
+							profile.exp = prog.currentLevelExp
+						end
+
+						if (oldData.coins or 0) > (profile.coins or 0) then
+							profile.coins = oldData.coins
+						end
+
+						-- Merge unlocked rods
+						if typeof(oldData.unlockedRods) == "table" then
+							for _, rod in ipairs(oldData.unlockedRods) do
+								if not table.find(profile.unlockedRods, rod) then
+									table.insert(profile.unlockedRods, rod)
+								end
+							end
+						end
+
+						-- Merge unlocked instruments
+						if typeof(oldData.unlockedInstruments) == "table" then
+							for _, inst in ipairs(oldData.unlockedInstruments) do
+								if not table.find(profile.unlockedInstruments, inst) then
+									table.insert(profile.unlockedInstruments, inst)
+								end
+							end
+						end
+					end
+
+					profile.lastSaved = os.time()
+					return profile
+				end)
 			end)
+
 			if success then
 				saveSuccess = true
 				break
 			else
-				warn(string.format("[PlayerDataService] Gagal menyimpan data %s (percobaan %d/%d): %s", player.Name, attempt, MAX_RETRIES, tostring(err)))
-				task.wait(1)
+				saveErr = res
+				warn(string.format("[PlayerDataService] Gagal menyimpan data %s (percobaan %d/%d): %s", player.Name, attempt, MAX_RETRIES, tostring(res)))
+				task.wait(math.pow(2, attempt - 1) * 0.5) -- exponential backoff (0.5s, 1.0s, 2.0s)
 			end
 		end
 
 		if saveSuccess then
-			print(string.format("[PlayerDataService] Data berhasil disimpan untuk %s (Level %d, Koin: %d)", player.Name, profile.level, profile.coins))
+			print(string.format("[PlayerDataService] ✅ Data berhasil disimpan via UpdateAsync untuk %s (Level %d, Koin: %d)", player.Name, profile.level, profile.coins))
 		end
+	else
+		-- In-memory cache mode
+		saveSuccess = true
 	end
 
 	isSaving[userId] = nil
+	return saveSuccess, saveErr
 end
 
 function PlayerDataService.SaveAll()
 	print("[PlayerDataService] Menyimpan data seluruh pemain...")
-	for _, player in ipairs(Players:GetPlayers()) do
+	local currentPlayers = Players:GetPlayers()
+	local pending = #currentPlayers
+	if pending == 0 then return end
+
+	for _, player in ipairs(currentPlayers) do
 		task.spawn(function()
 			PlayerDataService.SaveData(player)
+			pending = pending - 1
 		end)
 	end
+
+	local startTime = os.clock()
+	while pending > 0 and (os.clock() - startTime) < 20 do
+		task.wait(0.2)
+	end
+	print("[PlayerDataService] Selesai menyimpan data seluruh pemain.")
 end
 
 -- ============ INIT & LIFECYCLE ============
@@ -457,13 +560,25 @@ function PlayerDataService.Init()
 	if initialized then return end
 	initialized = true
 
-	Players.PlayerAdded:Connect(function(player)
+	local function setupPlayer(player)
 		PlayerDataService.LoadData(player)
-	end)
+
+		player.CharacterAdded:Connect(function()
+			local invService = getInventoryService()
+			if invService and invService.RestorePlayerInventory then
+				task.defer(function()
+					task.wait(0.2)
+					invService.RestorePlayerInventory(player)
+				end)
+			end
+		end)
+	end
+
+	Players.PlayerAdded:Connect(setupPlayer)
 
 	for _, p in ipairs(Players:GetPlayers()) do
 		task.spawn(function()
-			PlayerDataService.LoadData(p)
+			setupPlayer(p)
 		end)
 	end
 
@@ -475,7 +590,6 @@ function PlayerDataService.Init()
 
 	game:BindToClose(function()
 		PlayerDataService.SaveAll()
-		task.wait(2)
 	end)
 
 	-- Auto-save loop berkala
@@ -489,7 +603,7 @@ function PlayerDataService.Init()
 		end
 	end)
 
-	print("[PlayerDataService] Inisialisasi PlayerDataService selesai.")
+	print("[PlayerDataService] Inisialisasi PlayerDataService selesai (FISH-040 Production Persistence).")
 end
 
 PlayerDataService.Init()
