@@ -73,6 +73,7 @@ Config.HIT_RATINGS = {
 		score = 0,
 		scale = 0.90,
 		window = 999,
+	},
 	HOLD_OK = {
 		text = "HOLD OK",
 		symbol = "★ HOLD OK ★",

@@ -95,6 +95,7 @@ InstrumentConfig.HIT_RATINGS = {
 		flashColor = Color3.fromRGB(255, 40, 40),
 		score = 0,
 		scale = 0.90,
+	},
 	HOLD_OK = {
 		text = "HOLD OK",
 		symbol = "★ HOLD OK ★",
