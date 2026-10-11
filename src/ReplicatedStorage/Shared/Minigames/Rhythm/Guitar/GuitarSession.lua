@@ -91,14 +91,14 @@ function GuitarSession.new(options)
 	end
 
 	local baseTarget = self.Tier.targetNotes or 30
-	self.TargetNotes = baseTarget + (islandMod.targetNotesBonus or 0)
+	self.TargetNotes = options.targetNotes or (baseTarget + (islandMod.targetNotesBonus or 0))
 
 	local startRatio = self.CastBonus.startRatio or 0.10
 	self.CurrentNotes = math.max(1, math.floor(startRatio * self.TargetNotes))
 	self.Progress = startRatio
 
 	local basePenalty = self.Tier.basePenaltyNotes or 3
-	self.PenaltyNotes = math.max(1, math.floor(basePenalty * (self.CastBonus.penaltyMult or 1.0) * (islandMod.penaltyMultiplier or 1.0)))
+	self.PenaltyNotes = options.basePenaltyNotes or math.max(1, math.floor(basePenalty * (self.CastBonus.penaltyMult or 1.0) * (islandMod.penaltyMultiplier or 1.0)))
 
 	local rawSpeed = options.speed or self.Tier.speed or self.Melody.baseSpeed or 0.38
 	self.Speed = math.clamp(rawSpeed * (islandMod.speedMultiplier or 1.0), 0.2, 1.4)

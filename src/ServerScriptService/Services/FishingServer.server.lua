@@ -177,13 +177,17 @@ if remote then
 				return
 			end
 
-			print(string.format("[FishingServer] 🎣 Sesi Memancing Dimulai: %s | Player: %s | Quality: %s | Wait: %.1fs", session.sessionId, player.Name, session.castQuality, session.waitDuration))
+			local cv = session.chartValidation or {}
+			print(string.format("[FishingServer] 🎣 Sesi Memancing Dimulai: %s | Player: %s | Quality: %s | Wait: %.1fs | Song: %s | TargetNotes: %s",
+				session.sessionId, player.Name, session.castQuality, session.waitDuration, tostring(session.songId), tostring(cv.targetNotes or 30)))
 			RemoteContract.Server.SessionStarted(
 				player,
 				session.sessionId,
 				session.waitDuration,
 				session.castQuality,
-				session.songId
+				session.songId,
+				cv.targetNotes,
+				cv.basePenaltyNotes
 			)
 			return
 		end

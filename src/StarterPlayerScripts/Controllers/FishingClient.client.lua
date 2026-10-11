@@ -78,6 +78,8 @@ local clientPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
 local lastPlayerData = {}
 local activeSessionId = nil
 local activeSessionSongId = nil
+local activeSessionTargetNotes = nil
+local activeSessionBasePenalty = nil
 
 local function mergePlayerData(newData)
 	if not newData or typeof(newData) ~= "table" then return end
@@ -1057,6 +1059,8 @@ end
 fsm:OnEnter(FishingStateMachine.States.IDLE, function()
 	activeSessionId = nil
 	activeSessionSongId = nil
+	activeSessionTargetNotes = nil
+	activeSessionBasePenalty = nil
 	isCastingMeterActive = false
 	castMeterContainer.Visible = false
 	if meterConn then
@@ -1139,6 +1143,8 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	local currentToken = sessionToken
 	activeSessionId = nil
 	activeSessionSongId = nil
+	activeSessionTargetNotes = nil
+	activeSessionBasePenalty = nil
 	serverSessionReceived = false
 
 	isCastingMeterActive = false
@@ -1245,7 +1251,7 @@ executeCastAfterMeter = function()
 	})
 end
 
-onSessionStarted = function(sessionId, waitDuration, castQuality, songId)
+onSessionStarted = function(sessionId, waitDuration, castQuality, songId, targetNotes, basePenalty)
 	serverSessionReceived = true
 
 	-- Batalkan jika status bukan CASTING atau WAITING_FOR_BITE yang cocok
@@ -1257,6 +1263,8 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, songId)
 	local currentToken = sessionToken
 	activeSessionId = sessionId
 	activeSessionSongId = songId
+	activeSessionTargetNotes = targetNotes
+	activeSessionBasePenalty = basePenalty
 
 	local waterPos = currentWaterTarget or findWaterTarget()
 	if not waterPos then
@@ -1353,6 +1361,8 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, songId)
 	RhythmController.Start({
 		castQuality = castQuality,
 		tier = "MYSTERY",
+		targetNotes = activeSessionTargetNotes,
+		basePenaltyNotes = activeSessionBasePenalty,
 		rodId = currentRod,
 		instrumentType = instType,
 		zoneId = zoneId,
@@ -2366,19 +2376,23 @@ watchInventory()
 
 -- ============ RESPON REMOTE SERVER ============
 if remote then
-	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3, arg4)
+	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3, arg4, arg5, arg6)
 		if action == RemoteContract.S2C.SESSION_STARTED then
 			local sessionId = arg1
 			local waitDuration = arg2 or 3.0
 			local castQuality = arg3 or "GOOD"
 			local songId = arg4
+			local targetNotes = arg5
+			local basePenalty = arg6
 
 			task.spawn(function()
 				onSessionStarted(
 					sessionId,
 					waitDuration,
 					castQuality,
-					songId
+					songId,
+					targetNotes,
+					basePenalty
 				)
 			end)
 		elseif action == RemoteContract.S2C.CATCH_SUCCESS then
