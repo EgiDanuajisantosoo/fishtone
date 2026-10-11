@@ -24,15 +24,15 @@ local KeybindSystem = {}
 
 -- ============ DEFAULT PRESETS ============
 KeybindSystem.PRESETS = {
-	WASD = {
-		name = "WASD (Bawaan)",
-		keys = { Enum.KeyCode.A, Enum.KeyCode.W, Enum.KeyCode.S, Enum.KeyCode.D },
-		labels = { "A", "W", "S", "D" },
-	},
 	DFJK = {
-		name = "DFJK (Rhythm 4K)",
+		name = "DFJK (Bawaan 4K)",
 		keys = { Enum.KeyCode.D, Enum.KeyCode.F, Enum.KeyCode.J, Enum.KeyCode.K },
 		labels = { "D", "F", "J", "K" },
+	},
+	WASD = {
+		name = "WASD (Alternatif)",
+		keys = { Enum.KeyCode.A, Enum.KeyCode.W, Enum.KeyCode.S, Enum.KeyCode.D },
+		labels = { "A", "W", "S", "D" },
 	},
 	ASKL = {
 		name = "ASKL (Ergonomis)",
@@ -105,13 +105,13 @@ local KEYCODE_TO_LABEL = {
 
 -- ============ INTERNAL STATE ============
 local activeKeys = {
-	Enum.KeyCode.A,
-	Enum.KeyCode.W,
-	Enum.KeyCode.S,
 	Enum.KeyCode.D,
+	Enum.KeyCode.F,
+	Enum.KeyCode.J,
+	Enum.KeyCode.K,
 }
 
-local activeLabels = { "A", "W", "S", "D" }
+local activeLabels = { "D", "F", "J", "K" }
 
 -- Event Signal
 local onKeybindsChangedBindable = Instance.new("BindableEvent")
@@ -323,9 +323,9 @@ function KeybindSystem.ApplyPreset(presetId)
 	return KeybindSystem.SetActiveKeys(preset.keys)
 end
 
---- Reset ke pengaturan default (WASD)
+--- Reset ke pengaturan default (DFJK)
 function KeybindSystem.ResetToDefault()
-	return KeybindSystem.ApplyPreset("WASD")
+	return KeybindSystem.ApplyPreset("DFJK")
 end
 
 --- Mengatur keybind dari array string (misal: {"D", "F", "J", "K"})

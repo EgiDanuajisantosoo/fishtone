@@ -281,7 +281,7 @@ local function buildDynamicGui(playerGui)
 	pbStroke.Thickness = 1.5
 	pbStroke.Parent = perfectBadge
 
-	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
+	local keyLabels = KeybindSystem.GetActiveLabels() or Config.KEY_LABELS or { "D", "F", "J", "K" }
 	for i = 1, Config.COLUMN_COUNT do
 		local col = arena:FindFirstChild("Column" .. i)
 		if col then

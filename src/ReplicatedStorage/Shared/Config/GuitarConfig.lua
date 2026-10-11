@@ -12,12 +12,12 @@ local Config = {}
 -- Layout & Input
 Config.ACTION_INPUT = "GuitarRhythmInputSink"
 Config.KEYS = {
-	Enum.KeyCode.A,
-	Enum.KeyCode.W,
-	Enum.KeyCode.S,
 	Enum.KeyCode.D,
+	Enum.KeyCode.F,
+	Enum.KeyCode.J,
+	Enum.KeyCode.K,
 }
-Config.KEY_LABELS = { "A", "W", "S", "D" }
+Config.KEY_LABELS = { "D", "F", "J", "K" }
 Config.STRING_NAMES = { "E", "A", "D", "G" }
 Config.COLUMN_COUNT = 4
 

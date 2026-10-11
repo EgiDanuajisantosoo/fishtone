@@ -36,10 +36,10 @@ local inputConnection = nil
 
 -- Temp working keys sebelum user menekan "Simpan"
 local draftKeys = {
-	Enum.KeyCode.A,
-	Enum.KeyCode.W,
-	Enum.KeyCode.S,
 	Enum.KeyCode.D,
+	Enum.KeyCode.F,
+	Enum.KeyCode.J,
+	Enum.KeyCode.K,
 }
 
 local columnButtons = {}
@@ -546,13 +546,13 @@ function KeybindSettingsUI.Show(targetGui)
 	aLayout.Padding = UDim.new(0, 14)
 	aLayout.Parent = actionsRow
 
-	-- Tombol Reset WASD
+	-- Tombol Reset DFJK
 	local resetBtn = Instance.new("TextButton")
 	resetBtn.Name = "ResetBtn"
-	resetBtn.Size = UDim2.new(0, 160, 0, 44)
+	resetBtn.Size = UDim2.new(0, 170, 0, 44)
 	resetBtn.BackgroundColor3 = Color3.fromRGB(36, 42, 56)
 	resetBtn.BorderSizePixel = 0
-	resetBtn.Text = "🔄 Reset Bawaan"
+	resetBtn.Text = "🔄 Reset DFJK"
 	resetBtn.TextColor3 = Color3.fromRGB(200, 215, 235)
 	resetBtn.Font = Enum.Font.GothamBold
 	resetBtn.TextSize = 13
@@ -562,8 +562,8 @@ function KeybindSettingsUI.Show(targetGui)
 
 	resetBtn.MouseButton1Click:Connect(function()
 		stopListening()
-		local wasd = KeybindSystem.PRESETS.WASD
-		draftKeys = { wasd.keys[1], wasd.keys[2], wasd.keys[3], wasd.keys[4] }
+		local dfjk = KeybindSystem.PRESETS.DFJK
+		draftKeys = { dfjk.keys[1], dfjk.keys[2], dfjk.keys[3], dfjk.keys[4] }
 		KeybindSystem.SetActiveKeys(draftKeys)
 		pcall(function()
 			local remote = RemoteContract.GetRemote()

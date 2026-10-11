@@ -77,7 +77,7 @@ PlayerDataSchema.DEFAULT_DATA = {
 	settings = {
 		bgmVolume = 1.0,
 		sfxVolume = 1.0,
-		rhythmKeybinds = { "A", "W", "S", "D" },
+		rhythmKeybinds = { "D", "F", "J", "K" },
 	},
 
 	-- Metadata Waktu

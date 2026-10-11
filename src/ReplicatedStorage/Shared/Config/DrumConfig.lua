@@ -12,12 +12,12 @@ local Config = {}
 -- Layout & Input
 Config.ACTION_INPUT = "DrumRhythmInputSink"
 Config.KEYS = {
-	Enum.KeyCode.A,
-	Enum.KeyCode.W,
-	Enum.KeyCode.S,
 	Enum.KeyCode.D,
+	Enum.KeyCode.F,
+	Enum.KeyCode.J,
+	Enum.KeyCode.K,
 }
-Config.KEY_LABELS = { "A", "W", "S", "D" }
+Config.KEY_LABELS = { "D", "F", "J", "K" }
 Config.PAD_NAMES = { "SNARE", "CRASH", "KICK", "HI-HAT" }
 Config.PAD_ICONS = { "🥁", "💥", "🔊", "✨" }
 Config.COLUMN_COUNT = 4

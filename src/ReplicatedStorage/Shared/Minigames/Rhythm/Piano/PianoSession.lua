@@ -756,7 +756,7 @@ function PianoSession:_bindInput()
 
 	-- Dengarkan perubahan keybind secara realtime jika pemain mengubah tombol saat minigame
 	table.insert(self.Connections, KeybindSystem.OnKeybindsChanged:Connect(function()
-		if self.Active then
+		if self:IsActive() then
 			ContextActionService:UnbindAction(Config.ACTION_INPUT)
 			local newKeys = KeybindSystem.GetAllBindableKeys()
 			ContextActionService:BindActionAtPriority(

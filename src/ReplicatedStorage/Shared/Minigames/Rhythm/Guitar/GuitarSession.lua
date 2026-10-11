@@ -392,7 +392,7 @@ function GuitarSession:_bindInput()
 	)
 
 	table.insert(self.Connections, KeybindSystem.OnKeybindsChanged:Connect(function()
-		if self.Active then
+		if self:IsActive() then
 			ContextActionService:UnbindAction(Config.ACTION_INPUT)
 			local newKeys = KeybindSystem.GetAllBindableKeys()
 			ContextActionService:BindActionAtPriority(

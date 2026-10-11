@@ -10,12 +10,12 @@ local Config = {}
 -- ============ GAME / UI LAYOUT ============
 Config.ACTION_PIANO_INPUT = "PianoTilesInputSink"
 Config.KEYS = {
-	Enum.KeyCode.A,
-	Enum.KeyCode.W,
-	Enum.KeyCode.S,
 	Enum.KeyCode.D,
+	Enum.KeyCode.F,
+	Enum.KeyCode.J,
+	Enum.KeyCode.K,
 }
-Config.KEY_LABELS = { "A", "W", "S", "D" }
+Config.KEY_LABELS = { "D", "F", "J", "K" }
 Config.COLUMN_COUNT = 4
 
 -- Nilai ini dipakai sebagai ukuran/logical height tile untuk gameplay.
@@ -117,7 +117,7 @@ Config.INSTRUMENTS = {
 		icon = "🎸",
 		basePitch = 0.95,
 		volume = 0.9,
-		keyLabels = { "A", "W", "S", "D" },
+		keyLabels = { "D", "F", "J", "K" },
 		stringNames = { "E", "A", "D", "G" },
 		stringColors = {
 			Color3.fromRGB(245, 158, 11),  -- Amber
@@ -145,7 +145,7 @@ Config.INSTRUMENTS = {
 		icon = "⚡",
 		basePitch = 1.15,
 		volume = 0.92,
-		keyLabels = { "A", "W", "S", "D" },
+		keyLabels = { "D", "F", "J", "K" },
 		stringNames = { "1", "2", "3", "4" },
 		stringColors = {
 			Color3.fromRGB(168, 85, 247),  -- Purple
@@ -173,7 +173,7 @@ Config.INSTRUMENTS = {
 		icon = "🔱",
 		basePitch = 0.78,
 		volume = 0.95,
-		keyLabels = { "A", "W", "S", "D" },
+		keyLabels = { "D", "F", "J", "K" },
 		stringNames = { "B", "E", "A", "D" },
 		stringColors = {
 			Color3.fromRGB(239, 68, 68),   -- Crimson
@@ -201,7 +201,7 @@ Config.INSTRUMENTS = {
 		icon = "🎹",
 		basePitch = 0.85,
 		volume = 0.85,
-		keyLabels = { "A", "W", "S", "D" },
+		keyLabels = { "D", "F", "J", "K" },
 		stringNames = { "I", "II", "III", "IV" },
 		stringColors = {
 			Color3.fromRGB(0, 200, 255),
