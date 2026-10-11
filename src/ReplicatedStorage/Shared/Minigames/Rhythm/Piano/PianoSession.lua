@@ -1,6 +1,14 @@
 --[[
     PianoSession (ModuleScript)
-    FISH!TUNE — Isolated Piano Tiles Session Engine
+    FISH!TUNE — Chart-Driven Piano Tiles Session Engine (FISH-045)
+
+    Mekanisme Otoritatif Piano Tiles Berbasis Chart:
+    1. Sinkronisasi Penuh dengan SongChartCatalog (FISH-043) & RhythmService (FISH-044).
+    2. Spawning Not Berbasis BPM, Beat Subdivisions, dan Handcrafted/Auto-Derived Lanes.
+    3. Pergerakan Not Frame-Independent (Matematika Presisi Tanpa Temporal Drift).
+    4. Input Multi-Platform (D/F/J/K PC Standard, 1/2/3/4 Numpad, Mouse Click, Mobile Touch).
+    5. Playback Audio Real-time dengan Semitone Pitch Asli dari Not Melodi.
+    6. Mematuhi Aturan Preservasi UI Studio & Rule 7 (Cast Quality Progress).
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -20,6 +28,7 @@ local PianoUI = require(script.Parent:WaitForChild("PianoUI"))
 local PianoSession = {}
 PianoSession.__index = PianoSession
 
+-- ============ AUDIO HELPERS ============
 local function playPianoNote(semitone)
 	semitone = semitone or 0
 	local sound = Instance.new("Sound")
@@ -47,18 +56,51 @@ local function playMissSound()
 	end)
 end
 
+-- ============ INPUT KEY MAPPING (RULE 6 RESOLUTION) ============
+-- D / F / J / K adalah standar ergonomis rhythm game 4-lane (2 tangan)
+local KEY_BIND_MAP = {
+	-- Kolom 1 (Kiri Luar)
+	[Enum.KeyCode.D] = 1,
+	[Enum.KeyCode.One] = 1,
+	[Enum.KeyCode.KeypadOne] = 1,
+	[Enum.KeyCode.A] = 1,
+	[Enum.KeyCode.Left] = 1,
+
+	-- Kolom 2 (Kiri Tengah)
+	[Enum.KeyCode.F] = 2,
+	[Enum.KeyCode.Two] = 2,
+	[Enum.KeyCode.KeypadTwo] = 2,
+	[Enum.KeyCode.S] = 2,
+	[Enum.KeyCode.Down] = 2,
+
+	-- Kolom 3 (Kanan Tengah)
+	[Enum.KeyCode.J] = 3,
+	[Enum.KeyCode.Three] = 3,
+	[Enum.KeyCode.KeypadThree] = 3,
+	[Enum.KeyCode.Up] = 3,
+
+	-- Kolom 4 (Kanan Luar)
+	[Enum.KeyCode.K] = 4,
+	[Enum.KeyCode.Four] = 4,
+	[Enum.KeyCode.KeypadFour] = 4,
+	[Enum.KeyCode.L] = 4,
+	[Enum.KeyCode.Semicolon] = 4,
+	[Enum.KeyCode.Right] = 4,
+}
+
+-- ============ CONSTRUCTOR ============
 function PianoSession.new(options)
 	options = options or {}
 	local self = setmetatable({}, PianoSession)
 
 	local castKey = tostring(options.castQuality or "GOOD"):upper()
 	local tierKey = tostring(options.tier or "COMMON"):upper()
-	local islandMod = InstrumentConfig.GetIslandModifier(options.island)
+	local islandMod = InstrumentConfig.GetIslandModifier(options.island or options.zoneId)
 
-	self.Tier = FishingRaritySystem.GetTierData(tierKey)
+	self.Tier = FishingRaritySystem.GetTierData(tierKey) or {}
 	self.CastBonus = Config.CAST_BONUSES[castKey] or Config.CAST_BONUSES.GOOD
 
-	-- Song & Chart Selection via SongChartCatalog (FISH-043)
+	-- 1. Pemilihan Lagu & Chart Otoritatif via SongChartCatalog (FISH-043 / FISH-044)
 	local selectedSong = options.song or (options.songId and SongChartCatalog.GetSong(options.songId))
 	if not selectedSong then
 		local selected = SongChartCatalog.SelectSongForSession({
@@ -68,15 +110,18 @@ function PianoSession.new(options)
 			seed = options.seed,
 		})
 		self.SongData = selected.song
-		self.Melody = selected.chart or Config.MELODIES[math.random(1, #Config.MELODIES)]
+		self.Melody = selected.chart or Config.MELODIES[1]
 		self.SongDisplayName = SongChartCatalog.FormatSongDisplay(selected.song, "PIANO", selected.bpm, selected.starRating)
 	else
 		self.SongData = selectedSong
 		local chart = selectedSong.charts and selectedSong.charts["PIANO"]
-		self.Melody = chart or Config.MELODIES[math.random(1, #Config.MELODIES)]
+		self.Melody = chart or Config.MELODIES[1]
 		self.SongDisplayName = SongChartCatalog.FormatSongDisplay(selectedSong, "PIANO", self.Melody.bpm or selectedSong.bpm, selectedSong.starRating)
 	end
 
+	self.Bpm = self.Melody.bpm or (self.SongData and self.SongData.bpm) or 120
+
+	-- 2. Target Notes & Starting Progress (Rule 7)
 	local baseTarget = self.Tier.targetNotes or 30
 	self.TargetNotes = baseTarget + (islandMod.targetNotesBonus or 0)
 
@@ -87,9 +132,10 @@ function PianoSession.new(options)
 	local basePenalty = self.Tier.basePenaltyNotes or 3
 	self.PenaltyNotes = math.max(1, math.floor(basePenalty * (self.CastBonus.penaltyMult or 1.0) * (islandMod.penaltyMultiplier or 1.0)))
 
-	local rawSpeed = options.speed or self.Tier.speed or self.Melody.baseSpeed or 0.35
+	local rawSpeed = options.speed or self.Tier.speed or self.Melody.baseSpeed or 0.38
 	self.Speed = math.clamp(rawSpeed * (islandMod.speedMultiplier or 1.0), 0.2, 1.4)
 
+	-- 3. Inisialisasi State & Statistik
 	self.State = "IDLE"
 	self.Score = 0
 	self.Combo = 0
@@ -99,24 +145,130 @@ function PianoSession.new(options)
 	self.GreatHits = 0
 	self.GoodHits = 0
 
-	self.Tiles = {}
-	self.SpawnAccum = 0
-	self.MelodyIndex = 1
-	self.LastColumn = -1
-	self.LastColPressTime = { 0, 0, 0, 0 }
+	self.ActiveTiles = {}
+	self.Tiles = self.ActiveTiles -- Referensi kompatibilitas balik
+	self.ChartEvents = {}
+	self.NextEventIndex = 1
 
+	self.LastColPressTime = { 0, 0, 0, 0 }
 	self.StartTime = 0
+	self.ElapsedTime = 0
 	self.Connections = {}
 	self.OnWin = nil
 	self.OnLose = nil
 
+	-- 4. Kompilasi Aliran Not Berbasis Chart (FISH-045)
+	self:_compileChartEvents()
+
 	return self
+end
+
+-- ============ CHART COMPILER (FISH-045) ============
+--[[
+    Mengompilasi notasi nada, tempo BPM, jalur tuts, dan durasi beat menjadi
+    antrean event waktu deterministik yang independen dari frame rate.
+]]
+function PianoSession:_compileChartEvents()
+	local notes = (self.Melody and self.Melody.notes) or { 0, 2, 4, 5, 7, 9, 11, 12 }
+	local explicitLanes = self.Melody and self.Melody.lanes
+	local explicitDurations = self.Melody and self.Melody.durations
+
+	local notesCount = math.max(1, #notes)
+	local secondsPerBeat = 60.0 / math.max(40, self.Bpm)
+
+	-- Jarak tempuh tile dari spawn (-TILE_HEIGHT) sampai garis target (HIT_LINE)
+	local travelDist = Config.HIT_LINE - (-Config.TILE_HEIGHT)
+	local travelDuration = travelDist / self.Speed
+	local leadInSeconds = math.max(1.8, travelDuration * 0.95)
+
+	-- Analisis rentang semitone nada untuk auto-charting jika lanes tidak eksplisit
+	local minPitch, maxPitch = math.huge, -math.huge
+	for _, p in ipairs(notes) do
+		if p < minPitch then minPitch = p end
+		if p > maxPitch then maxPitch = p end
+	end
+	if minPitch == maxPitch then
+		minPitch = minPitch - 1
+		maxPitch = maxPitch + 1
+	end
+
+	local events = {}
+	local cumulativeBeat = 0
+	-- Buat antrean nada yang cukup panjang untuk menampung seluruh sesi (minimal 80 nada atau targetNotes * 3)
+	local totalEventsNeeded = math.max(80, (self.TargetNotes or 30) * 3)
+
+	local lastLane = -1
+	local lastPitch = nil
+	local sameLaneStreak = 0
+
+	for i = 1, totalEventsNeeded do
+		local idx = ((i - 1) % notesCount) + 1
+		local pitch = notes[idx] or 0
+
+		-- Tentukan jalur tuts (kolom 1..4)
+		local lane = nil
+		if explicitLanes and explicitLanes[idx] then
+			lane = math.clamp(explicitLanes[idx], 1, Config.COLUMN_COUNT)
+		else
+			-- Auto-Charter: Mapping semitone nada ke 4 kolom piano dengan alur ergonomis
+			local norm = math.clamp((pitch - minPitch) / (maxPitch - minPitch), 0, 1)
+			lane = math.clamp(math.floor(norm * 3.99) + 1, 1, 4)
+
+			if lane == lastLane then
+				sameLaneStreak += 1
+				if sameLaneStreak >= 2 then
+					if pitch >= (lastPitch or pitch) then
+						lane = (lane % 4) + 1
+					else
+						lane = ((lane - 2 + 4) % 4) + 1
+					end
+					sameLaneStreak = 0
+				end
+			else
+				sameLaneStreak = 0
+			end
+		end
+		lastLane = lane
+		lastPitch = pitch
+
+		-- Tentukan durasi beat
+		local dur = 0.5
+		if explicitDurations and explicitDurations[idx] then
+			dur = math.max(0.125, tonumber(explicitDurations[idx]) or 0.5)
+		end
+
+		local hitTime = leadInSeconds + (cumulativeBeat * secondsPerBeat)
+		local spawnTime = hitTime - travelDuration
+
+		table.insert(events, {
+			id = i,
+			chartIndex = idx,
+			note = pitch,
+			column = lane,
+			beat = cumulativeBeat,
+			duration = dur,
+			hitTime = hitTime,
+			spawnTime = spawnTime,
+			spawned = false,
+			hit = false,
+			frame = nil,
+			y = -Config.TILE_HEIGHT,
+		})
+
+		cumulativeBeat += dur
+	end
+
+	self.ChartEvents = events
+	self.NextEventIndex = 1
+	self.ActiveTiles = {}
+	self.Tiles = self.ActiveTiles
 end
 
 function PianoSession:IsActive()
 	return self.State == "PLAYING"
 end
 
+-- ============ METRICS EVALUATION ============
 function PianoSession:GetMetrics(won)
 	local duration = os.clock() - (self.StartTime > 0 and self.StartTime or os.clock())
 	local raw = {
@@ -134,13 +286,17 @@ function PianoSession:GetMetrics(won)
 	local performance = PerformanceCalculator.Calculate(raw)
 	performance.score = self.Score
 	performance.hits = self.Score
+	performance.perfectHits = self.PerfectHits
+	performance.greatHits = self.GreatHits
+	performance.goodHits = self.GoodHits
 	performance.mistakes = self.Mistakes
 	performance.maxCombo = self.MaxCombo
 	performance.targetNotes = self.TargetNotes
-	performance.songId = (self.SongData and self.SongData.id) or (self.Melody and self.Melody.songId)
+	performance.songId = (self.SongData and self.SongData.id) or (self.Melody and self.Melody.songId) or "CANON_IN_D"
 	return performance
 end
 
+-- ============ LIFECYCLE API ============
 function PianoSession:Start(onWin, onLose)
 	if self.State ~= "IDLE" then return false end
 	if not PianoUI.Create() then return false end
@@ -149,14 +305,16 @@ function PianoSession:Start(onWin, onLose)
 	self.OnLose = onLose
 	self.State = "PLAYING"
 	self.StartTime = os.clock()
+	self.ElapsedTime = 0
 
 	PianoUI.UpdateHeader(self.CastBonus.label, self.CastBonus.color, self.SongDisplayName or self.Melody.name)
 	PianoUI.HideResult()
 	PianoUI.SetEnabled(true)
 	PianoUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes)
 
+	-- Kompilasi ulang timeline agar sinkron dengan waktu mulai os.clock()
+	self:_compileChartEvents()
 	self:_bindInput()
-	self:_spawnTile()
 	return true
 end
 
@@ -194,43 +352,20 @@ function PianoSession:Cancel()
 	end
 end
 
-function PianoSession:_spawnTile()
-	if self.State ~= "PLAYING" then return end
-
-	local available = {}
-	for i = 1, Config.COLUMN_COUNT do
-		if i ~= self.LastColumn then table.insert(available, i) end
-	end
-	local col = available[math.random(1, #available)]
-	self.LastColumn = col
-
-	local entry = {
-		frame = nil,
-		column = col,
-		y = -Config.TILE_HEIGHT,
-		noteIndex = self.MelodyIndex,
-		hit = false,
-	}
-
-	entry.frame = PianoUI.CreateTile(col, entry.y)
-	if entry.frame then table.insert(self.Tiles, entry) end
-
-	self.MelodyIndex = (self.MelodyIndex % #self.Melody.notes) + 1
-end
-
 function PianoSession:_clearTiles()
-	for _, entry in ipairs(self.Tiles) do
-		if entry.frame then PianoUI.DestroyTile(entry.frame) end
+	for _, ev in ipairs(self.ActiveTiles) do
+		if ev.frame then PianoUI.DestroyTile(ev.frame) end
 	end
-	table.clear(self.Tiles)
+	table.clear(self.ActiveTiles)
 end
 
+-- ============ GAMEPLAY & HIT DETECTION ============
 function PianoSession:_registerHit(entry, y)
 	if self.State ~= "PLAYING" or entry.hit then return end
 	entry.hit = true
 
-	local note = self.Melody.notes[entry.noteIndex] or 0
-	playPianoNote(note)
+	-- Mainkan audio semitone nada yang otentik sesuai melodi lagu
+	playPianoNote(entry.note)
 
 	self.Score += 1
 	self.Combo += 1
@@ -290,80 +425,83 @@ end
 function PianoSession:HandleColumnInput(column)
 	if self.State ~= "PLAYING" then return end
 	local now = os.clock()
-	if now - (self.LastColPressTime[column] or 0) < 0.05 then return end
+	if now - (self.LastColPressTime[column] or 0) < 0.04 then return end
 	self.LastColPressTime[column] = now
 
-	local bestEntry, bestDist = nil, math.huge
-	for _, entry in ipairs(self.Tiles) do
-		if entry.column == column and not entry.hit then
-			local dist = math.abs(entry.y - Config.HIT_LINE)
+	-- Cari tile aktif terdekat di kolom ini yang belum di-hit
+	local bestEv, bestDist = nil, math.huge
+	for _, ev in ipairs(self.ActiveTiles) do
+		if ev.column == column and not ev.hit and ev.frame then
+			local dist = math.abs(ev.y - Config.HIT_LINE)
 			if dist < bestDist then
 				bestDist = dist
-				bestEntry = entry
+				bestEv = ev
 			end
 		end
 	end
 
-	local hitThreshold = 0.28
-	if bestEntry and bestEntry.y >= (Config.HIT_LINE - hitThreshold) and bestEntry.y <= (Config.MISS_LINE + 0.04) then
-		self:_registerHit(bestEntry, bestEntry.y)
+	local hitThreshold = (Config.HIT_RATINGS and Config.HIT_RATINGS.GOOD and Config.HIT_RATINGS.GOOD.window) or 0.18
+	if bestEv and bestDist <= hitThreshold then
+		self:_registerHit(bestEv, bestEv.y)
 	else
 		self:_registerMistake(column)
 	end
 end
 
+-- ============ FRAME UPDATE ENGINE (ZERO-DRIFT) ============
 function PianoSession:_update(dt)
 	if self.State ~= "PLAYING" then return end
 
-	self.SpawnAccum += dt
-	local interval = math.clamp(0.42 / self.Speed, 0.28, 0.90)
-	if self.SpawnAccum >= interval then
-		self.SpawnAccum = 0
-		self:_spawnTile()
+	local now = os.clock()
+	local elapsed = now - self.StartTime
+	self.ElapsedTime = elapsed
+
+	-- 1. Spawning Tiles dari Chart Event Stream
+	while self.NextEventIndex <= #self.ChartEvents do
+		local ev = self.ChartEvents[self.NextEventIndex]
+		if elapsed >= ev.spawnTime then
+			local frame = PianoUI.CreateTile(ev.column, -Config.TILE_HEIGHT)
+			if frame then
+				ev.frame = frame
+				ev.spawned = true
+				table.insert(self.ActiveTiles, ev)
+			end
+			self.NextEventIndex += 1
+		else
+			break
+		end
 	end
 
+	-- 2. Update Posisi Tile dengan Matematika Presisi Waktu (Zero Drift)
 	local i = 1
-	while i <= #self.Tiles do
-		local entry = self.Tiles[i]
-		entry.y += self.Speed * dt
-		if not entry.hit then
-			if entry.y > Config.MISS_LINE then
-				PianoUI.DestroyTile(entry.frame)
-				table.remove(self.Tiles, i)
-				self:_registerMistake(entry.column)
+	while i <= #self.ActiveTiles do
+		local ev = self.ActiveTiles[i]
+		if ev.hit then
+			-- Jika sudah kena hit, frame sudah dianimasikan di PlayHitEffect
+			table.remove(self.ActiveTiles, i)
+		else
+			local timeUntilHit = ev.hitTime - elapsed
+			local y = Config.HIT_LINE - (timeUntilHit * self.Speed)
+			ev.y = y
+
+			if y > Config.MISS_LINE then
+				-- Tile terlewat melewati batas miss line!
+				if ev.frame then PianoUI.DestroyTile(ev.frame) end
+				table.remove(self.ActiveTiles, i)
+				self:_registerMistake(ev.column)
 			else
-				PianoUI.MoveTile(entry.frame, entry.y)
+				PianoUI.MoveTile(ev.frame, y)
 				i += 1
 			end
-		else
-			PianoUI.DestroyTile(entry.frame)
-			table.remove(self.Tiles, i)
 		end
 	end
 end
 
-local KEY_BIND_MAP = {
-	[Enum.KeyCode.A] = 1,
-	[Enum.KeyCode.One] = 1,
-	[Enum.KeyCode.H] = 1,
-
-	[Enum.KeyCode.W] = 2,
-	[Enum.KeyCode.Two] = 2,
-	[Enum.KeyCode.F] = 2,
-
-	[Enum.KeyCode.S] = 3,
-	[Enum.KeyCode.Three] = 3,
-	[Enum.KeyCode.J] = 3,
-
-	[Enum.KeyCode.D] = 4,
-	[Enum.KeyCode.Four] = 4,
-	[Enum.KeyCode.K] = 4,
-	[Enum.KeyCode.L] = 4,
-}
-
+-- ============ INPUT BINDING (PC KEYBOARD / MOUSE / TOUCH) ============
 function PianoSession:_bindInput()
 	self:_unbindInput()
 
+	-- Bind Action untuk Keyboard
 	ContextActionService:BindActionAtPriority(
 		Config.ACTION_INPUT,
 		function(actionName, inputState, inputObj)
@@ -377,25 +515,34 @@ function PianoSession:_bindInput()
 		end,
 		false,
 		Enum.ContextActionPriority.High.Value + 5000,
-		Enum.KeyCode.A,
-		Enum.KeyCode.W,
-		Enum.KeyCode.S,
 		Enum.KeyCode.D,
 		Enum.KeyCode.F,
-		Enum.KeyCode.H,
 		Enum.KeyCode.J,
 		Enum.KeyCode.K,
-		Enum.KeyCode.L,
 		Enum.KeyCode.One,
 		Enum.KeyCode.Two,
 		Enum.KeyCode.Three,
-		Enum.KeyCode.Four
+		Enum.KeyCode.Four,
+		Enum.KeyCode.KeypadOne,
+		Enum.KeyCode.KeypadTwo,
+		Enum.KeyCode.KeypadThree,
+		Enum.KeyCode.KeypadFour,
+		Enum.KeyCode.A,
+		Enum.KeyCode.S,
+		Enum.KeyCode.L,
+		Enum.KeyCode.Semicolon,
+		Enum.KeyCode.Left,
+		Enum.KeyCode.Down,
+		Enum.KeyCode.Up,
+		Enum.KeyCode.Right
 	)
 
+	-- Loop RenderStepped untuk pergerakan halus frame-independent
 	table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)
 		self:_update(dt)
 	end))
 
+	-- Deteksi Klik Mouse & Sentuhan Layar HP/Tablet di atas ArenaFrame
 	table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input, gpe)
 		if gpe and input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then

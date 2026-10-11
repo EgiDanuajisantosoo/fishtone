@@ -10,12 +10,12 @@ local Config = {}
 -- ============ GAME / UI LAYOUT ============
 Config.ACTION_PIANO_INPUT = "PianoTilesInputSink"
 Config.KEYS = {
-	Enum.KeyCode.A,
-	Enum.KeyCode.W,
-	Enum.KeyCode.S,
 	Enum.KeyCode.D,
+	Enum.KeyCode.F,
+	Enum.KeyCode.J,
+	Enum.KeyCode.K,
 }
-Config.KEY_LABELS = { "A", "W", "S", "D" }
+Config.KEY_LABELS = { "D", "F", "J", "K" }
 Config.COLUMN_COUNT = 4
 
 -- Nilai ini dipakai sebagai ukuran/logical height tile untuk gameplay.

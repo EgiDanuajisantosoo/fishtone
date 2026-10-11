@@ -81,8 +81,8 @@ Setiap joran memiliki statistik Luck, Kekuatan Lemparan, serta **Badge Instrumen
 
 | Ikon & Nama Joran | Badge Instrumen | Mekanisme Minigame Irama | Kontrol / Keybind |
 | :--- | :--- | :--- | :--- |
-| 🎣 **Starter Bamboo Rod** | 🎹 `PIANO` | **Piano Tiles Precision (4-Lane)**<br>Not balok jatuh ke bawah melintasi garis target presisi. Cocok untuk pemula. | **`1`**, **`2`**, **`3`**, **`4`** atau **`A`**, **`S`**, **`K`**, **`L`** |
-| 🎣 **Harmonic Tuning Rod** | 🎹 `PIANO` | **Grand Piano Melodic Tiles**<br>Tempo lebih dinamis dengan harmoni melodi klasik. | **`1`**, **`2`**, **`3`**, **`4`** atau **`A`**, **`S`**, **`K`**, **`L`** |
+| 🎣 **Starter Bamboo Rod** | 🎹 `PIANO` | **Piano Tiles Precision (4-Lane)**<br>Not balok jatuh ke bawah melintasi garis target presisi. Cocok untuk pemula. | **`D`**, **`F`**, **`J`**, **`K`** atau **`1`**, **`2`**, **`3`**, **`4`** |
+| 🎣 **Harmonic Tuning Rod** | 🎹 `PIANO` | **Grand Piano Melodic Tiles**<br>Tempo lebih dinamis dengan harmoni melodi klasik. | **`D`**, **`F`**, **`J`**, **`K`** atau **`1`**, **`2`**, **`3`**, **`4`** |
 | 🎣 **Acoustic Bamboo Rod** | 🎸 `GUITAR` | **Guitar Fretboard Pattern**<br>Not melodi mengalir horizontal di atas senar bergetar (*vibrating strings*). | **`A`**, **`S`**, **`D`**, **`J`**, **`K`**, **`L`** |
 | 🎣 **Carbon Overdrive Rod** | 🎸 `GUITAR` | **Electric Guitar Rock Riff**<br>Pola petikan senar elektrik cepat dengan efek distorsi audio visual. | **`A`**, **`S`**, **`D`**, **`J`**, **`K`**, **`L`** |
 | 🎣 **Abyssal Trident Rod** | 🎸 `GUITAR` | **Abyssal Heavy Metal Solo**<br>Pola riff cepat untuk memburu ikan langka kedalaman samudra. | **`A`**, **`S`**, **`D`**, **`J`**, **`K`**, **`L`** |
@@ -112,7 +112,7 @@ Di dalam mini-game Piano Tiles, arena permainan kini dilengkapi dengan **Indikat
 | **`B`** atau **`I`** | Membuka / Menutup **Tas Inventaris** |
 | **`J`** | Membuka / Menutup **FishDex (Ensiklopedia Ikan & Mutasi)** |
 | **`E`** atau **Klik Kiri** | Melempar Kail (*Casting*) / Interaksi ProximityPrompt / Pukul Beat Minigame |
-| **`1, 2, 3, 4`** / **`A, S, K, L`** | Memainkan tuts **Piano Tiles** |
+| **`D, F, J, K`** / **`1, 2, 3, 4`** | Memainkan tuts **Piano Tiles** (Presisi 4-Lane) |
 | **`A, S, D, J, K, L`** | Memainkan senar **Gitar Fretboard** |
 | **`Spasi`** / **`Q`** / **`E`** | Memukul pad **Drum Beats** |
 
