@@ -4,9 +4,9 @@
 
     Mekanisme Otoritatif Piano Tiles Berbasis Chart:
     1. Sinkronisasi Penuh dengan SongChartCatalog (FISH-043) & RhythmService (FISH-044).
-    2. Spawning Not Berbasis BPM, Beat Subdivisions, dan Handcrafted/Auto-Derived Lanes.
+    2. Spawning Not Berbasis BPM dengan Anti-Collision Guard (Tile Tidak Pernah Bertumpuk).
     3. Pergerakan Not Frame-Independent (Matematika Presisi Tanpa Temporal Drift).
-    4. Input Multi-Platform (D/F/J/K PC Standard, 1/2/3/4 Numpad, Mouse Click, Mobile Touch).
+    4. Input 100% Selaras dengan UI Studio: Kolom 1 = A, Kolom 2 = W, Kolom 3 = S, Kolom 4 = D.
     5. Playback Audio Real-time dengan Semitone Pitch Asli dari Not Melodi.
     6. Mematuhi Aturan Preservasi UI Studio & Rule 7 (Cast Quality Progress).
 ]]
@@ -56,35 +56,31 @@ local function playMissSound()
 	end)
 end
 
--- ============ INPUT KEY MAPPING (RULE 6 RESOLUTION) ============
--- D / F / J / K adalah standar ergonomis rhythm game 4-lane (2 tangan)
+-- ============ INPUT KEY MAPPING (SELARAS 100% DENGAN GUI STUDIO) ============
+-- Kolom 1 = A, Kolom 2 = W, Kolom 3 = S, Kolom 4 = D (Sesuai ReceptorPad visual Studio)
 local KEY_BIND_MAP = {
-	-- Kolom 1 (Kiri Luar)
-	[Enum.KeyCode.D] = 1,
+	-- Kolom 1 (Kiri Luar) -> Tombol A (sesuai UI Studio), 1, Keypad 1, Panah Kiri
+	[Enum.KeyCode.A] = 1,
 	[Enum.KeyCode.One] = 1,
 	[Enum.KeyCode.KeypadOne] = 1,
-	[Enum.KeyCode.A] = 1,
 	[Enum.KeyCode.Left] = 1,
 
-	-- Kolom 2 (Kiri Tengah)
-	[Enum.KeyCode.F] = 2,
+	-- Kolom 2 (Kiri Tengah) -> Tombol W (sesuai UI Studio), 2, Keypad 2, Panah Atas
+	[Enum.KeyCode.W] = 2,
 	[Enum.KeyCode.Two] = 2,
 	[Enum.KeyCode.KeypadTwo] = 2,
-	[Enum.KeyCode.S] = 2,
-	[Enum.KeyCode.Down] = 2,
+	[Enum.KeyCode.Up] = 2,
 
-	-- Kolom 3 (Kanan Tengah)
-	[Enum.KeyCode.J] = 3,
+	-- Kolom 3 (Kanan Tengah) -> Tombol S (sesuai UI Studio), 3, Keypad 3, Panah Bawah
+	[Enum.KeyCode.S] = 3,
 	[Enum.KeyCode.Three] = 3,
 	[Enum.KeyCode.KeypadThree] = 3,
-	[Enum.KeyCode.Up] = 3,
+	[Enum.KeyCode.Down] = 3,
 
-	-- Kolom 4 (Kanan Luar)
-	[Enum.KeyCode.K] = 4,
+	-- Kolom 4 (Kanan Luar) -> Tombol D (sesuai UI Studio), 4, Keypad 4, Panah Kanan
+	[Enum.KeyCode.D] = 4,
 	[Enum.KeyCode.Four] = 4,
 	[Enum.KeyCode.KeypadFour] = 4,
-	[Enum.KeyCode.L] = 4,
-	[Enum.KeyCode.Semicolon] = 4,
 	[Enum.KeyCode.Right] = 4,
 }
 
@@ -167,6 +163,7 @@ end
 --[[
     Mengompilasi notasi nada, tempo BPM, jalur tuts, dan durasi beat menjadi
     antrean event waktu deterministik yang independen dari frame rate.
+    Dilengkapi Anti-Collision Guard agar tile TIDAK PERNAH bertumpuk secara visual!
 ]]
 function PianoSession:_compileChartEvents()
 	local notes = (self.Melody and self.Melody.notes) or { 0, 2, 4, 5, 7, 9, 11, 12 }
@@ -181,6 +178,12 @@ function PianoSession:_compileChartEvents()
 	local travelDuration = travelDist / self.Speed
 	local leadInSeconds = math.max(1.8, travelDuration * 0.95)
 
+	-- Jarak vertikal minimum agar tile TIDAK PERNAH bertumpuk (overlap)
+	-- TILE_HEIGHT = 0.16. Gap minimal 0.08 antar tile -> Delta Y >= 0.24
+	local minGlobalTimeGap = math.max(0.48, (Config.TILE_HEIGHT + 0.08) / self.Speed)
+	-- Gap untuk kolom yang SAMA harus longgar agar tidak menumpuk di lane yang sama
+	local minSameLaneTimeGap = math.max(1.10, (Config.TILE_HEIGHT * 2.8) / self.Speed)
+
 	-- Analisis rentang semitone nada untuk auto-charting jika lanes tidak eksplisit
 	local minPitch, maxPitch = math.huge, -math.huge
 	for _, p in ipairs(notes) do
@@ -193,61 +196,65 @@ function PianoSession:_compileChartEvents()
 	end
 
 	local events = {}
-	local cumulativeBeat = 0
-	-- Buat antrean nada yang cukup panjang untuk menampung seluruh sesi (minimal 80 nada atau targetNotes * 3)
+	local currentHitTime = leadInSeconds
 	local totalEventsNeeded = math.max(80, (self.TargetNotes or 30) * 3)
 
 	local lastLane = -1
-	local lastPitch = nil
-	local sameLaneStreak = 0
+	local lastLaneHitTime = { [1] = -999, [2] = -999, [3] = -999, [4] = -999 }
 
 	for i = 1, totalEventsNeeded do
 		local idx = ((i - 1) % notesCount) + 1
 		local pitch = notes[idx] or 0
 
-		-- Tentukan jalur tuts (kolom 1..4)
+		-- 1. Tentukan jalur tuts (kolom 1..4)
 		local lane = nil
 		if explicitLanes and explicitLanes[idx] then
 			lane = math.clamp(explicitLanes[idx], 1, Config.COLUMN_COUNT)
 		else
-			-- Auto-Charter: Mapping semitone nada ke 4 kolom piano dengan alur ergonomis
 			local norm = math.clamp((pitch - minPitch) / (maxPitch - minPitch), 0, 1)
 			lane = math.clamp(math.floor(norm * 3.99) + 1, 1, 4)
+		end
 
-			if lane == lastLane then
-				sameLaneStreak += 1
-				if sameLaneStreak >= 2 then
-					if pitch >= (lastPitch or pitch) then
-						lane = (lane % 4) + 1
-					else
-						lane = ((lane - 2 + 4) % 4) + 1
+		-- STRICT ANTI-COLLISION: Not berturut-turut TIDAK BOLEH berada di kolom yang sama!
+		if lane == lastLane then
+			lane = (lane % 4) + 1
+		end
+
+		-- Pastikan kolom yang dipilih tidak memiliki tile yang masih terlalu dekat di atasnya
+		if (currentHitTime - (lastLaneHitTime[lane] or -999)) < minSameLaneTimeGap then
+			local bestCol, oldestTime = 1, math.huge
+			for c = 1, Config.COLUMN_COUNT do
+				if c ~= lastLane then
+					local t = lastLaneHitTime[c] or -999
+					if t < oldestTime then
+						oldestTime = t
+						bestCol = c
 					end
-					sameLaneStreak = 0
 				end
-			else
-				sameLaneStreak = 0
 			end
+			lane = bestCol
 		end
+
 		lastLane = lane
-		lastPitch = pitch
+		lastLaneHitTime[lane] = currentHitTime
 
-		-- Tentukan durasi beat
-		local dur = 0.5
+		-- 2. Tentukan durasi beat dari chart & pastikan interval waktu memenuhi batas visual
+		local dur = 1.0
 		if explicitDurations and explicitDurations[idx] then
-			dur = math.max(0.125, tonumber(explicitDurations[idx]) or 0.5)
+			dur = math.max(0.5, tonumber(explicitDurations[idx]) or 1.0)
 		end
 
-		local hitTime = leadInSeconds + (cumulativeBeat * secondsPerBeat)
-		local spawnTime = hitTime - travelDuration
+		local timeIncrement = math.max(minGlobalTimeGap, dur * secondsPerBeat)
+		local spawnTime = currentHitTime - travelDuration
 
 		table.insert(events, {
 			id = i,
 			chartIndex = idx,
 			note = pitch,
 			column = lane,
-			beat = cumulativeBeat,
+			beat = (currentHitTime - leadInSeconds) / secondsPerBeat,
 			duration = dur,
-			hitTime = hitTime,
+			hitTime = currentHitTime,
 			spawnTime = spawnTime,
 			spawned = false,
 			hit = false,
@@ -255,7 +262,7 @@ function PianoSession:_compileChartEvents()
 			y = -Config.TILE_HEIGHT,
 		})
 
-		cumulativeBeat += dur
+		currentHitTime = currentHitTime + timeIncrement
 	end
 
 	self.ChartEvents = events
@@ -501,7 +508,7 @@ end
 function PianoSession:_bindInput()
 	self:_unbindInput()
 
-	-- Bind Action untuk Keyboard
+	-- Bind Action untuk Keyboard: A, W, S, D, angka 1-4, keypad, dan tombol panah
 	ContextActionService:BindActionAtPriority(
 		Config.ACTION_INPUT,
 		function(actionName, inputState, inputObj)
@@ -515,10 +522,10 @@ function PianoSession:_bindInput()
 		end,
 		false,
 		Enum.ContextActionPriority.High.Value + 5000,
+		Enum.KeyCode.A,
+		Enum.KeyCode.W,
+		Enum.KeyCode.S,
 		Enum.KeyCode.D,
-		Enum.KeyCode.F,
-		Enum.KeyCode.J,
-		Enum.KeyCode.K,
 		Enum.KeyCode.One,
 		Enum.KeyCode.Two,
 		Enum.KeyCode.Three,
@@ -527,13 +534,9 @@ function PianoSession:_bindInput()
 		Enum.KeyCode.KeypadTwo,
 		Enum.KeyCode.KeypadThree,
 		Enum.KeyCode.KeypadFour,
-		Enum.KeyCode.A,
-		Enum.KeyCode.S,
-		Enum.KeyCode.L,
-		Enum.KeyCode.Semicolon,
 		Enum.KeyCode.Left,
-		Enum.KeyCode.Down,
 		Enum.KeyCode.Up,
+		Enum.KeyCode.Down,
 		Enum.KeyCode.Right
 	)
 
