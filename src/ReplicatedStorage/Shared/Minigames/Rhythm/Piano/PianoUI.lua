@@ -319,19 +319,8 @@ local function buildHybridGui(playerGui)
 	end
 
 	local perfectBadge = hitLine:FindFirstChild("PerfectBadge")
-	if not perfectBadge then
-		perfectBadge = Instance.new("TextLabel")
-		perfectBadge.Name = "PerfectBadge"
-		perfectBadge.Size = UDim2.new(0, 70, 0, 14)
-		perfectBadge.Position = UDim2.new(0, 6, 0, -15)
-		perfectBadge.BackgroundTransparency = 1
-		perfectBadge.Text = "★ PERFECT"
-		perfectBadge.TextColor3 = Color3.fromRGB(255, 215, 0)
-		perfectBadge.Font = Enum.Font.FredokaOne
-		perfectBadge.TextSize = 10
-		perfectBadge.TextXAlignment = Enum.TextXAlignment.Left
-		perfectBadge.ZIndex = 15
-		perfectBadge.Parent = hitLine
+	if perfectBadge then
+		perfectBadge.Visible = false
 	end
 
 	-- =========================================================
