@@ -182,7 +182,8 @@ if remote then
 				player,
 				session.sessionId,
 				session.waitDuration,
-				session.castQuality
+				session.castQuality,
+				session.songId
 			)
 			return
 		end

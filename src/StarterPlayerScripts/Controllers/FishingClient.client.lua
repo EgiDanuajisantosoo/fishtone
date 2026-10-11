@@ -77,6 +77,7 @@ end
 local clientPity = { LEGENDARY = 0, MYTHIC = 0, SPECIAL = 0 }
 local lastPlayerData = {}
 local activeSessionId = nil
+local activeSessionSongId = nil
 
 local function mergePlayerData(newData)
 	if not newData or typeof(newData) ~= "table" then return end
@@ -1054,6 +1055,8 @@ end
 
 -- FSM Lifecycle: Hook saat kembali ke status IDLE (Pembersihan Total)
 fsm:OnEnter(FishingStateMachine.States.IDLE, function()
+	activeSessionId = nil
+	activeSessionSongId = nil
 	isCastingMeterActive = false
 	castMeterContainer.Visible = false
 	if meterConn then
@@ -1135,6 +1138,7 @@ fsm:OnEnter(FishingStateMachine.States.CASTING, function(payload)
 	sessionToken += 1
 	local currentToken = sessionToken
 	activeSessionId = nil
+	activeSessionSongId = nil
 	serverSessionReceived = false
 
 	isCastingMeterActive = false
@@ -1241,7 +1245,7 @@ executeCastAfterMeter = function()
 	})
 end
 
-onSessionStarted = function(sessionId, waitDuration, castQuality)
+onSessionStarted = function(sessionId, waitDuration, castQuality, songId)
 	serverSessionReceived = true
 
 	-- Batalkan jika status bukan CASTING atau WAITING_FOR_BITE yang cocok
@@ -1252,6 +1256,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 	sessionToken += 1
 	local currentToken = sessionToken
 	activeSessionId = sessionId
+	activeSessionSongId = songId
 
 	local waterPos = currentWaterTarget or findWaterTarget()
 	if not waterPos then
@@ -1351,6 +1356,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 		rodId = currentRod,
 		instrumentType = instType,
 		zoneId = zoneId,
+		songId = activeSessionSongId,
 	}, function(metrics)
 		fsm:Transition(FishingStateMachine.States.REELING_SUCCESS, { metrics = metrics })
 		destroyBobberSafely()
@@ -2365,12 +2371,14 @@ if remote then
 			local sessionId = arg1
 			local waitDuration = arg2 or 3.0
 			local castQuality = arg3 or "GOOD"
+			local songId = arg4
 
 			task.spawn(function()
 				onSessionStarted(
 					sessionId,
 					waitDuration,
-					castQuality
+					castQuality,
+					songId
 				)
 			end)
 		elseif action == RemoteContract.S2C.CATCH_SUCCESS then

@@ -148,7 +148,7 @@ function RhythmService.ValidateSubmission(session, rawMetrics, now)
 	end
 
 	-- 1. Anti-Spoofing Check: Verifikasi ID Lagu jika dikirim client
-	if rawMetrics.songId and tostring(rawMetrics.songId):upper() ~= tostring(cv.songId):upper() then
+	if rawMetrics.songId and tostring(rawMetrics.songId) ~= "" and tostring(rawMetrics.songId):upper() ~= tostring(cv.songId):upper() then
 		return nil, nil, string.format("Chart spoofing terdeteksi: lagu sesi adalah '%s', tetapi client mengirim '%s'", cv.songId, tostring(rawMetrics.songId))
 	end
 

@@ -101,7 +101,7 @@ function RemoteContract.Server.Notify(player, message)
 	end
 end
 
-function RemoteContract.Server.SessionStarted(player, sessionId, waitDuration, castQuality)
+function RemoteContract.Server.SessionStarted(player, sessionId, waitDuration, castQuality, songId)
 	local remote = RemoteContract.GetRemote()
 	if remote and player then
 		remote:FireClient(
@@ -109,7 +109,8 @@ function RemoteContract.Server.SessionStarted(player, sessionId, waitDuration, c
 			RemoteContract.S2C.SESSION_STARTED,
 			sessionId,
 			waitDuration,
-			castQuality
+			castQuality,
+			songId
 		)
 	end
 end
