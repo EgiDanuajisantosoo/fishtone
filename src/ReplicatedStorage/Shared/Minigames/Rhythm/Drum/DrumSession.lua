@@ -137,6 +137,7 @@ function DrumSession:GetMetrics(won)
 	performance.mistakes = self.Mistakes
 	performance.maxCombo = self.MaxCombo
 	performance.targetNotes = self.TargetNotes
+	performance.songId = (self.SongData and self.SongData.id) or (self.Groove and self.Groove.songId)
 	return performance
 end
 

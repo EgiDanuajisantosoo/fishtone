@@ -29,6 +29,7 @@ local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("Econom
 local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
 local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 local AntiExploitService = require(script.Parent:WaitForChild("AntiExploitService"))
+local RhythmService = require(script.Parent:WaitForChild("RhythmService"))
 
 local FishingSessionService = {}
 
@@ -212,6 +213,9 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		status = "Active",
 	}
 
+	-- 9. Bind Session Chart Expectations via RhythmService (FISH-044)
+	RhythmService.BindSessionChart(sessionData)
+
 	activeSessions[sessionId] = sessionData
 	playerSessions[player.UserId] = sessionId
 
@@ -273,12 +277,10 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		return nil, timingErr
 	end
 
-	-- 2. Validasi & Sanitasi Metrik Rhythm secara Server-Authoritative (FISH-039)
-	local sanitizedMetrics, valErr = AntiExploitService.SanitizeMetrics(rawMetrics, session, now)
-	if not sanitizedMetrics or sanitizedMetrics.won == false or (sanitizedMetrics.hits or 0) <= 0 then
-		if not sanitizedMetrics then
-			AntiExploitService.LogViolation(player, "INVALID_RHYTHM_METRICS", valErr or "Metrik tidak valid")
-		end
+	-- 2. Validasi Chart Session Otoritatif via RhythmService (FISH-044)
+	local validatedMetrics, performance, valErr = RhythmService.ValidateSubmission(session, rawMetrics, now)
+	if not validatedMetrics or not performance then
+		AntiExploitService.LogViolation(player, "INVALID_CHART_SUBMISSION", valErr or "Validasi chart ritme gagal")
 		activeSessions[sessionId] = nil
 		if playerSessions[player.UserId] == sessionId then
 			playerSessions[player.UserId] = nil
@@ -287,7 +289,7 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		return nil, valErr or "Tangkapan tidak berhasil (skor atau irama belum mencukupi)"
 	end
 
-	-- 3. Tandai Selesai & Bersihkan Slot Sesi
+	-- 3. Tandai Selesai & Bersihkan Slot Sesi (Atomic Consume)
 	session.status = "Completed"
 	activeSessions[sessionId] = nil
 	if playerSessions[player.UserId] == sessionId then
@@ -297,7 +299,6 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 
 	-- 4. Evaluasi Performa Server-Authoritative
 	local pData = PlayerDataService.Get(player)
-	local performance = PerformanceCalculator.Calculate(sanitizedMetrics)
 
 	-- 6. Generate Data Loot Berdasarkan Kategori, Rarity, Skor Performa & Effective Luck (FISH-018 / FISH-019)
 	local lootData = LootTableSystem.GenerateLoot(

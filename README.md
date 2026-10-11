@@ -307,3 +307,29 @@ FISH!TUNE kini memiliki sistem katalog lagu dan chart ritme terpadu (`SongChartC
    - Tampilan UI header (`SongLabel`) menampilkan metadata yang kaya dan estetik (contoh: `🎵 Canon in D • ★★☆☆☆ (120 BPM)`).
 5. **Automated Song & Chart Catalog QA Test Suite**:
    - Seluruh fungsionalitas diuji via `test_song_chart_catalog.py` (cakupan 16 lagu, integritas struktur chart 3 instrumen, kepatuhan Rule 2, seleksi berbasis bobot, dan determinisme seed lulus 100%).
+
+---
+
+## 🎯 13. Validasi Sesi & Chart Ritme Server-Authoritative (FISH-044)
+
+Sesuai **Rule 5 & Rule 6**, FISH!TUNE mengimplementasikan **`RhythmService.lua`** sebagai pilar arsitektur validasi performa ritme sisi server (*server-authoritative rhythm validation*):
+1. **Pengikatan Chart Sesi Otoritatif (`RhythmService.BindSessionChart`)**:
+   - Setiap sesi memancing mengikat chart lagu otoritatif dari `SongChartCatalog`, termasuk BPM lagu, target notes, dan batas durasi fisik minimal.
+   - Mengintegrasikan kalkulasi progres awal lemparan (**Rule 7**):
+     - `PERFECT CAST`: 35% starting progress (pemain hanya membutuhkan 65% nada tersisa untuk menang).
+     - `GREAT CAST`: 20% starting progress (pemain membutuhkan 80% nada tersisa).
+     - `GOOD CAST`: 10% starting progress (pemain membutuhkan 90% nada tersisa).
+2. **Validasi Kelayakan Kemenangan Matematis (*Win Feasibility Invariant*)**:
+   - Server menolak klaim kemenangan (`won = true`) jika pemain hanya menekan sedikit nada yang secara matematis mustahil mengisi meteran progres hingga 100%.
+   - Mencegah eksploitasi di mana cheater mengirim `won = true` dengan 0 atau 1-2 hits.
+3. **Proteksi Chart Spoofing**:
+   - Mencegah pemain memanipulasi payload remote dengan menyuntikkan ID lagu yang lebih mudah daripada chart yang telah ditetapkan oleh server untuk sesi tersebut (`CHART_SPOOFING_ATTEMPT`).
+4. **Validasi Waktu Tantangan & Anti-Speedhack**:
+   - Menghitung waktu minimal tantangan fisik (`minChallengeTime`) berdasarkan BPM lagu dan subdivisi nada.
+   - Menyaring penyelesaian instan atau speedhack sub-detik yang melampaui tempo fisik lagu.
+5. **Evaluasi Performa Otoritatif Independen**:
+   - Server menghitung sendiri akurasi persentase, grade (S+, S, A, B, C, D), combo, pengganda EXP/Koin, dan performa Luck bonus tanpa mempercayai angka yang diklaim klien.
+6. **Konsumsi Sesi Atomik & Anti-Replay Attack**:
+   - Setiap sesi langsung ditandai `Completed` dan dibersihkan dari memori secara atomik saat divalidasi, mencegah percobaan pengiriman tangkapan ganda (*double claim*).
+7. **Automated QA Test Suite**:
+   - Diverifikasi melalui `test_chart_session_validation.py` (pengujian binding chart, starting progress 35%/20%/10%, deteksi impossible win, spoofing, speedhack, dan replay attack lulus 100%).

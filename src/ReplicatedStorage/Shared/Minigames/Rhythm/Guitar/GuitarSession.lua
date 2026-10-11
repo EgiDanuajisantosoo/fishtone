@@ -150,6 +150,7 @@ function GuitarSession:GetMetrics(won)
 	performance.mistakes = self.Mistakes
 	performance.maxCombo = self.MaxCombo
 	performance.targetNotes = self.TargetNotes
+	performance.songId = (self.SongData and self.SongData.id) or (self.Melody and self.Melody.songId)
 	return performance
 end
 
