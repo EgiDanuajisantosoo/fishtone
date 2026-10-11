@@ -285,5 +285,25 @@ FISH!TUNE menerapkan serangkaian optimasi performa tinggi, sanitasi daur hidup e
      - Purging memori offline player violations.
      - Invarian pemutusan koneksi `RenderStepped`, `Heartbeat`, dan loop watcher.
 
+---
 
+## 🎵 12. Katalog Lagu & Chart Ritme Terpusat (FISH-043)
 
+FISH!TUNE kini memiliki sistem katalog lagu dan chart ritme terpadu (`SongChartCatalog.lua`) sebagai satu sumber kebenaran (*single source of truth*) musik lintas instrumen:
+1. **Katalog Terpadu Multi-Instrumen (Piano, Guitar, Drum)**:
+   - Terdiri dari 16 lagu beragam genre (Klasik, Fingerstyle Folk, Heavy Metal, Synthwave/Astral, hingga Island Percussion).
+   - Setiap lagu memiliki metadata komprehensif: ID unik, judul, artis/komponis, genre, BPM, rating kesulitan (1 s/d 5 bintang), afinitas zona, afinitas kelangkaan ikan (*rarity affinities*), serta chart spesifik per instrumen.
+2. **Kepatuhan Mutlak Rule 2 (Core Game Rule)**:
+   - *Rule 2: "The instrument/rod determines the rhythm mechanic. The island does not."*
+   - Pemilihan chart ritme selalu menghormati instrumen yang digunakan: Joran Piano selalu memicu chart Piano Tiles, Joran Gitar memicu pola senar Fretboard, dan Joran Drum memicu ketukan konsentris.
+   - Zona memancing dan rarity ikan mempengaruhi tema lagu, tempo, dan tingkat kesulitan lagu yang dimainkan tanpa pernah menukar mekanik instrumen.
+3. **Algoritma Seleksi Cerdas & Deterministik**:
+   - `SongChartCatalog.SelectSongForSession(options)`: Menggunakan pembobotan probabilistik dinamis berdasarkan kecocokan zona dan kesulitan rarity ikan (Common = Bintang 1-2, Mythic/Special = Bintang 4-5).
+   - Mendukung generator benih acak semu (*pseudo-random seed*) untuk pengujian deterministik dan validasi server-authoritative.
+4. **Integrasi Halus & Kompatibilitas Mundur 100%**:
+   - Terintegrasi langsung ke `PianoSession`, `GuitarSession`, dan `DrumSession`.
+   - Modul konfigurasi `PianoConfig.MELODIES`, `GuitarConfig.MELODIES`, dan `DrumConfig.GROOVES` tersinkronisasi otomatis dengan katalog terpusat.
+   - Sesi memancing di `FishingSessionService` secara authoritative mencatat `songId`, `songTitle`, dan `bpm` ke dalam data sesi.
+   - Tampilan UI header (`SongLabel`) menampilkan metadata yang kaya dan estetik (contoh: `🎵 Canon in D • ★★☆☆☆ (120 BPM)`).
+5. **Automated Song & Chart Catalog QA Test Suite**:
+   - Seluruh fungsionalitas diuji via `test_song_chart_catalog.py` (cakupan 16 lagu, integritas struktur chart 3 instrumen, kepatuhan Rule 2, seleksi berbasis bobot, dan determinisme seed lulus 100%).

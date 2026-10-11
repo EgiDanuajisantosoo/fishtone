@@ -41,6 +41,7 @@ local ProgressionRoadmapUI = require(Shared:WaitForChild("Minigames"):WaitForChi
 local EconomyHUD = require(Shared:WaitForChild("Minigames"):WaitForChild("EconomyHUD"))
 local TutorialUI = require(Shared:WaitForChild("Minigames"):WaitForChild("TutorialUI"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
+local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild("XPProgressionSystem"))
 local PitySystem = require(Shared:WaitForChild("Systems"):WaitForChild("PitySystem"))
@@ -1341,11 +1342,15 @@ onSessionStarted = function(sessionId, waitDuration, castQuality)
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
+	local currentZone = waterPos and ZoneConfig.GetZoneAtPosition(waterPos)
+	local zoneId = currentZone and currentZone.id or "MELODY_BAY"
+
 	RhythmController.Start({
 		castQuality = castQuality,
 		tier = "MYSTERY",
 		rodId = currentRod,
 		instrumentType = instType,
+		zoneId = zoneId,
 	}, function(metrics)
 		fsm:Transition(FishingStateMachine.States.REELING_SUCCESS, { metrics = metrics })
 		destroyBobberSafely()

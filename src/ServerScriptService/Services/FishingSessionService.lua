@@ -23,6 +23,7 @@ local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChil
 local LootTableSystem = require(Shared:WaitForChild("Systems"):WaitForChild("LootTableSystem"))
 local LuckFormula = require(Shared:WaitForChild("Systems"):WaitForChild("LuckFormula"))
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
+local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
@@ -174,6 +175,13 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	local instrumentType = (pData and pData.equippedInstrument) or InstrumentDefinitions.GetInstrumentTypeForRod(equippedRod)
 	local rodMapping = InstrumentDefinitions.GetRodMapping(equippedRod)
 
+	-- 8. Pilih Lagu/Chart Ritme Secara Authoritative (FISH-043)
+	local selectedSong = SongChartCatalog.SelectSongForSession({
+		instrumentType = instrumentType,
+		zoneId = zone and zone.id or "MELODY_BAY",
+		rarity = rolledRarity,
+	})
+
 	local sessionData = {
 		sessionId = sessionId,
 		player = player,
@@ -181,6 +189,10 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		rodId = equippedRod,
 		instrumentType = instrumentType,
 		instrumentVariant = rodMapping.instrumentVariant or "DEFAULT",
+		songId = selectedSong.song and selectedSong.song.id or "CANON_IN_D",
+		songTitle = selectedSong.title or "Canon in D",
+		songBpm = selectedSong.bpm or 120,
+		songDifficulty = selectedSong.difficulty or 2,
 		waterPos = waterPos,
 		castQuality = castQuality,
 		castPower = castPower,

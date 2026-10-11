@@ -14,6 +14,7 @@ local Config = require(Shared:WaitForChild("Config"):WaitForChild("DrumConfig"))
 local InstrumentConfig = require(Shared:WaitForChild("Config"):WaitForChild("InstrumentConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
+local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local DrumUI = require(script.Parent:WaitForChild("DrumUI"))
 
 local DrumSession = {}
@@ -56,7 +57,25 @@ function DrumSession.new(options)
 
 	self.Tier = FishingRaritySystem.GetTierData(tierKey)
 	self.CastBonus = Config.CAST_BONUSES[castKey] or Config.CAST_BONUSES.GOOD
-	self.Groove = Config.GROOVES[math.random(1, #Config.GROOVES)]
+
+	-- Song & Chart Selection via SongChartCatalog (FISH-043)
+	local selectedSong = options.song or (options.songId and SongChartCatalog.GetSong(options.songId))
+	if not selectedSong then
+		local selected = SongChartCatalog.SelectSongForSession({
+			instrumentType = "DRUM",
+			zoneId = options.zoneId or options.island,
+			rarity = tierKey,
+			seed = options.seed,
+		})
+		self.SongData = selected.song
+		self.Groove = selected.chart or Config.GROOVES[math.random(1, #Config.GROOVES)]
+		self.SongDisplayName = SongChartCatalog.FormatSongDisplay(selected.song, "DRUM", selected.bpm, selected.starRating)
+	else
+		self.SongData = selectedSong
+		local chart = selectedSong.charts and selectedSong.charts["DRUM"]
+		self.Groove = chart or Config.GROOVES[math.random(1, #Config.GROOVES)]
+		self.SongDisplayName = SongChartCatalog.FormatSongDisplay(selectedSong, "DRUM", self.Groove.bpm or selectedSong.bpm, selectedSong.starRating)
+	end
 
 	local baseTarget = self.Tier.targetNotes or 30
 	self.TargetNotes = baseTarget + (islandMod.targetNotesBonus or 0)
@@ -130,7 +149,7 @@ function DrumSession:Start(onWin, onLose)
 	self.State = "PLAYING"
 	self.StartTime = os.clock()
 
-	DrumUI.UpdateHeader(self.CastBonus.label, self.CastBonus.color, self.Groove.name)
+	DrumUI.UpdateHeader(self.CastBonus.label, self.CastBonus.color, self.SongDisplayName or self.Groove.name)
 	DrumUI.HideResult()
 	DrumUI.SetEnabled(true)
 	DrumUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes)

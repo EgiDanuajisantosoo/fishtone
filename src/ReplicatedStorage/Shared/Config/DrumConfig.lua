@@ -54,25 +54,51 @@ Config.VOLUME = 0.95
 Config.HIT_RATINGS = InstrumentConfig.HIT_RATINGS
 Config.CAST_BONUSES = InstrumentConfig.CAST_BONUSES
 
--- Drum Grooves & Rhythms
+-- Drum Grooves & Rhythms (Synced with SongChartCatalog FISH-043)
+local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
+
 Config.GROOVES = {
 	{
 		name = "Celestial Beat Kick Groove",
 		notes = { -12, 0, -12, 0, 7, -12, 0, -12, 7, 0, -12, 0, 12, 7, 0, -12 },
 		bpm = 128,
 		baseSpeed = 0.42,
+		songId = "CELESTIAL_BEAT_PULSE",
 	},
 	{
 		name = "Thunder Heavy Rock Beat",
 		notes = { -12, -12, 0, -12, 0, 7, -12, 0, -12, -12, 0, 7, 12, 0, -12, 0 },
 		bpm = 140,
 		baseSpeed = 0.45,
+		songId = "THUNDER_ROCK_BEAT",
 	},
 	{
 		name = "Tropical Island Bongo Tempo",
 		notes = { 0, 4, 7, 0, 4, 7, 12, 7, 4, 0, 7, 4, 0, 4, 7, 12 },
 		bpm = 115,
 		baseSpeed = 0.38,
+		songId = "TROPICAL_BONGO_PULSE",
+	},
+	{
+		name = "Abyssal Metal Double Kick",
+		notes = { -12, -12, 0, -12, 0, 7, -12, -12, 0, -12, 7, 12, -12, -12, 0, 7 },
+		bpm = 140,
+		baseSpeed = 0.44,
+		songId = "ABYSSAL_ROCK_RIFF",
+	},
+	{
+		name = "Kraken Deep Sea Pulse",
+		notes = { -12, -12, -12, 0, 7, 0, -12, 12, -12, -12, 0, 7, 12, 7, 0, -12 },
+		bpm = 150,
+		baseSpeed = 0.47,
+		songId = "KRAKEN_DEEP_PULSE",
+	},
+	{
+		name = "Skull Summit Apex Overdrive",
+		notes = { -12, -12, 0, -12, -12, 0, 7, -12, -12, 0, 12, 7, 0, -12, -12, 12 },
+		bpm = 165,
+		baseSpeed = 0.50,
+		songId = "SKULL_SUMMIT_OVERDRIVE",
 	},
 }
 

@@ -14,6 +14,7 @@ local Config = require(Shared:WaitForChild("Config"):WaitForChild("PianoConfig")
 local InstrumentConfig = require(Shared:WaitForChild("Config"):WaitForChild("InstrumentConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
+local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local PianoUI = require(script.Parent:WaitForChild("PianoUI"))
 
 local PianoSession = {}
@@ -56,7 +57,25 @@ function PianoSession.new(options)
 
 	self.Tier = FishingRaritySystem.GetTierData(tierKey)
 	self.CastBonus = Config.CAST_BONUSES[castKey] or Config.CAST_BONUSES.GOOD
-	self.Melody = Config.MELODIES[math.random(1, #Config.MELODIES)]
+
+	-- Song & Chart Selection via SongChartCatalog (FISH-043)
+	local selectedSong = options.song or (options.songId and SongChartCatalog.GetSong(options.songId))
+	if not selectedSong then
+		local selected = SongChartCatalog.SelectSongForSession({
+			instrumentType = "PIANO",
+			zoneId = options.zoneId or options.island,
+			rarity = tierKey,
+			seed = options.seed,
+		})
+		self.SongData = selected.song
+		self.Melody = selected.chart or Config.MELODIES[math.random(1, #Config.MELODIES)]
+		self.SongDisplayName = SongChartCatalog.FormatSongDisplay(selected.song, "PIANO", selected.bpm, selected.starRating)
+	else
+		self.SongData = selectedSong
+		local chart = selectedSong.charts and selectedSong.charts["PIANO"]
+		self.Melody = chart or Config.MELODIES[math.random(1, #Config.MELODIES)]
+		self.SongDisplayName = SongChartCatalog.FormatSongDisplay(selectedSong, "PIANO", self.Melody.bpm or selectedSong.bpm, selectedSong.starRating)
+	end
 
 	local baseTarget = self.Tier.targetNotes or 30
 	self.TargetNotes = baseTarget + (islandMod.targetNotesBonus or 0)
@@ -130,7 +149,7 @@ function PianoSession:Start(onWin, onLose)
 	self.State = "PLAYING"
 	self.StartTime = os.clock()
 
-	PianoUI.UpdateHeader(self.CastBonus.label, self.CastBonus.color, self.Melody.name)
+	PianoUI.UpdateHeader(self.CastBonus.label, self.CastBonus.color, self.SongDisplayName or self.Melody.name)
 	PianoUI.HideResult()
 	PianoUI.SetEnabled(true)
 	PianoUI.UpdateHUD(self.Progress, self.Combo, self.CurrentNotes, self.TargetNotes)
