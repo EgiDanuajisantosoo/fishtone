@@ -104,34 +104,10 @@ local function buildHybridGui(playerGui)
 		-- Tidak ada styling/layout yang ditimpa.
 	end
 
-	-- Tombol Kustomisasi Keybind di Minigame (FISH-045)
+	-- Hapus tombol setting bergerigi di tampilan minigame
 	local settingsBtn = container:FindFirstChild("KeybindSettingsBtn")
-	if not settingsBtn then
-		settingsBtn = Instance.new("TextButton")
-		settingsBtn.Name = "KeybindSettingsBtn"
-		settingsBtn.AnchorPoint = Vector2.new(1, 0)
-		settingsBtn.Size = UDim2.new(0, 32, 0, 32)
-		settingsBtn.Position = UDim2.new(1, -10, 0, 8)
-		settingsBtn.BackgroundColor3 = Color3.fromRGB(20, 28, 44)
-		settingsBtn.BorderSizePixel = 0
-		settingsBtn.Text = "⚙️"
-		settingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-		settingsBtn.Font = Enum.Font.GothamBold
-		settingsBtn.TextSize = 16
-		settingsBtn.ZIndex = 30
-		settingsBtn.Parent = container
-
-		Instance.new("UICorner", settingsBtn).CornerRadius = UDim.new(0, 8)
-		local sStroke = Instance.new("UIStroke")
-		sStroke.Color = Color3.fromRGB(0, 210, 255)
-		sStroke.Thickness = 1.2
-		sStroke.Transparency = 0.5
-		sStroke.Parent = settingsBtn
-
-		settingsBtn.MouseButton1Click:Connect(function()
-			local KeybindSettingsUI = require(Shared:WaitForChild("Minigames"):WaitForChild("KeybindSettingsUI"))
-			KeybindSettingsUI.Toggle(screenGui)
-		end)
+	if settingsBtn then
+		settingsBtn:Destroy()
 	end
 
 	-- =========================================================
@@ -1082,6 +1058,11 @@ function PianoUI.UpdateKeyLabels()
 	if screenGui then
 		local container = screenGui:FindFirstChild("ArenaContainer") or screenGui:FindFirstChildWhichIsA("Frame")
 		if container then
+			local settingsBtn = container:FindFirstChild("KeybindSettingsBtn")
+			if settingsBtn then
+				settingsBtn:Destroy()
+			end
+
 			local arena = container:FindFirstChild("ArenaFrame") or container
 			for i = 1, 4 do
 				local newLabel = KeybindSystem.GetKeyLabel(i)
