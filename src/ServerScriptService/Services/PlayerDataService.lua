@@ -230,6 +230,12 @@ function PlayerDataService.SetKeybinds(player, keybinds)
 	pData.settings.rhythmKeybinds = cleanKeys
 
 	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+
+	-- Simpan seketika ke DataStore agar perubahan tombol tidak hilang jika player langsung disconnect / exit
+	task.spawn(function()
+		PlayerDataService.SaveData(player)
+	end)
+
 	return true
 end
 
