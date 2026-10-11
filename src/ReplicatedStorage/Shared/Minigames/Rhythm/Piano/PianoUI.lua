@@ -1058,10 +1058,12 @@ function PianoUI.UpdateKeyLabels()
 	end
 
 	-- Update array cached receptorLabels
-	for i = 1, 4 do
-		local lbl = receptorLabels[i]
-		if lbl then
-			lbl.Text = formatKeyText(lbl.Text, KeybindSystem.GetKeyLabel(i))
+	if receptorLabels then
+		for i = 1, 4 do
+			local lbl = receptorLabels[i]
+			if lbl then
+				lbl.Text = formatKeyText(lbl.Text, KeybindSystem.GetKeyLabel(i))
+			end
 		end
 	end
 end

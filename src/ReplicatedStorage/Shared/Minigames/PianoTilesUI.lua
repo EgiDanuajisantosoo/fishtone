@@ -1568,10 +1568,12 @@ function PianoTilesUI.UpdateKeyLabels()
 		end
 	end
 
-	for i = 1, Config.COLUMN_COUNT do
-		local lbl = receptorLabels[i]
-		if lbl then
-			lbl.Text = formatKeyText(lbl.Text, activeLabels[i] or tostring(i))
+	if receptorLabels then
+		for i = 1, Config.COLUMN_COUNT do
+			local lbl = receptorLabels[i]
+			if lbl then
+				lbl.Text = formatKeyText(lbl.Text, activeLabels[i] or tostring(i))
+			end
 		end
 	end
 end

@@ -19,6 +19,7 @@ local castBonusLabel, songLabel, comboLabel, centerJudgementLabel, hitLine
 local resultOverlay, resultLabel
 local progressContainer, progressFill, progressLabel, fish
 local columns, columnFlashes, drumPads, padLabels, padIcons = {}, {}, {}, {}, {}
+local receptorPads, receptorLabels = drumPads, padLabels
 
 local function getPlayerGui()
 	local player = Players.LocalPlayer
@@ -803,7 +804,7 @@ function DrumUI.UpdateKeyLabels()
 					or arena:FindFirstChild("Lane" .. i)
 				if col then
 					local newLabel = KeybindSystem.GetKeyLabel(i)
-					local pad = receptorPads[i]
+					local pad = (drumPads and drumPads[i])
 						or col:FindFirstChild("DrumPad")
 						or col:FindFirstChild("Pad")
 						or col:FindFirstChild("HitZone")
@@ -832,10 +833,12 @@ function DrumUI.UpdateKeyLabels()
 		end
 	end
 
-	for i = 1, 4 do
-		local lbl = receptorLabels[i]
-		if lbl then
-			lbl.Text = formatKeyText(lbl.Text, KeybindSystem.GetKeyLabel(i))
+	if padLabels then
+		for i = 1, 4 do
+			local lbl = padLabels[i]
+			if lbl then
+				lbl.Text = formatKeyText(lbl.Text, KeybindSystem.GetKeyLabel(i))
+			end
 		end
 	end
 end
