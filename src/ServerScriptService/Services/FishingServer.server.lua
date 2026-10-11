@@ -315,6 +315,16 @@ if remote then
 			PlayerDataService.SkipTutorial(player)
 			return
 		end
+
+		-- 18. Pengaturan Tombol Keybind Rhythm (FISH-045)
+		if action == RemoteContract.C2S.SET_KEYBINDS then
+			local keybinds = payload and payload.keybinds
+			if keybinds and typeof(keybinds) == "table" and #keybinds >= 4 then
+				PlayerDataService.SetKeybinds(player, keybinds)
+				RemoteContract.Server.Notify(player, "✅ Pengaturan tombol kontrol rhythm berhasil disimpan!")
+			end
+			return
+		end
 	end)
 else
 	warn("FishingServer: FishingRemote tidak ditemukan di ReplicatedStorage")

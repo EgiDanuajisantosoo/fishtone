@@ -24,6 +24,7 @@ local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local PianoUI = require(script.Parent:WaitForChild("PianoUI"))
+local KeybindSystem = require(Shared:WaitForChild("Systems"):WaitForChild("KeybindSystem"))
 
 local PianoSession = {}
 PianoSession.__index = PianoSession
@@ -731,11 +732,12 @@ end
 function PianoSession:_bindInput()
 	self:_unbindInput()
 
-	-- 1. ContextActionService untuk Keyboard A, W, S, D, angka 1-4, dan panah
+	-- 1. ContextActionService untuk Keyboard Dinamis (KeybindSystem) + Fallback
+	local bindableKeys = KeybindSystem.GetAllBindableKeys()
 	ContextActionService:BindActionAtPriority(
 		Config.ACTION_INPUT,
 		function(actionName, inputState, inputObj)
-			local targetCol = KEY_BIND_MAP[inputObj.KeyCode]
+			local targetCol = KeybindSystem.GetColumnForKey(inputObj.KeyCode) or KEY_BIND_MAP[inputObj.KeyCode]
 			if targetCol then
 				if inputState == Enum.UserInputState.Begin then
 					self:HandleColumnPress(targetCol)
@@ -749,23 +751,35 @@ function PianoSession:_bindInput()
 		end,
 		false,
 		Enum.ContextActionPriority.High.Value + 5000,
-		Enum.KeyCode.A,
-		Enum.KeyCode.W,
-		Enum.KeyCode.S,
-		Enum.KeyCode.D,
-		Enum.KeyCode.One,
-		Enum.KeyCode.Two,
-		Enum.KeyCode.Three,
-		Enum.KeyCode.Four,
-		Enum.KeyCode.KeypadOne,
-		Enum.KeyCode.KeypadTwo,
-		Enum.KeyCode.KeypadThree,
-		Enum.KeyCode.KeypadFour,
-		Enum.KeyCode.Left,
-		Enum.KeyCode.Up,
-		Enum.KeyCode.Down,
-		Enum.KeyCode.Right
+		table.unpack(bindableKeys)
 	)
+
+	-- Dengarkan perubahan keybind secara realtime jika pemain mengubah tombol saat minigame
+	table.insert(self.Connections, KeybindSystem.OnKeybindsChanged:Connect(function()
+		if self.Active then
+			ContextActionService:UnbindAction(Config.ACTION_INPUT)
+			local newKeys = KeybindSystem.GetAllBindableKeys()
+			ContextActionService:BindActionAtPriority(
+				Config.ACTION_INPUT,
+				function(actionName, inputState, inputObj)
+					local targetCol = KeybindSystem.GetColumnForKey(inputObj.KeyCode) or KEY_BIND_MAP[inputObj.KeyCode]
+					if targetCol then
+						if inputState == Enum.UserInputState.Begin then
+							self:HandleColumnPress(targetCol)
+							return Enum.ContextActionResult.Sink
+						elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+							self:HandleColumnRelease(targetCol)
+							return Enum.ContextActionResult.Sink
+						end
+					end
+					return Enum.ContextActionResult.Pass
+				end,
+				false,
+				Enum.ContextActionPriority.High.Value + 5000,
+				table.unpack(newKeys)
+			)
+		end
+	end))
 
 	-- 2. Loop RenderStepped untuk pergerakan halus frame-independent
 	table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)

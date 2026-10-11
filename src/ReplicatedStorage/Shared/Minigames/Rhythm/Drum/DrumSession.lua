@@ -16,6 +16,7 @@ local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local DrumUI = require(script.Parent:WaitForChild("DrumUI"))
+local KeybindSystem = require(Shared:WaitForChild("Systems"):WaitForChild("KeybindSystem"))
 
 local DrumSession = {}
 DrumSession.__index = DrumSession
@@ -380,6 +381,8 @@ local DRUM_KEY_MAP = {
 function DrumSession:_bindInput()
 	self:_unbindInput()
 
+	local bindableKeys = KeybindSystem.GetAllBindableKeys()
+	table.insert(bindableKeys, Enum.KeyCode.Space)
 	ContextActionService:BindActionAtPriority(
 		Config.ACTION_INPUT,
 		function(actionName, inputState, inputObj)
@@ -388,7 +391,7 @@ function DrumSession:_bindInput()
 				self:HandleAnyActiveInput()
 				return Enum.ContextActionResult.Sink
 			end
-			local targetCol = DRUM_KEY_MAP[inputObj.KeyCode]
+			local targetCol = KeybindSystem.GetColumnForKey(inputObj.KeyCode) or DRUM_KEY_MAP[inputObj.KeyCode]
 			if targetCol then
 				self:HandleColumnInput(targetCol)
 				return Enum.ContextActionResult.Sink
@@ -397,20 +400,7 @@ function DrumSession:_bindInput()
 		end,
 		false,
 		Enum.ContextActionPriority.High.Value + 5000,
-		Enum.KeyCode.A,
-		Enum.KeyCode.W,
-		Enum.KeyCode.S,
-		Enum.KeyCode.D,
-		Enum.KeyCode.F,
-		Enum.KeyCode.H,
-		Enum.KeyCode.J,
-		Enum.KeyCode.K,
-		Enum.KeyCode.L,
-		Enum.KeyCode.Space,
-		Enum.KeyCode.One,
-		Enum.KeyCode.Two,
-		Enum.KeyCode.Three,
-		Enum.KeyCode.Four
+		table.unpack(bindableKeys)
 	)
 
 	table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)

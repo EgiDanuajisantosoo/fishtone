@@ -16,6 +16,7 @@ local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local PerformanceCalculator = require(Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator"))
 local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local GuitarUI = require(script.Parent:WaitForChild("GuitarUI"))
+local KeybindSystem = require(Shared:WaitForChild("Systems"):WaitForChild("KeybindSystem"))
 
 local GuitarSession = {}
 GuitarSession.__index = GuitarSession
@@ -373,11 +374,12 @@ local GUITAR_KEY_MAP = {
 function GuitarSession:_bindInput()
 	self:_unbindInput()
 
+	local bindableKeys = KeybindSystem.GetAllBindableKeys()
 	ContextActionService:BindActionAtPriority(
 		Config.ACTION_INPUT,
 		function(actionName, inputState, inputObj)
 			if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
-			local targetCol = GUITAR_KEY_MAP[inputObj.KeyCode]
+			local targetCol = KeybindSystem.GetColumnForKey(inputObj.KeyCode) or GUITAR_KEY_MAP[inputObj.KeyCode]
 			if targetCol then
 				self:HandleColumnInput(targetCol)
 				return Enum.ContextActionResult.Sink
@@ -386,19 +388,7 @@ function GuitarSession:_bindInput()
 		end,
 		false,
 		Enum.ContextActionPriority.High.Value + 5000,
-		Enum.KeyCode.A,
-		Enum.KeyCode.W,
-		Enum.KeyCode.S,
-		Enum.KeyCode.D,
-		Enum.KeyCode.F,
-		Enum.KeyCode.H,
-		Enum.KeyCode.J,
-		Enum.KeyCode.K,
-		Enum.KeyCode.L,
-		Enum.KeyCode.One,
-		Enum.KeyCode.Two,
-		Enum.KeyCode.Three,
-		Enum.KeyCode.Four
+		table.unpack(bindableKeys)
 	)
 
 	table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)

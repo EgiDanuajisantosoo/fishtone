@@ -40,6 +40,8 @@ local LevelUpUI = require(Shared:WaitForChild("Minigames"):WaitForChild("LevelUp
 local ProgressionRoadmapUI = require(Shared:WaitForChild("Minigames"):WaitForChild("ProgressionRoadmapUI"))
 local EconomyHUD = require(Shared:WaitForChild("Minigames"):WaitForChild("EconomyHUD"))
 local TutorialUI = require(Shared:WaitForChild("Minigames"):WaitForChild("TutorialUI"))
+local KeybindSystem = require(Shared:WaitForChild("Systems"):WaitForChild("KeybindSystem"))
+local KeybindSettingsUI = require(Shared:WaitForChild("Minigames"):WaitForChild("KeybindSettingsUI"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
@@ -85,6 +87,9 @@ local function mergePlayerData(newData)
 	if not newData or typeof(newData) ~= "table" then return end
 	for k, v in pairs(newData) do
 		lastPlayerData[k] = v
+	end
+	if lastPlayerData.settings and lastPlayerData.settings.rhythmKeybinds then
+		KeybindSystem.LoadFromSettings(lastPlayerData.settings)
 	end
 	if lastPlayerData.totalExp == nil and lastPlayerData.level ~= nil then
 		lastPlayerData.totalExp = XPProgressionSystem.ReconcileToTotalExp(lastPlayerData.level or 1, lastPlayerData.exp or 0)
@@ -194,6 +199,32 @@ gui.Parent = pGui or workspace
 
 -- Inisialisasi Top Economy & Currency HUD
 EconomyHUD.Create(gui)
+
+-- Tombol Pintasan Pengaturan Tombol Rhythm (FISH-045)
+local keybindMenuBtn = Instance.new("TextButton")
+keybindMenuBtn.Name = "KeybindMenuBtn"
+keybindMenuBtn.Size = UDim2.new(0, 110, 0, 36)
+keybindMenuBtn.Position = UDim2.new(0, 16, 0, 16)
+keybindMenuBtn.BackgroundColor3 = Color3.fromRGB(15, 24, 38)
+keybindMenuBtn.BackgroundTransparency = 0.25
+keybindMenuBtn.BorderSizePixel = 0
+keybindMenuBtn.Text = "⌨️ Kontrol [O]"
+keybindMenuBtn.TextColor3 = Color3.fromRGB(186, 230, 253)
+keybindMenuBtn.Font = Enum.Font.GothamBold
+keybindMenuBtn.TextSize = 12
+keybindMenuBtn.ZIndex = 26
+keybindMenuBtn.Parent = gui
+
+Instance.new("UICorner", keybindMenuBtn).CornerRadius = UDim.new(0, 10)
+local kmbStroke = Instance.new("UIStroke")
+kmbStroke.Color = Color3.fromRGB(56, 189, 248)
+kmbStroke.Thickness = 1.4
+kmbStroke.Transparency = 0.4
+kmbStroke.Parent = keybindMenuBtn
+
+keybindMenuBtn.MouseButton1Click:Connect(function()
+	KeybindSettingsUI.Toggle(gui)
+end)
 
 -- ============ TOAST NOTIFICATION & REVEAL POPUP ============
 local statusFrame = Instance.new("Frame")
@@ -2293,6 +2324,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	-- Hotkey H untuk Toggle Buku Panduan Nelayan (FISH-033)
 	if not gameProcessed and (input.KeyCode == Enum.KeyCode.H) then
 		TutorialUI.ToggleHelpGuide(gui)
+		return
+	end
+
+	-- Hotkey O untuk Toggle Pengaturan Tombol Keybind Rhythm (FISH-045)
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.O) then
+		KeybindSettingsUI.Toggle(gui)
 		return
 	end
 	if gameProcessed then return end

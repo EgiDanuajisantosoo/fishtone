@@ -214,6 +214,25 @@ function PlayerDataService.SkipTutorial(player)
 	RemoteContract.Server.Notify(player, "ℹ️ Tutorial dilewati. Buka tombol [❓ PANDUAN] di HUD kapan saja untuk melihat panduan bermain!")
 end
 
+-- ============ KEYBIND & SETTINGS MUTATORS (FISH-045) ============
+function PlayerDataService.SetKeybinds(player, keybinds)
+	local pData = PlayerDataService.Get(player)
+	if not pData then return false, "Data pemain tidak ditemukan." end
+	if typeof(keybinds) ~= "table" or #keybinds < 4 then
+		return false, "Format keybinds harus berupa array 4 tombol."
+	end
+
+	pData.settings = pData.settings or {}
+	local cleanKeys = {}
+	for i = 1, 4 do
+		cleanKeys[i] = tostring(keybinds[i] or "A"):upper()
+	end
+	pData.settings.rhythmKeybinds = cleanKeys
+
+	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
+	return true
+end
+
 function PlayerDataService.AddExp(player, amount)
 	local pData = PlayerDataService.Get(player)
 	if not pData then return false, 1 end

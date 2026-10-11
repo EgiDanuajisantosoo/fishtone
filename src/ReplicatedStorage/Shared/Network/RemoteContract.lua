@@ -39,6 +39,8 @@ RemoteContract.C2S = {
 	COMPLETE_TUTORIAL_STEP  = "CompleteTutorialStep",
 	FINISH_TUTORIAL         = "FinishTutorial",
 	SKIP_TUTORIAL           = "SkipTutorial",
+	-- Keybind Settings (FISH-045)
+	SET_KEYBINDS            = "SetKeybinds",
 }
 
 -- Server -> Client Actions
@@ -408,6 +410,13 @@ function RemoteContract.Client.SkipTutorial()
 	local remote = RemoteContract.GetRemote()
 	if remote then
 		remote:FireServer(RemoteContract.C2S.SKIP_TUTORIAL)
+	end
+end
+
+function RemoteContract.Client.SetKeybinds(keybinds)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.SET_KEYBINDS, { keybinds = keybinds })
 	end
 end
 

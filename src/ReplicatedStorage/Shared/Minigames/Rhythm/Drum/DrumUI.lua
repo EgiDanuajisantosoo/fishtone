@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("DrumConfig"))
 local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
 local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
+local KeybindSystem = require(Shared:WaitForChild("Systems"):WaitForChild("KeybindSystem"))
 
 local DrumUI = {}
 
@@ -229,7 +230,7 @@ local function buildDynamicGui(playerGui)
 	pbStroke.Thickness = 1.5
 	pbStroke.Parent = perfectBadge
 
-	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
+	local keyLabels = KeybindSystem.GetActiveLabels()
 	for i = 1, Config.COLUMN_COUNT do
 		local col = arena:FindFirstChild("Column" .. i)
 		if col then
