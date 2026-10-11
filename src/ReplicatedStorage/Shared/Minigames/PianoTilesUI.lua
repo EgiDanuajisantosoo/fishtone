@@ -22,6 +22,9 @@ local Config = require(
 local PerformanceCalculator = require(
 	Shared:WaitForChild("Systems"):WaitForChild("PerformanceCalculator")
 )
+local KeybindSystem = require(
+	Shared:WaitForChild("Systems"):WaitForChild("KeybindSystem")
+)
 
 local PianoTilesUI = {}
 
@@ -549,7 +552,7 @@ function PianoTilesUI.Create()
 	table.clear(receptorPads)
 	table.clear(receptorLabels)
 
-	local keyLabels = Config.KEY_LABELS or { "A", "W", "S", "D" }
+	local keyLabels = KeybindSystem.GetActiveLabels()
 
 	for i = 1, Config.COLUMN_COUNT do
 		local column = arenaFrame:WaitForChild("Column" .. i, 5)
@@ -618,7 +621,19 @@ function PianoTilesUI.Create()
 		end
 
 		receptorPads[i] = receptor
-		receptorLabels[i] = receptor:FindFirstChild("KeyLabel")
+		local keyLbl = receptor:FindFirstChild("KeyLabel")
+		if not keyLbl then
+			for _, ch in ipairs(receptor:GetChildren()) do
+				if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+					keyLbl = ch
+					break
+				end
+			end
+		end
+		receptorLabels[i] = keyLbl
+		if keyLbl then
+			keyLbl.Text = "[" .. (keyLabels[i] or tostring(i)) .. "]"
+		end
 	end
 
 	--==================================================
@@ -726,6 +741,9 @@ end
 function PianoTilesUI.SetEnabled(enabled)
 	if gui then
 		gui.Enabled = enabled
+		if enabled then
+			PianoTilesUI.UpdateKeyLabels()
+		end
 	end
 end
 
@@ -1490,5 +1508,89 @@ function PianoTilesUI.Destroy()
 	table.clear(receptorPads)
 	table.clear(receptorLabels)
 end
+
+--==================================================
+-- DYNAMIC KEYBIND LABELS (FISH-045)
+--==================================================
+
+local function formatKeyText(originalText, newKey)
+	if originalText and (originalText:find("%[") or originalText:find("%]")) then
+		return "[" .. newKey .. "]"
+	end
+	return "[" .. newKey .. "]"
+end
+
+function PianoTilesUI.UpdateKeyLabels()
+	local activeLabels = KeybindSystem.GetActiveLabels()
+	local pGui = getPlayerGui()
+	local screenGui = (gui and gui.Parent and gui) or (pGui and pGui:FindFirstChild("PianoTilesGui"))
+	if screenGui then
+		local container = screenGui:FindFirstChild("ArenaContainer") or screenGui:FindFirstChildWhichIsA("Frame")
+		local arena = container and (container:FindFirstChild("ArenaFrame") or container)
+		if arena then
+			for i = 1, Config.COLUMN_COUNT do
+				local col = columns[i]
+					or arena:FindFirstChild("Column" .. i)
+					or arena:FindFirstChild("Column_" .. i)
+					or arena:FindFirstChild("Col" .. i)
+					or arena:FindFirstChild("Lane" .. i)
+				if col then
+					local newLabel = activeLabels[i] or tostring(i)
+					local receptor = receptorPads[i]
+						or col:FindFirstChild("ReceptorPad")
+						or col:FindFirstChild("Receptor")
+						or col:FindFirstChild("HitZone")
+						or col:FindFirstChild("Pad")
+
+					if receptor then
+						if receptor:IsA("TextLabel") or receptor:IsA("TextButton") then
+							receptor.Text = formatKeyText(receptor.Text, newLabel)
+						end
+						for _, child in ipairs(receptor:GetChildren()) do
+							if child:IsA("TextLabel") or child:IsA("TextButton") then
+								child.Text = formatKeyText(child.Text, newLabel)
+							end
+						end
+					end
+
+					for _, desc in ipairs(col:GetDescendants()) do
+						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+							local name = desc.Name:lower()
+							local text = desc.Text
+							local isKeyCandidate = name:find("key") or name:find("label") or name:find("receptor") or name:find("pad") or #text <= 4
+							if isKeyCandidate then
+								desc.Text = formatKeyText(text, newLabel)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	for i = 1, Config.COLUMN_COUNT do
+		local lbl = receptorLabels[i]
+		if lbl then
+			lbl.Text = formatKeyText(lbl.Text, activeLabels[i] or tostring(i))
+		end
+	end
+end
+
+-- Listener perubahan keybind seketika & pemindaian awal
+KeybindSystem.OnKeybindsChanged:Connect(function()
+	PianoTilesUI.UpdateKeyLabels()
+end)
+
+task.defer(function()
+	PianoTilesUI.UpdateKeyLabels()
+	local pGui = getPlayerGui()
+	if pGui then
+		pGui.ChildAdded:Connect(function(child)
+			if child.Name == "PianoTilesGui" then
+				task.defer(PianoTilesUI.UpdateKeyLabels)
+			end
+		end)
+	end
+end)
 
 return PianoTilesUI

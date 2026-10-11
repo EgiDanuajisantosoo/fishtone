@@ -497,11 +497,17 @@ function DrumUI.Create()
 	end
 
 	gui.Enabled = false
+	DrumUI.UpdateKeyLabels()
 	return true
 end
 
 function DrumUI.SetEnabled(enabled)
-	if gui then gui.Enabled = enabled end
+	if gui then
+		gui.Enabled = enabled
+		if enabled then
+			DrumUI.UpdateKeyLabels()
+		end
+	end
 end
 
 function DrumUI.GetArenaFrame()
@@ -773,5 +779,81 @@ end
 function DrumUI.HideResult()
 	if resultOverlay then resultOverlay.Visible = false end
 end
+
+-- ============ DYNAMIC KEYBIND LABELS (FISH-045) ============
+local function formatKeyText(originalText, newKey)
+	if originalText and (originalText:find("%[") or originalText:find("%]")) then
+		return "[" .. newKey .. "]"
+	end
+	return newKey
+end
+
+function DrumUI.UpdateKeyLabels()
+	local pGui = getPlayerGui()
+	local screenGui = (gui and gui.Parent and gui) or (pGui and pGui:FindFirstChild("DrumRhythmGui"))
+	if screenGui then
+		local container = screenGui:FindFirstChild("ArenaContainer") or screenGui:FindFirstChildWhichIsA("Frame")
+		local arena = container and (container:FindFirstChild("ArenaFrame") or container)
+		if arena then
+			for i = 1, 4 do
+				local col = columns[i]
+					or arena:FindFirstChild("Column" .. i)
+					or arena:FindFirstChild("Column_" .. i)
+					or arena:FindFirstChild("Col" .. i)
+					or arena:FindFirstChild("Lane" .. i)
+				if col then
+					local newLabel = KeybindSystem.GetKeyLabel(i)
+					local pad = receptorPads[i]
+						or col:FindFirstChild("DrumPad")
+						or col:FindFirstChild("Pad")
+						or col:FindFirstChild("HitZone")
+					if pad then
+						if pad:IsA("TextLabel") or pad:IsA("TextButton") then
+							pad.Text = formatKeyText(pad.Text, newLabel)
+						end
+						for _, child in ipairs(pad:GetChildren()) do
+							if child:IsA("TextLabel") or child:IsA("TextButton") then
+								child.Text = formatKeyText(child.Text, newLabel)
+							end
+						end
+					end
+					for _, desc in ipairs(col:GetDescendants()) do
+						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+							local name = desc.Name:lower()
+							local text = desc.Text
+							local isKeyCandidate = name:find("key") or name:find("label") or name:find("pad") or #text <= 4
+							if isKeyCandidate then
+								desc.Text = formatKeyText(text, newLabel)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	for i = 1, 4 do
+		local lbl = receptorLabels[i]
+		if lbl then
+			lbl.Text = formatKeyText(lbl.Text, KeybindSystem.GetKeyLabel(i))
+		end
+	end
+end
+
+task.defer(function()
+	DrumUI.UpdateKeyLabels()
+	local pGui = getPlayerGui()
+	if pGui then
+		pGui.ChildAdded:Connect(function(child)
+			if child.Name == "DrumRhythmGui" then
+				task.defer(DrumUI.UpdateKeyLabels)
+			end
+		end)
+	end
+end)
+
+KeybindSystem.OnKeybindsChanged:Connect(function()
+	DrumUI.UpdateKeyLabels()
+end)
 
 return DrumUI

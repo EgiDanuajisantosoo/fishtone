@@ -165,6 +165,18 @@ local function startListening(colIndex)
 			end
 
 			draftKeys[colIndex] = kc
+
+			-- Auto-apply ke KeybindSystem & simpan ke server seketika
+			KeybindSystem.SetActiveKeys(draftKeys)
+			pcall(function()
+				local remote = RemoteContract.GetRemote()
+				if remote then
+					remote:FireServer(RemoteContract.C2S.SET_KEYBINDS, {
+						keybinds = KeybindSystem.ExportSettings(),
+					})
+				end
+			end)
+
 			playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 1.3)
 			stopListening()
 		elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -176,6 +188,20 @@ end
 -- ============ SHOW MODAL ============
 function KeybindSettingsUI.Show(targetGui)
 	if activeModal or isClosing then return end
+
+	-- Tutup modal lain yang mungkin sedang terbuka agar tidak bertumpuk
+	pcall(function()
+		local fishDex = Shared:FindFirstChild("Minigames") and Shared.Minigames:FindFirstChild("FishDexUI")
+		if fishDex then
+			local fMod = require(fishDex)
+			if fMod and fMod.IsOpen and fMod.IsOpen() then fMod.Hide() end
+		end
+		local shop = Shared:FindFirstChild("Minigames") and Shared.Minigames:FindFirstChild("ShopUI")
+		if shop then
+			local sMod = require(shop)
+			if sMod and sMod.IsOpen and sMod.IsOpen() then sMod.Hide() end
+		end
+	end)
 
 	-- Ambil keybinds aktif saat ini ke draft
 	local current = KeybindSystem.GetActiveKeys()
@@ -363,6 +389,15 @@ function KeybindSettingsUI.Show(targetGui)
 			chip.MouseButton1Click:Connect(function()
 				stopListening()
 				draftKeys = { pData.keys[1], pData.keys[2], pData.keys[3], pData.keys[4] }
+				KeybindSystem.SetActiveKeys(draftKeys)
+				pcall(function()
+					local remote = RemoteContract.GetRemote()
+					if remote then
+						remote:FireServer(RemoteContract.C2S.SET_KEYBINDS, {
+							keybinds = KeybindSystem.ExportSettings(),
+						})
+					end
+				end)
 				playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.8, 1.2)
 				refreshSlotsDisplay()
 			end)
@@ -529,6 +564,15 @@ function KeybindSettingsUI.Show(targetGui)
 		stopListening()
 		local wasd = KeybindSystem.PRESETS.WASD
 		draftKeys = { wasd.keys[1], wasd.keys[2], wasd.keys[3], wasd.keys[4] }
+		KeybindSystem.SetActiveKeys(draftKeys)
+		pcall(function()
+			local remote = RemoteContract.GetRemote()
+			if remote then
+				remote:FireServer(RemoteContract.C2S.SET_KEYBINDS, {
+					keybinds = KeybindSystem.ExportSettings(),
+				})
+			end
+		end)
 		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.7, 0.9)
 		refreshSlotsDisplay()
 	end)

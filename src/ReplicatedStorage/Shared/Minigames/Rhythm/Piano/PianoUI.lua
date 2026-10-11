@@ -255,6 +255,14 @@ local function buildHybridGui(playerGui)
 
 		local keyText = receptor:FindFirstChild("KeyLabel")
 		if not keyText then
+			for _, child in ipairs(receptor:GetChildren()) do
+				if child:IsA("TextLabel") or child:IsA("TextButton") then
+					keyText = child
+					break
+				end
+			end
+		end
+		if not keyText then
 			keyText = Instance.new("TextLabel")
 			keyText.Name = "KeyLabel"
 			keyText.Size = UDim2.fromScale(1, 1)
@@ -265,7 +273,21 @@ local function buildHybridGui(playerGui)
 			keyText.ZIndex = 13
 			keyText.Parent = receptor
 		end
-		keyText.Text = KeybindSystem.GetKeyLabel(i)
+		local activeKeyLabel = KeybindSystem.GetKeyLabel(i)
+		keyText.Text = activeKeyLabel
+
+		-- Update semua TextLabel / TextButton di receptor atau col
+		if receptor:IsA("TextLabel") or receptor:IsA("TextButton") then
+			receptor.Text = activeKeyLabel
+		end
+		for _, desc in ipairs(col:GetDescendants()) do
+			if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+				local name = desc.Name:lower()
+				if name:find("key") or name:find("label") or #desc.Text <= 2 then
+					desc.Text = activeKeyLabel
+				end
+			end
+		end
 
 		receptorPads[i] = receptor
 		receptorLabels[i] = keyText
@@ -434,11 +456,17 @@ function PianoUI.Create()
 	end
 
 	gui.Enabled = false
+	PianoUI.UpdateKeyLabels()
 	return true
 end
 
 function PianoUI.SetEnabled(enabled)
-	if gui then gui.Enabled = enabled end
+	if gui then
+		gui.Enabled = enabled
+		if enabled then
+			PianoUI.UpdateKeyLabels()
+		end
+	end
 end
 
 function PianoUI.GetArenaFrame()
@@ -975,16 +1003,83 @@ function PianoUI.HideResult()
 end
 
 -- ============ DYNAMIC KEYBIND LABELS (FISH-045) ============
+local function formatKeyText(originalText, newKey)
+	if originalText and (originalText:find("%[") or originalText:find("%]")) then
+		return "[" .. newKey .. "]"
+	end
+	return newKey
+end
+
 function PianoUI.UpdateKeyLabels()
+	local pGui = getPlayerGui()
+	local screenGui = (gui and gui.Parent and gui) or (pGui and pGui:FindFirstChild("PianoTilesGui"))
+	if screenGui then
+		local container = screenGui:FindFirstChild("ArenaContainer") or screenGui:FindFirstChildWhichIsA("Frame")
+		local arena = container and (container:FindFirstChild("ArenaFrame") or container)
+		if arena then
+			for i = 1, 4 do
+				local col = columns[i]
+					or arena:FindFirstChild("Column" .. i)
+					or arena:FindFirstChild("Column_" .. i)
+					or arena:FindFirstChild("Col" .. i)
+					or arena:FindFirstChild("Lane" .. i)
+				if col then
+					local newLabel = KeybindSystem.GetKeyLabel(i)
+					local receptor = receptorPads[i]
+						or col:FindFirstChild("ReceptorPad")
+						or col:FindFirstChild("Receptor")
+						or col:FindFirstChild("HitZone")
+						or col:FindFirstChild("Pad")
+
+					if receptor then
+						if receptor:IsA("TextLabel") or receptor:IsA("TextButton") then
+							receptor.Text = formatKeyText(receptor.Text, newLabel)
+						end
+						for _, child in ipairs(receptor:GetChildren()) do
+							if child:IsA("TextLabel") or child:IsA("TextButton") then
+								child.Text = formatKeyText(child.Text, newLabel)
+							end
+						end
+					end
+
+					for _, desc in ipairs(col:GetDescendants()) do
+						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+							local name = desc.Name:lower()
+							local text = desc.Text
+							local isKeyCandidate = name:find("key") or name:find("label") or name:find("receptor") or name:find("pad") or #text <= 4
+							if isKeyCandidate then
+								desc.Text = formatKeyText(text, newLabel)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- Update array cached receptorLabels
 	for i = 1, 4 do
 		local lbl = receptorLabels[i]
 		if lbl then
-			lbl.Text = KeybindSystem.GetKeyLabel(i)
+			lbl.Text = formatKeyText(lbl.Text, KeybindSystem.GetKeyLabel(i))
 		end
 	end
 end
 
--- Dengarkan perubahan keybind secara realtime agar ReceptorPad langsung update
+-- Inisialisasi awal saat script diload dan listener ChildAdded jika PianoTilesGui dimuat belakangan
+task.defer(function()
+	PianoUI.UpdateKeyLabels()
+	local pGui = getPlayerGui()
+	if pGui then
+		pGui.ChildAdded:Connect(function(child)
+			if child.Name == "PianoTilesGui" then
+				task.defer(PianoUI.UpdateKeyLabels)
+			end
+		end)
+	end
+end)
+
+-- Dengarkan perubahan keybind secara realtime agar ReceptorPad langsung update seketika
 KeybindSystem.OnKeybindsChanged:Connect(function()
 	PianoUI.UpdateKeyLabels()
 end)

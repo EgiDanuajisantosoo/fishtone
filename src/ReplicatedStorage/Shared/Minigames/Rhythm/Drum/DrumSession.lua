@@ -403,6 +403,33 @@ function DrumSession:_bindInput()
 		table.unpack(bindableKeys)
 	)
 
+	table.insert(self.Connections, KeybindSystem.OnKeybindsChanged:Connect(function()
+		if self.Active then
+			ContextActionService:UnbindAction(Config.ACTION_INPUT)
+			local newKeys = KeybindSystem.GetAllBindableKeys()
+			table.insert(newKeys, Enum.KeyCode.Space)
+			ContextActionService:BindActionAtPriority(
+				Config.ACTION_INPUT,
+				function(actionName, inputState, inputObj)
+					if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
+					if inputObj.KeyCode == Enum.KeyCode.Space then
+						self:HandleAnyActiveInput()
+						return Enum.ContextActionResult.Sink
+					end
+					local targetCol = KeybindSystem.GetColumnForKey(inputObj.KeyCode) or DRUM_KEY_MAP[inputObj.KeyCode]
+					if targetCol then
+						self:HandleColumnInput(targetCol)
+						return Enum.ContextActionResult.Sink
+					end
+					return Enum.ContextActionResult.Pass
+				end,
+				false,
+				Enum.ContextActionPriority.High.Value + 5000,
+				table.unpack(newKeys)
+			)
+		end
+	end))
+
 	table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)
 		self:_update(dt)
 	end))

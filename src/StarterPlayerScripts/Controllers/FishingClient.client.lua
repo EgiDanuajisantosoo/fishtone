@@ -2289,6 +2289,12 @@ if mobileActionCtrl then
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	-- 1. Jika modal pengaturan tombol sedang terbuka, cegah SEMUA hotkey agar tidak bentrok saat rebinding!
+	if KeybindSettingsUI.IsOpen() then return end
+
+	-- 2. Jika minigame rhythm sedang aktif atau tantangan sedang berlangsung, cegah semua hotkey!
+	if RhythmController.IsPlaying() or (fsm and fsm:GetState() == "CHALLENGE") then return end
+
 	-- Hotkey B atau I untuk Toggle Inventory
 	if not gameProcessed and (input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.I) then
 		toggleInventory()
@@ -2333,9 +2339,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 	if gameProcessed then return end
-
-	-- Jangan tangani interaksi pancing jika minigame sedang berjalan (karena [A,W,S,D] dipakai oleh minigame)
-	if RhythmController.IsPlaying() then return end
 
 	if isCastingMeterActive then
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.E then
