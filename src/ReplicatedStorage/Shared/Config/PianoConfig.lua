@@ -110,4 +110,15 @@ Config.MELODIES = {
 	},
 }
 
+-- Sinkronisasi events, lanes, dan durations dari SongChartCatalog (FISH-045)
+for _, mel in ipairs(Config.MELODIES) do
+	local song = SongChartCatalog.GetSong(mel.songId)
+	if song and song.charts and song.charts["PIANO"] then
+		local c = song.charts["PIANO"]
+		mel.events = c.events
+		mel.lanes = c.lanes
+		mel.durations = c.durations
+	end
+end
+
 return Config

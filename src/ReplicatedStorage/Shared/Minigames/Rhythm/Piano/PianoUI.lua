@@ -419,10 +419,11 @@ function PianoUI.CreateTile(column, y, isChord)
 	if not parent then return nil end
 
 	local tile = Instance.new("Frame")
-	tile.Name = "Tile"
+	tile.Name = isChord and "ChordTile" or "Tile"
 	tile.Size = UDim2.new(0.82, 0, Config.TILE_HEIGHT, 0)
 	tile.Position = UDim2.new(0.09, 0, y, 0)
-	tile.BackgroundColor3 = isChord and Color3.fromRGB(0, 190, 255) or Color3.fromRGB(0, 162, 232)
+	-- Not sejajar / CHORD berwarna emas bersinar, sedangkan not biasa berwarna biru tropis
+	tile.BackgroundColor3 = isChord and Color3.fromRGB(255, 195, 25) or Color3.fromRGB(0, 162, 232)
 	tile.BorderSizePixel = 0
 	tile.ZIndex = 15
 	tile.Parent = parent
@@ -445,10 +446,29 @@ function PianoUI.CreateTile(column, y, isChord)
 
 	local glow = Instance.new("UIStroke")
 	glow.Name = "TileGlow"
-	glow.Color = isChord and Color3.fromRGB(255, 225, 50) or Color3.fromRGB(255, 255, 255)
-	glow.Thickness = isChord and 3.5 or 2.5
+	glow.Color = isChord and Color3.fromRGB(255, 225, 40) or Color3.fromRGB(255, 255, 255)
+	glow.Thickness = isChord and 4.0 or 2.5
 	glow.Transparency = 0
 	glow.Parent = tile
+
+	if isChord then
+		tile:SetAttribute("IsChord", true)
+
+		-- Badge "✦ CHORD ✦" mencolok pada not sejajar
+		local chordBadge = Instance.new("TextLabel")
+		chordBadge.Name = "ChordBadge"
+		chordBadge.Size = UDim2.new(1, 0, 0, 14)
+		chordBadge.Position = UDim2.new(0, 0, 1, -16)
+		chordBadge.BackgroundTransparency = 1
+		chordBadge.Text = "✦ CHORD ✦"
+		chordBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+		chordBadge.TextStrokeColor3 = Color3.fromRGB(180, 100, 0)
+		chordBadge.TextStrokeTransparency = 0
+		chordBadge.Font = Enum.Font.GothamBold
+		chordBadge.TextSize = 10
+		chordBadge.ZIndex = 19
+		chordBadge.Parent = tile
+	end
 
 	return tile
 end
@@ -457,54 +477,71 @@ function PianoUI.CreateHoldTile(column, y, tailLength)
 	local parent = columns[column]
 	if not parent then return nil end
 
-	tailLength = math.max(0.15, tailLength or 0.40)
+	tailLength = math.max(0.18, tailLength or 0.40)
+	local tileHeight = Config.TILE_HEIGHT or 0.16
 
-	-- Container frame for the entire hold note
+	-- Container frame untuk not tahan
 	local holdTile = Instance.new("Frame")
 	holdTile.Name = "HoldTile"
-	holdTile.Size = UDim2.new(0.82, 0, Config.TILE_HEIGHT, 0)
+	holdTile.Size = UDim2.new(0.82, 0, tileHeight, 0)
 	holdTile.Position = UDim2.new(0.09, 0, y, 0)
 	holdTile.BackgroundTransparency = 1
 	holdTile.BorderSizePixel = 0
 	holdTile.ZIndex = 15
 	holdTile.Parent = parent
 
-	-- 1. Hold Tail (Sustained beam stretching UPWARDS from the head)
+	-- Konversi tailLength (skala arena/kolom) ke skala child di dalam holdTile
+	local tailScaleInHold = tailLength / tileHeight
+
+	-- 1. Hold Tail (Ekor pita neon menyala panjang ke atas)
 	local tail = Instance.new("Frame")
 	tail.Name = "HoldTail"
-	tail.Size = UDim2.new(0.52, 0, tailLength, 0)
-	tail.Position = UDim2.new(0.24, 0, -tailLength + 0.02, 0)
-	tail.BackgroundColor3 = Color3.fromRGB(0, 195, 255)
-	tail.BackgroundTransparency = 0.35
+	tail.Size = UDim2.new(0.60, 0, tailScaleInHold, 0)
+	tail.Position = UDim2.new(0.20, 0, -tailScaleInHold + 0.15, 0)
+	tail.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+	tail.BackgroundTransparency = 0.25
 	tail.BorderSizePixel = 0
 	tail.ZIndex = 14
 	tail.Parent = holdTile
-	Instance.new("UICorner", tail).CornerRadius = UDim.new(0, 6)
+	Instance.new("UICorner", tail).CornerRadius = UDim.new(0, 8)
 
 	local tailStroke = Instance.new("UIStroke")
 	tailStroke.Name = "TailStroke"
-	tailStroke.Color = Color3.fromRGB(255, 255, 255)
-	tailStroke.Thickness = 2
-	tailStroke.Transparency = 0.2
+	tailStroke.Color = Color3.fromRGB(180, 245, 255)
+	tailStroke.Thickness = 2.5
+	tailStroke.Transparency = 0.1
 	tailStroke.Parent = tail
 
-	-- 2. Tail Cap (Small glowing cap at the top)
+	local tailGrad = Instance.new("UIGradient")
+	tailGrad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0.0, Color3.fromRGB(0, 240, 255)),
+		ColorSequenceKeypoint.new(0.7, Color3.fromRGB(0, 180, 240)),
+		ColorSequenceKeypoint.new(1.0, Color3.fromRGB(0, 120, 200)),
+	})
+	tailGrad.Rotation = 90
+	tailGrad.Parent = tail
+
+	-- 2. Tail Cap (Ujung ekor bercahaya mutiara)
 	local cap = Instance.new("Frame")
 	cap.Name = "TailCap"
-	cap.Size = UDim2.new(1.2, 0, 0, 10)
-	cap.Position = UDim2.new(-0.1, 0, 0, -4)
+	cap.Size = UDim2.new(1.25, 0, 0, 12)
+	cap.Position = UDim2.new(-0.125, 0, 0, -6)
 	cap.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	cap.BorderSizePixel = 0
 	cap.ZIndex = 16
 	cap.Parent = tail
 	Instance.new("UICorner", cap).CornerRadius = UDim.new(1, 0)
+	local capStroke = Instance.new("UIStroke")
+	capStroke.Color = Color3.fromRGB(0, 230, 255)
+	capStroke.Thickness = 2
+	capStroke.Parent = cap
 
-	-- 3. Head Tile (The front tapping tile)
+	-- 3. Head Tile (Kepala tuts penekan)
 	local head = Instance.new("Frame")
 	head.Name = "HeadTile"
 	head.Size = UDim2.new(1, 0, 1, 0)
 	head.Position = UDim2.new(0, 0, 0, 0)
-	head.BackgroundColor3 = Color3.fromRGB(0, 162, 232)
+	head.BackgroundColor3 = Color3.fromRGB(0, 175, 245)
 	head.BorderSizePixel = 0
 	head.ZIndex = 17
 	head.Parent = holdTile
@@ -516,8 +553,8 @@ function PianoUI.CreateHoldTile(column, y, tailLength)
 
 	local fishImg = Instance.new("ImageLabel")
 	fishImg.Name = "FishImage"
-	fishImg.Size = UDim2.new(1, 0, 1, 0)
-	fishImg.Position = UDim2.new(0, 0, 0, 0)
+	fishImg.Size = UDim2.new(0.75, 0, 0.75, 0)
+	fishImg.Position = UDim2.new(0.125, 0, 0.125, 0)
 	fishImg.BackgroundTransparency = 1
 	fishImg.Image = (Config.TILE_IMAGES and Config.TILE_IMAGES[column]) or "rbxassetid://81497165860027"
 	fishImg.ScaleType = Enum.ScaleType.Fit
@@ -525,10 +562,25 @@ function PianoUI.CreateHoldTile(column, y, tailLength)
 	fishImg.ZIndex = 18
 	fishImg.Parent = head
 
+	-- Label "★ HOLD ★" mencolok di kepala tuts
+	local holdBadge = Instance.new("TextLabel")
+	holdBadge.Name = "HoldBadge"
+	holdBadge.Size = UDim2.new(1, 0, 0, 14)
+	holdBadge.Position = UDim2.new(0, 0, 1, -16)
+	holdBadge.BackgroundTransparency = 1
+	holdBadge.Text = "★ HOLD ★"
+	holdBadge.TextColor3 = Color3.fromRGB(255, 235, 100)
+	holdBadge.TextStrokeColor3 = Color3.fromRGB(0, 40, 80)
+	holdBadge.TextStrokeTransparency = 0
+	holdBadge.Font = Enum.Font.GothamBold
+	holdBadge.TextSize = 10
+	holdBadge.ZIndex = 19
+	holdBadge.Parent = head
+
 	local glow = Instance.new("UIStroke")
 	glow.Name = "TileGlow"
-	glow.Color = Color3.fromRGB(255, 235, 100)
-	glow.Thickness = 3
+	glow.Color = Color3.fromRGB(255, 230, 80)
+	glow.Thickness = 3.5
 	glow.Transparency = 0
 	glow.Parent = head
 
@@ -537,37 +589,40 @@ end
 
 function PianoUI.UpdateHoldTile(holdTile, y, initialTailLength, isHolding, remainingRatio)
 	if not holdTile or not holdTile.Parent then return end
-	initialTailLength = initialTailLength or 0.40
+	initialTailLength = math.max(0.18, initialTailLength or 0.40)
 	remainingRatio = math.clamp(remainingRatio or 1.0, 0, 1.0)
+	local tileHeight = Config.TILE_HEIGHT or 0.16
 
 	local tail = holdTile:FindFirstChild("HoldTail")
 	local head = holdTile:FindFirstChild("HeadTile")
 	local glow = head and head:FindFirstChild("TileGlow")
 
+	local fullTailScale = initialTailLength / tileHeight
+
 	if not isHolding then
 		-- Falling downwards normally
 		holdTile.Position = UDim2.new(0.09, 0, y, 0)
 		if tail then
-			tail.Size = UDim2.new(0.52, 0, initialTailLength, 0)
-			tail.Position = UDim2.new(0.24, 0, -initialTailLength + 0.02, 0)
+			tail.Size = UDim2.new(0.60, 0, fullTailScale, 0)
+			tail.Position = UDim2.new(0.20, 0, -fullTailScale + 0.15, 0)
 		end
 		if glow then
 			local delta = math.abs(y - Config.HIT_LINE)
 			if delta <= 0.05 then
 				glow.Color = Color3.fromRGB(255, 215, 0)
-				glow.Thickness = 3.5
+				glow.Thickness = 4.0
 			else
-				glow.Color = Color3.fromRGB(255, 235, 100)
-				glow.Thickness = 2.5
+				glow.Color = Color3.fromRGB(255, 230, 80)
+				glow.Thickness = 3.0
 			end
 		end
 	else
 		-- Actively being held: head locks onto HIT_LINE, tail shrinks smoothly
 		holdTile.Position = UDim2.new(0.09, 0, Config.HIT_LINE, 0)
-		local curLength = initialTailLength * remainingRatio
+		local curTailScale = fullTailScale * remainingRatio
 		if tail then
-			tail.Size = UDim2.new(0.52, 0, curLength, 0)
-			tail.Position = UDim2.new(0.24, 0, -curLength + 0.02, 0)
+			tail.Size = UDim2.new(0.60, 0, curTailScale, 0)
+			tail.Position = UDim2.new(0.20, 0, -curTailScale + 0.15, 0)
 			tail.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
 			tail.BackgroundTransparency = 0.15
 			local tailStroke = tail:FindFirstChild("TailStroke")
@@ -578,7 +633,7 @@ function PianoUI.UpdateHoldTile(holdTile, y, initialTailLength, isHolding, remai
 		end
 		if glow then
 			glow.Color = Color3.fromRGB(255, 215, 0)
-			glow.Thickness = 4.0
+			glow.Thickness = 4.5
 		end
 	end
 end
@@ -586,23 +641,24 @@ end
 function PianoUI.MoveTile(tile, y)
 	if tile and tile.Parent then
 		tile.Position = UDim2.new(0.09, 0, y, 0)
+		local isChord = tile:GetAttribute("IsChord") == true
 		local glow = tile:FindFirstChild("TileGlow")
 		if glow then
 			local delta = math.abs(y - Config.HIT_LINE)
 			if delta <= 0.05 then
 				-- Zone PERFECT: Radiant Gold Glow
 				glow.Color = Color3.fromRGB(255, 215, 0)
-				glow.Thickness = 3.5
+				glow.Thickness = isChord and 4.5 or 3.5
 				glow.Transparency = 0
 			elseif delta <= 0.09 then
 				-- Zone GREAT: Vibrant Cyan Glow
-				glow.Color = Color3.fromRGB(0, 240, 255)
-				glow.Thickness = 2.5
-				glow.Transparency = 0.15
+				glow.Color = isChord and Color3.fromRGB(255, 235, 80) or Color3.fromRGB(0, 240, 255)
+				glow.Thickness = isChord and 4.0 or 2.5
+				glow.Transparency = 0.1
 			else
-				-- Normal State: Crisp White Outline
-				glow.Color = Color3.fromRGB(255, 255, 255)
-				glow.Thickness = 2.5
+				-- Normal State: Tetap Emas Menyala untuk Chord, Putih untuk Tap
+				glow.Color = isChord and Color3.fromRGB(255, 225, 40) or Color3.fromRGB(255, 255, 255)
+				glow.Thickness = isChord and 3.5 or 2.5
 				glow.Transparency = 0
 			end
 		end
