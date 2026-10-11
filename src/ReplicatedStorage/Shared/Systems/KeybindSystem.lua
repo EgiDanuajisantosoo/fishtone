@@ -281,6 +281,18 @@ function KeybindSystem.SetActiveKeys(newKeys)
 		seen[kc] = true
 	end
 
+	-- Cek apakah tombol baru berbeda dari yang sedang aktif
+	local isDifferent = false
+	for i = 1, 4 do
+		if activeKeys[i] ~= newKeys[i] then
+			isDifferent = true
+			break
+		end
+	end
+	if not isDifferent then
+		return true
+	end
+
 	for i = 1, 4 do
 		activeKeys[i] = newKeys[i]
 		activeLabels[i] = KeybindSystem.KeyCodeToLabel(newKeys[i])

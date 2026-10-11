@@ -88,13 +88,22 @@ local function mergePlayerData(newData)
 	for k, v in pairs(newData) do
 		lastPlayerData[k] = v
 	end
-	if lastPlayerData.settings and lastPlayerData.settings.rhythmKeybinds then
-		KeybindSystem.LoadFromSettings(lastPlayerData.settings)
+	-- Hanya muat ulang keybind jika payload server secara eksplisit menyertakan tabel settings dengan rhythmKeybinds
+	if newData.settings and newData.settings.rhythmKeybinds then
+		KeybindSystem.LoadFromSettings(newData.settings)
 	end
 	if lastPlayerData.totalExp == nil and lastPlayerData.level ~= nil then
 		lastPlayerData.totalExp = XPProgressionSystem.ReconcileToTotalExp(lastPlayerData.level or 1, lastPlayerData.exp or 0)
 	end
 end
+
+-- Dengarkan perubahan keybind lokal agar lastPlayerData.settings selalu sinkron dan tidak basi
+KeybindSystem.OnKeybindsChanged:Connect(function()
+	if not lastPlayerData.settings then
+		lastPlayerData.settings = {}
+	end
+	lastPlayerData.settings.rhythmKeybinds = KeybindSystem.ExportSettings()
+end)
 
 local function hookLeaderstatsFolder(stats)
 	if not stats then return end

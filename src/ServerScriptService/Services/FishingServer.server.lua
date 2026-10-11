@@ -318,10 +318,27 @@ if remote then
 
 		-- 18. Pengaturan Tombol Keybind Rhythm (FISH-045)
 		if action == RemoteContract.C2S.SET_KEYBINDS then
-			local keybinds = payload and payload.keybinds
+			local payload = arg1
+			local keybinds = nil
+			if typeof(payload) == "table" then
+				if typeof(payload.keybinds) == "table" then
+					keybinds = payload.keybinds
+				elseif #payload >= 4 then
+					keybinds = payload
+				end
+			end
+
 			if keybinds and typeof(keybinds) == "table" and #keybinds >= 4 then
-				PlayerDataService.SetKeybinds(player, keybinds)
-				RemoteContract.Server.Notify(player, "✅ Pengaturan tombol kontrol rhythm berhasil disimpan!")
+				local ok, err = PlayerDataService.SetKeybinds(player, keybinds)
+				if ok then
+					print(string.format("[FishingServer] ⌨️ Keybinds berhasil diperbarui untuk %s: [%s, %s, %s, %s]",
+						player.Name, tostring(keybinds[1]), tostring(keybinds[2]), tostring(keybinds[3]), tostring(keybinds[4])))
+					RemoteContract.Server.Notify(player, "✅ Pengaturan tombol kontrol rhythm berhasil disimpan!")
+				else
+					warn(string.format("[FishingServer] ⚠️ Gagal menyimpan keybinds untuk %s: %s", player.Name, tostring(err)))
+				end
+			else
+				warn(string.format("[FishingServer] ⚠️ SET_KEYBINDS dari %s ditolak: payload tidak valid (%s)", player.Name, tostring(payload)))
 			end
 			return
 		end

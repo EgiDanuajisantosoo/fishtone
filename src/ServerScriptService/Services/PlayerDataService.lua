@@ -225,7 +225,17 @@ function PlayerDataService.SetKeybinds(player, keybinds)
 	pData.settings = pData.settings or {}
 	local cleanKeys = {}
 	for i = 1, 4 do
-		cleanKeys[i] = tostring(keybinds[i] or "A"):upper()
+		local k = keybinds[i]
+		local kStr = ""
+		if typeof(k) == "EnumItem" then
+			kStr = k.Name
+		else
+			kStr = tostring(k or "A")
+		end
+		if kStr:find("Enum%.KeyCode%.") then
+			kStr = kStr:gsub("Enum%.KeyCode%.", "")
+		end
+		cleanKeys[i] = kStr:upper()
 	end
 	pData.settings.rhythmKeybinds = cleanKeys
 
