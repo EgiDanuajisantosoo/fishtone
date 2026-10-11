@@ -794,25 +794,52 @@ function DrumUI.UpdateKeyLabels()
 	local screenGui = (gui and gui.Parent and gui) or (pGui and pGui:FindFirstChild("DrumRhythmGui"))
 	if screenGui then
 		local container = screenGui:FindFirstChild("ArenaContainer") or screenGui:FindFirstChildWhichIsA("Frame")
-		local arena = container and (container:FindFirstChild("ArenaFrame") or container)
-		if arena then
+		if container then
+			local arena = container:FindFirstChild("ArenaFrame") or container
 			for i = 1, 4 do
-				local col = columns[i]
-					or arena:FindFirstChild("Column" .. i)
-					or arena:FindFirstChild("Column_" .. i)
-					or arena:FindFirstChild("Col" .. i)
-					or arena:FindFirstChild("Lane" .. i)
+				local newLabel = KeybindSystem.GetKeyLabel(i)
+
+				-- 1. Studio-authored GUI: Update Key1..Key4 langsung di ArenaContainer
+				local studioKey = container:FindFirstChild("Key" .. i) or container:FindFirstChild("Key_" .. i)
+				if studioKey then
+					if studioKey:IsA("TextLabel") or studioKey:IsA("TextButton") then
+						studioKey.Text = formatKeyText(studioKey.Text, newLabel)
+					end
+					for _, desc in ipairs(studioKey:GetDescendants()) do
+						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+							desc.Text = formatKeyText(desc.Text, newLabel)
+						end
+					end
+				end
+
+				-- 2. Cached pad
+				local pad = (drumPads and drumPads[i])
+				if pad and pad ~= studioKey then
+					if pad:IsA("TextLabel") or pad:IsA("TextButton") then
+						pad.Text = formatKeyText(pad.Text, newLabel)
+					end
+					for _, desc in ipairs(pad:GetDescendants()) do
+						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+							desc.Text = formatKeyText(desc.Text, newLabel)
+						end
+					end
+				end
+
+				-- 3. Columns inside arena
+				local col = (columns and columns[i])
+					or (arena and (arena:FindFirstChild("Column" .. i)
+						or arena:FindFirstChild("Column_" .. i)
+						or arena:FindFirstChild("Col" .. i)
+						or arena:FindFirstChild("Lane" .. i)))
 				if col then
-					local newLabel = KeybindSystem.GetKeyLabel(i)
-					local pad = (drumPads and drumPads[i])
-						or col:FindFirstChild("DrumPad")
+					local colPad = col:FindFirstChild("DrumPad")
 						or col:FindFirstChild("Pad")
 						or col:FindFirstChild("HitZone")
-					if pad then
-						if pad:IsA("TextLabel") or pad:IsA("TextButton") then
-							pad.Text = formatKeyText(pad.Text, newLabel)
+					if colPad and colPad ~= pad and colPad ~= studioKey then
+						if colPad:IsA("TextLabel") or colPad:IsA("TextButton") then
+							colPad.Text = formatKeyText(colPad.Text, newLabel)
 						end
-						for _, child in ipairs(pad:GetChildren()) do
+						for _, child in ipairs(colPad:GetChildren()) do
 							if child:IsA("TextLabel") or child:IsA("TextButton") then
 								child.Text = formatKeyText(child.Text, newLabel)
 							end
@@ -833,7 +860,7 @@ function DrumUI.UpdateKeyLabels()
 		end
 	end
 
-	if padLabels then
+	if padLabels and typeof(padLabels) == "table" then
 		for i = 1, 4 do
 			local lbl = padLabels[i]
 			if lbl then

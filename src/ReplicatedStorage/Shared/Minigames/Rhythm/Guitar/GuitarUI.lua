@@ -812,32 +812,60 @@ function GuitarUI.UpdateKeyLabels()
 	local screenGui = (gui and gui.Parent and gui) or (pGui and pGui:FindFirstChild("GuitarRhythmGui"))
 	if screenGui then
 		local container = screenGui:FindFirstChild("ArenaContainer") or screenGui:FindFirstChildWhichIsA("Frame")
-		local arena = container and (container:FindFirstChild("ArenaFrame") or container)
-		if arena then
+		if container then
+			local arena = container:FindFirstChild("ArenaFrame") or container
 			for i = 1, 4 do
-				local col = columns[i]
-					or arena:FindFirstChild("Column" .. i)
-					or arena:FindFirstChild("Column_" .. i)
-					or arena:FindFirstChild("Col" .. i)
-					or arena:FindFirstChild("Lane" .. i)
+				local newLabel = KeybindSystem.GetKeyLabel(i)
+
+				-- 1. Studio-authored GUI: Update Key1..Key4 langsung di ArenaContainer
+				local studioKey = container:FindFirstChild("Key" .. i) or container:FindFirstChild("Key_" .. i)
+				if studioKey then
+					if studioKey:IsA("TextLabel") or studioKey:IsA("TextButton") then
+						studioKey.Text = formatKeyText(studioKey.Text, newLabel)
+					end
+					for _, desc in ipairs(studioKey:GetDescendants()) do
+						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+							desc.Text = formatKeyText(desc.Text, newLabel)
+						end
+					end
+				end
+
+				-- 2. Cached receptor pad
+				local receptor = receptorPads[i]
+				if receptor and receptor ~= studioKey then
+					if receptor:IsA("TextLabel") or receptor:IsA("TextButton") then
+						receptor.Text = formatKeyText(receptor.Text, newLabel)
+					end
+					for _, desc in ipairs(receptor:GetDescendants()) do
+						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+							desc.Text = formatKeyText(desc.Text, newLabel)
+						end
+					end
+				end
+
+				-- 3. Cek di dalam arena columns jika ada
+				local col = (columns and columns[i])
+					or (arena and (arena:FindFirstChild("Column" .. i)
+						or arena:FindFirstChild("Column_" .. i)
+						or arena:FindFirstChild("Col" .. i)
+						or arena:FindFirstChild("Lane" .. i)))
 				if col then
-					local newLabel = KeybindSystem.GetKeyLabel(i)
-					local receptor = receptorPads[i]
-						or col:FindFirstChild("ReceptorPad")
+					local colReceptor = col:FindFirstChild("ReceptorPad")
 						or col:FindFirstChild("Receptor")
 						or col:FindFirstChild("HitZone")
 						or col:FindFirstChild("Pad")
 
-					if receptor then
-						if receptor:IsA("TextLabel") or receptor:IsA("TextButton") then
-							receptor.Text = formatKeyText(receptor.Text, newLabel)
+					if colReceptor and colReceptor ~= receptor and colReceptor ~= studioKey then
+						if colReceptor:IsA("TextLabel") or colReceptor:IsA("TextButton") then
+							colReceptor.Text = formatKeyText(colReceptor.Text, newLabel)
 						end
-						for _, child in ipairs(receptor:GetChildren()) do
+						for _, child in ipairs(colReceptor:GetChildren()) do
 							if child:IsA("TextLabel") or child:IsA("TextButton") then
 								child.Text = formatKeyText(child.Text, newLabel)
 							end
 						end
 					end
+
 					for _, desc in ipairs(col:GetDescendants()) do
 						if desc:IsA("TextLabel") or desc:IsA("TextButton") then
 							local name = desc.Name:lower()
