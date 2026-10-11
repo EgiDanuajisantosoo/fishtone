@@ -215,6 +215,19 @@ function RhythmService.ValidateSubmission(session, rawMetrics, now)
 		return nil, nil, string.format("Deteksi auto-clicker/macro: frekuensi input %.1f nada/detik melampaui batas wajar manusia", hitRate)
 	end
 
+	-- 5.1 Validasi Input & Durasi Hold (Acceptance Criteria 9 - FISH-045)
+	local rawHoldHits = tonumber(rawMetrics.holdHits) or 0
+	local rawChordHits = tonumber(rawMetrics.chordHits) or 0
+	local rawHoldDrops = tonumber(rawMetrics.holdDrops) or 0
+
+	local holdHits = math.clamp(math.floor(rawHoldHits), 0, totalHits)
+	local chordHits = math.clamp(math.floor(rawChordHits), 0, totalHits)
+	local holdDrops = math.clamp(math.floor(rawHoldDrops), 0, 999)
+
+	if holdHits > 0 and safeDuration < (holdHits * 0.35) then
+		return nil, nil, string.format("Deteksi speedhack hold: durasi minigame (%.2fs) terlalu singkat untuk menyelesaikan %d hold notes", safeDuration, holdHits)
+	end
+
 	-- 6. Sanitasi Combo
 	local maxCombo = math.clamp(tonumber(rawMetrics.maxCombo or breakdown.maxCombo) or totalHits, 0, totalHits)
 
@@ -235,6 +248,9 @@ function RhythmService.ValidateSubmission(session, rawMetrics, now)
 		targetNotes = cv.targetNotes,
 		startRatio = cv.startRatio,
 		duration = safeDuration,
+		holdHits = holdHits,
+		chordHits = chordHits,
+		holdDrops = holdDrops,
 	}
 
 	-- 8. Derivasi Performa Otoritatif Server (Akurasi, Grade, EXP/Koin/Luck Multipliers)

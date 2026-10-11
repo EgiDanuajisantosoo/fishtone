@@ -24,6 +24,10 @@ Config.TILE_HEIGHT = 0.16
 Config.HIT_LINE = 0.72
 Config.MISS_LINE = 0.86
 
+-- Hold & Chord Timing Parameters (FISH-045)
+Config.HOLD_MIN_RATIO = 0.80
+Config.CHORD_TOLERANCE = 0.12
+
 -- Tile Assets
 Config.TILE_IMAGES = {
 	[1] = "rbxassetid://81497165860027",

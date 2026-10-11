@@ -95,7 +95,35 @@ InstrumentConfig.HIT_RATINGS = {
 		flashColor = Color3.fromRGB(255, 40, 40),
 		score = 0,
 		scale = 0.90,
+	HOLD_OK = {
+		text = "HOLD OK",
+		symbol = "★ HOLD OK ★",
+		color = Color3.fromRGB(255, 215, 0), -- Radiant Gold
+		glowColor = Color3.fromRGB(255, 245, 160),
+		flashColor = Color3.fromRGB(255, 220, 80),
+		score = 350,
+		scale = 1.30,
+		window = 0.05,
+	},
+	HOLD_DROPPED = {
+		text = "DROPPED",
+		symbol = "▲ DROPPED ▲",
+		color = Color3.fromRGB(255, 90, 90),
+		glowColor = Color3.fromRGB(255, 140, 140),
+		flashColor = Color3.fromRGB(255, 60, 60),
+		score = 0,
+		scale = 0.95,
 		window = 999,
+	},
+	CHORD_SYNC = {
+		text = "CHORD!",
+		symbol = "✦ CHORD! ✦",
+		color = Color3.fromRGB(255, 225, 40),
+		glowColor = Color3.fromRGB(255, 255, 170),
+		flashColor = Color3.fromRGB(255, 215, 0),
+		score = 400,
+		scale = 1.35,
+		window = 0.12,
 	},
 }
 

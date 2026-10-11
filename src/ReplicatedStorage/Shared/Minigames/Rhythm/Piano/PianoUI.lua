@@ -414,7 +414,7 @@ function PianoUI.GetArenaFrame()
 	return arenaFrame
 end
 
-function PianoUI.CreateTile(column, y)
+function PianoUI.CreateTile(column, y, isChord)
 	local parent = columns[column]
 	if not parent then return nil end
 
@@ -422,7 +422,7 @@ function PianoUI.CreateTile(column, y)
 	tile.Name = "Tile"
 	tile.Size = UDim2.new(0.82, 0, Config.TILE_HEIGHT, 0)
 	tile.Position = UDim2.new(0.09, 0, y, 0)
-	tile.BackgroundColor3 = Color3.fromRGB(0, 162, 232)
+	tile.BackgroundColor3 = isChord and Color3.fromRGB(0, 190, 255) or Color3.fromRGB(0, 162, 232)
 	tile.BorderSizePixel = 0
 	tile.ZIndex = 15
 	tile.Parent = parent
@@ -445,12 +445,142 @@ function PianoUI.CreateTile(column, y)
 
 	local glow = Instance.new("UIStroke")
 	glow.Name = "TileGlow"
-	glow.Color = Color3.fromRGB(255, 255, 255)
-	glow.Thickness = 2.5
+	glow.Color = isChord and Color3.fromRGB(255, 225, 50) or Color3.fromRGB(255, 255, 255)
+	glow.Thickness = isChord and 3.5 or 2.5
 	glow.Transparency = 0
 	glow.Parent = tile
 
 	return tile
+end
+
+function PianoUI.CreateHoldTile(column, y, tailLength)
+	local parent = columns[column]
+	if not parent then return nil end
+
+	tailLength = math.max(0.15, tailLength or 0.40)
+
+	-- Container frame for the entire hold note
+	local holdTile = Instance.new("Frame")
+	holdTile.Name = "HoldTile"
+	holdTile.Size = UDim2.new(0.82, 0, Config.TILE_HEIGHT, 0)
+	holdTile.Position = UDim2.new(0.09, 0, y, 0)
+	holdTile.BackgroundTransparency = 1
+	holdTile.BorderSizePixel = 0
+	holdTile.ZIndex = 15
+	holdTile.Parent = parent
+
+	-- 1. Hold Tail (Sustained beam stretching UPWARDS from the head)
+	local tail = Instance.new("Frame")
+	tail.Name = "HoldTail"
+	tail.Size = UDim2.new(0.52, 0, tailLength, 0)
+	tail.Position = UDim2.new(0.24, 0, -tailLength + 0.02, 0)
+	tail.BackgroundColor3 = Color3.fromRGB(0, 195, 255)
+	tail.BackgroundTransparency = 0.35
+	tail.BorderSizePixel = 0
+	tail.ZIndex = 14
+	tail.Parent = holdTile
+	Instance.new("UICorner", tail).CornerRadius = UDim.new(0, 6)
+
+	local tailStroke = Instance.new("UIStroke")
+	tailStroke.Name = "TailStroke"
+	tailStroke.Color = Color3.fromRGB(255, 255, 255)
+	tailStroke.Thickness = 2
+	tailStroke.Transparency = 0.2
+	tailStroke.Parent = tail
+
+	-- 2. Tail Cap (Small glowing cap at the top)
+	local cap = Instance.new("Frame")
+	cap.Name = "TailCap"
+	cap.Size = UDim2.new(1.2, 0, 0, 10)
+	cap.Position = UDim2.new(-0.1, 0, 0, -4)
+	cap.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	cap.BorderSizePixel = 0
+	cap.ZIndex = 16
+	cap.Parent = tail
+	Instance.new("UICorner", cap).CornerRadius = UDim.new(1, 0)
+
+	-- 3. Head Tile (The front tapping tile)
+	local head = Instance.new("Frame")
+	head.Name = "HeadTile"
+	head.Size = UDim2.new(1, 0, 1, 0)
+	head.Position = UDim2.new(0, 0, 0, 0)
+	head.BackgroundColor3 = Color3.fromRGB(0, 162, 232)
+	head.BorderSizePixel = 0
+	head.ZIndex = 17
+	head.Parent = holdTile
+	Instance.new("UICorner", head).CornerRadius = UDim.new(0, 8)
+
+	local aspect = Instance.new("UIAspectRatioConstraint")
+	aspect.AspectRatio = 1
+	aspect.Parent = head
+
+	local fishImg = Instance.new("ImageLabel")
+	fishImg.Name = "FishImage"
+	fishImg.Size = UDim2.new(1, 0, 1, 0)
+	fishImg.Position = UDim2.new(0, 0, 0, 0)
+	fishImg.BackgroundTransparency = 1
+	fishImg.Image = (Config.TILE_IMAGES and Config.TILE_IMAGES[column]) or "rbxassetid://81497165860027"
+	fishImg.ScaleType = Enum.ScaleType.Fit
+	fishImg.BorderSizePixel = 0
+	fishImg.ZIndex = 18
+	fishImg.Parent = head
+
+	local glow = Instance.new("UIStroke")
+	glow.Name = "TileGlow"
+	glow.Color = Color3.fromRGB(255, 235, 100)
+	glow.Thickness = 3
+	glow.Transparency = 0
+	glow.Parent = head
+
+	return holdTile
+end
+
+function PianoUI.UpdateHoldTile(holdTile, y, initialTailLength, isHolding, remainingRatio)
+	if not holdTile or not holdTile.Parent then return end
+	initialTailLength = initialTailLength or 0.40
+	remainingRatio = math.clamp(remainingRatio or 1.0, 0, 1.0)
+
+	local tail = holdTile:FindFirstChild("HoldTail")
+	local head = holdTile:FindFirstChild("HeadTile")
+	local glow = head and head:FindFirstChild("TileGlow")
+
+	if not isHolding then
+		-- Falling downwards normally
+		holdTile.Position = UDim2.new(0.09, 0, y, 0)
+		if tail then
+			tail.Size = UDim2.new(0.52, 0, initialTailLength, 0)
+			tail.Position = UDim2.new(0.24, 0, -initialTailLength + 0.02, 0)
+		end
+		if glow then
+			local delta = math.abs(y - Config.HIT_LINE)
+			if delta <= 0.05 then
+				glow.Color = Color3.fromRGB(255, 215, 0)
+				glow.Thickness = 3.5
+			else
+				glow.Color = Color3.fromRGB(255, 235, 100)
+				glow.Thickness = 2.5
+			end
+		end
+	else
+		-- Actively being held: head locks onto HIT_LINE, tail shrinks smoothly
+		holdTile.Position = UDim2.new(0.09, 0, Config.HIT_LINE, 0)
+		local curLength = initialTailLength * remainingRatio
+		if tail then
+			tail.Size = UDim2.new(0.52, 0, curLength, 0)
+			tail.Position = UDim2.new(0.24, 0, -curLength + 0.02, 0)
+			tail.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			tail.BackgroundTransparency = 0.15
+			local tailStroke = tail:FindFirstChild("TailStroke")
+			if tailStroke then
+				tailStroke.Color = Color3.fromRGB(255, 245, 160)
+				tailStroke.Transparency = 0
+			end
+		end
+		if glow then
+			glow.Color = Color3.fromRGB(255, 215, 0)
+			glow.Thickness = 4.0
+		end
+	end
 end
 
 function PianoUI.MoveTile(tile, y)
@@ -533,6 +663,74 @@ function PianoUI.ShowHitRating(ratingKey, column, y)
 			end
 		end
 	end)
+end
+
+function PianoUI.TriggerHoldActive(column, isHolding)
+	local pad = receptorPads[column]
+	if not pad then return end
+
+	if isHolding then
+		pad.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+		pad.BackgroundTransparency = 0.1
+	else
+		TweenService:Create(pad, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundColor3 = Color3.fromRGB(0, 162, 232),
+			BackgroundTransparency = 0,
+		}):Play()
+	end
+end
+
+function PianoUI.PlayHoldComplete(holdTile, column)
+	if column then
+		PianoUI.TriggerHoldActive(column, false)
+		PianoUI.TriggerReceptorPress(column, "HOLD_OK")
+		PianoUI.FlashColumn(column, "HOLD_OK")
+	end
+	PianoUI.ShowHitRating("HOLD_OK", column, Config.HIT_LINE)
+	AudioEffectsSystem.PlayNoteHit("PERFECT")
+
+	if holdTile and holdTile.Parent then
+		local tween = TweenService:Create(holdTile, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = holdTile.Position - UDim2.new(0, 0, 0.03, 0)
+		})
+		tween:Play()
+		tween.Completed:Once(function()
+			if holdTile and holdTile.Parent then holdTile:Destroy() end
+		end)
+	end
+end
+
+function PianoUI.PlayHoldDrop(holdTile, column)
+	if column then
+		PianoUI.TriggerHoldActive(column, false)
+		PianoUI.TriggerReceptorPress(column, "HOLD_DROPPED")
+		PianoUI.FlashColumn(column, "HOLD_DROPPED")
+	end
+	PianoUI.ShowHitRating("HOLD_DROPPED", column, Config.HIT_LINE)
+	PianoUI.ShakeArena()
+
+	if holdTile and holdTile.Parent then
+		local tail = holdTile:FindFirstChild("HoldTail")
+		if tail then
+			tail.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+		end
+		task.delay(0.12, function()
+			if holdTile and holdTile.Parent then holdTile:Destroy() end
+		end)
+	end
+end
+
+function PianoUI.PlayChordSync(column1, column2)
+	if column1 then
+		PianoUI.TriggerReceptorPress(column1, "CHORD_SYNC")
+		PianoUI.FlashColumn(column1, "CHORD_SYNC")
+	end
+	if column2 then
+		PianoUI.TriggerReceptorPress(column2, "CHORD_SYNC")
+		PianoUI.FlashColumn(column2, "CHORD_SYNC")
+	end
+	PianoUI.ShowHitRating("CHORD_SYNC", column1, Config.HIT_LINE)
+	AudioEffectsSystem.PlayNoteHit("PERFECT")
 end
 
 function PianoUI.PlayHitEffect(tile, y, ratingKey, column)

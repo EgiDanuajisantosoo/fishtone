@@ -73,8 +73,38 @@ Config.HIT_RATINGS = {
 		score = 0,
 		scale = 0.90,
 		window = 999,
+	HOLD_OK = {
+		text = "HOLD OK",
+		symbol = "★ HOLD OK ★",
+		color = Color3.fromRGB(255, 215, 0), -- Radiant Gold
+		glowColor = Color3.fromRGB(255, 245, 160),
+		flashColor = Color3.fromRGB(255, 220, 80),
+		score = 350,
+		scale = 1.30,
+	},
+	HOLD_DROPPED = {
+		text = "DROPPED",
+		symbol = "▲ DROPPED ▲",
+		color = Color3.fromRGB(255, 90, 90),
+		glowColor = Color3.fromRGB(255, 140, 140),
+		flashColor = Color3.fromRGB(255, 60, 60),
+		score = 0,
+		scale = 0.95,
+	},
+	CHORD_SYNC = {
+		text = "CHORD!",
+		symbol = "✦ CHORD! ✦",
+		color = Color3.fromRGB(255, 225, 40),
+		glowColor = Color3.fromRGB(255, 255, 170),
+		flashColor = Color3.fromRGB(255, 215, 0),
+		score = 400,
+		scale = 1.35,
 	},
 }
+
+-- Hold & Chord Parameters (FISH-045)
+Config.HOLD_MIN_RATIO = 0.80
+Config.CHORD_TOLERANCE = 0.12
 
 
 -- ============ INSTRUMENT SOUND & FRETBOARD ENGINES (FISH-027) ============
