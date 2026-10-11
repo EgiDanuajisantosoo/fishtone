@@ -585,13 +585,28 @@ function DrumUI.TriggerReceptorPress(column, ratingKey)
 	if not pad then return end
 
 	local ratingData = Config.HIT_RATINGS[ratingKey or "GOOD"] or Config.HIT_RATINGS.GOOD
-	pad.BackgroundColor3 = ratingData.flashColor
-	pad.BackgroundTransparency = 0.2
+	if pad:GetAttribute("IsStudioKey") or pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+		pad.BackgroundTransparency = 1
+		local origColor = pad:GetAttribute("OrigImageColor")
+		if not origColor and (pad:IsA("ImageLabel") or pad:IsA("ImageButton")) then
+			origColor = pad.ImageColor3
+			pad:SetAttribute("OrigImageColor", origColor)
+		end
+		if pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+			pad.ImageColor3 = ratingData.flashColor
+			TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				ImageColor3 = origColor or Color3.fromRGB(255, 255, 255),
+			}):Play()
+		end
+	else
+		pad.BackgroundColor3 = ratingData.flashColor
+		pad.BackgroundTransparency = 0.2
 
-	TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		BackgroundColor3 = Config.PAD_COLORS[column] or Color3.fromRGB(239, 68, 68),
-		BackgroundTransparency = 0,
-	}):Play()
+		TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundColor3 = Config.PAD_COLORS[column] or Color3.fromRGB(239, 68, 68),
+			BackgroundTransparency = 0,
+		}):Play()
+	end
 
 	-- Concentric Shockwave Ring
 	if arenaFrame then
@@ -802,6 +817,12 @@ function DrumUI.UpdateKeyLabels()
 				-- 1. Studio-authored GUI: Update Key1..Key4 langsung di ArenaContainer
 				local studioKey = container:FindFirstChild("Key" .. i) or container:FindFirstChild("Key_" .. i)
 				if studioKey then
+					studioKey.BackgroundTransparency = 1
+					for _, ch in ipairs(studioKey:GetDescendants()) do
+						if ch:IsA("GuiObject") and not (ch:IsA("TextLabel") or ch:IsA("TextButton")) then
+							ch.BackgroundTransparency = 1
+						end
+					end
 					if studioKey:IsA("TextLabel") or studioKey:IsA("TextButton") then
 						studioKey.Text = formatKeyText(studioKey.Text, newLabel)
 					end

@@ -218,7 +218,19 @@ local function buildHybridGui(playerGui)
 		-- FEATURE RECEPTOR: Re-use Key1..Key4 di ArenaContainer (Studio-authored GUI)
 		-- =====================================================
 		local studioKey = container:FindFirstChild("Key" .. i) or container:FindFirstChild("Key_" .. i)
+		if studioKey then
+			studioKey.BackgroundTransparency = 1
+			for _, ch in ipairs(studioKey:GetDescendants()) do
+				if ch:IsA("GuiObject") and not (ch:IsA("TextLabel") or ch:IsA("TextButton")) then
+					ch.BackgroundTransparency = 1
+				end
+			end
+		end
+
 		local receptor = studioKey or col:FindFirstChild("ReceptorPad")
+		if studioKey then
+			receptor:SetAttribute("IsStudioKey", true)
+		end
 		if not receptor then
 			receptor = Instance.new("Frame")
 			receptor.Name = "ReceptorPad"
@@ -754,13 +766,28 @@ function PianoUI.TriggerReceptorPress(column, ratingKey)
 	if not pad then return end
 
 	local ratingData = getRatingData(ratingKey)
-	pad.BackgroundColor3 = ratingData.flashColor
-	pad.BackgroundTransparency = 0.2
+	if pad:GetAttribute("IsStudioKey") or pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+		pad.BackgroundTransparency = 1
+		local origColor = pad:GetAttribute("OrigImageColor")
+		if not origColor and (pad:IsA("ImageLabel") or pad:IsA("ImageButton")) then
+			origColor = pad.ImageColor3
+			pad:SetAttribute("OrigImageColor", origColor)
+		end
+		if pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+			pad.ImageColor3 = ratingData.flashColor
+			TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				ImageColor3 = origColor or Color3.fromRGB(255, 255, 255),
+			}):Play()
+		end
+	else
+		pad.BackgroundColor3 = ratingData.flashColor
+		pad.BackgroundTransparency = 0.2
 
-	TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		BackgroundColor3 = Color3.fromRGB(0, 162, 232),
-		BackgroundTransparency = 0,
-	}):Play()
+		TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundColor3 = Color3.fromRGB(0, 162, 232),
+			BackgroundTransparency = 0,
+		}):Play()
+	end
 end
 
 function PianoUI.ShowHitRating(ratingKey, column, y)
@@ -805,14 +832,32 @@ function PianoUI.TriggerHoldActive(column, isHolding)
 	local pad = receptorPads[column]
 	if not pad then return end
 
-	if isHolding then
-		pad.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-		pad.BackgroundTransparency = 0.1
+	if pad:GetAttribute("IsStudioKey") or pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+		pad.BackgroundTransparency = 1
+		local origColor = pad:GetAttribute("OrigImageColor")
+		if not origColor and (pad:IsA("ImageLabel") or pad:IsA("ImageButton")) then
+			origColor = pad.ImageColor3
+			pad:SetAttribute("OrigImageColor", origColor)
+		end
+		if pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+			if isHolding then
+				pad.ImageColor3 = Color3.fromRGB(255, 235, 120)
+			else
+				TweenService:Create(pad, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					ImageColor3 = origColor or Color3.fromRGB(255, 255, 255),
+				}):Play()
+			end
+		end
 	else
-		TweenService:Create(pad, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			BackgroundColor3 = Color3.fromRGB(0, 162, 232),
-			BackgroundTransparency = 0,
-		}):Play()
+		if isHolding then
+			pad.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			pad.BackgroundTransparency = 0.1
+		else
+			TweenService:Create(pad, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundColor3 = Color3.fromRGB(0, 162, 232),
+				BackgroundTransparency = 0,
+			}):Play()
+		end
 	end
 end
 
@@ -1044,6 +1089,12 @@ function PianoUI.UpdateKeyLabels()
 				-- 1. Studio-authored GUI: Update Key1..Key4 langsung di ArenaContainer
 				local studioKey = container:FindFirstChild("Key" .. i) or container:FindFirstChild("Key_" .. i)
 				if studioKey then
+					studioKey.BackgroundTransparency = 1
+					for _, ch in ipairs(studioKey:GetDescendants()) do
+						if ch:IsA("GuiObject") and not (ch:IsA("TextLabel") or ch:IsA("TextButton")) then
+							ch.BackgroundTransparency = 1
+						end
+					end
 					if studioKey:IsA("TextLabel") or studioKey:IsA("TextButton") then
 						studioKey.Text = formatKeyText(studioKey.Text, newLabel)
 					end

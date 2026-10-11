@@ -837,33 +837,48 @@ function PianoTilesUI.TriggerReceptorPress(column, ratingKey)
 		glowColor = Color3.fromRGB(150, 240, 255),
 	}
 
-	local pStroke = pad:FindFirstChildOfClass("UIStroke")
+	if pad:GetAttribute("IsStudioKey") or pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+		pad.BackgroundTransparency = 1
+		local origColor = pad:GetAttribute("OrigImageColor")
+		if not origColor and (pad:IsA("ImageLabel") or pad:IsA("ImageButton")) then
+			origColor = pad.ImageColor3
+			pad:SetAttribute("OrigImageColor", origColor)
+		end
+		if pad:IsA("ImageLabel") or pad:IsA("ImageButton") then
+			pad.ImageColor3 = ratingData.flashColor
+			TweenService:Create(pad, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				ImageColor3 = origColor or Color3.fromRGB(255, 255, 255),
+			}):Play()
+		end
+	else
+		local pStroke = pad:FindFirstChildOfClass("UIStroke")
 
-	pad.BackgroundColor3 = ratingData.flashColor
-	pad.BackgroundTransparency = 0.35
-	if pStroke then
-		pStroke.Color = ratingData.glowColor
-		pStroke.Thickness = 3
-	end
+		pad.BackgroundColor3 = ratingData.flashColor
+		pad.BackgroundTransparency = 0.35
+		if pStroke then
+			pStroke.Color = ratingData.glowColor
+			pStroke.Thickness = 3
+		end
 
-	TweenService:Create(
-		pad,
-		TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{
-			BackgroundColor3 = Color3.fromRGB(0, 160, 255),
-			BackgroundTransparency = 0.85,
-		}
-	):Play()
-
-	if pStroke then
 		TweenService:Create(
-			pStroke,
+			pad,
 			TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 			{
-				Color = Color3.fromRGB(0, 220, 255),
-				Thickness = 2,
+				BackgroundColor3 = Color3.fromRGB(0, 160, 255),
+				BackgroundTransparency = 0.85,
 			}
 		):Play()
+
+		if pStroke then
+			TweenService:Create(
+				pStroke,
+				TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{
+					Color = Color3.fromRGB(0, 220, 255),
+					Thickness = 2,
+				}
+			):Play()
+		end
 	end
 end
 
@@ -1534,6 +1549,12 @@ function PianoTilesUI.UpdateKeyLabels()
 				-- 1. Studio-authored GUI: Update Key1..Key4 langsung di ArenaContainer
 				local studioKey = container:FindFirstChild("Key" .. i) or container:FindFirstChild("Key_" .. i)
 				if studioKey then
+					studioKey.BackgroundTransparency = 1
+					for _, ch in ipairs(studioKey:GetDescendants()) do
+						if ch:IsA("GuiObject") and not (ch:IsA("TextLabel") or ch:IsA("TextButton")) then
+							ch.BackgroundTransparency = 1
+						end
+					end
 					if studioKey:IsA("TextLabel") or studioKey:IsA("TextButton") then
 						studioKey.Text = formatKeyText(studioKey.Text, newLabel)
 					end
