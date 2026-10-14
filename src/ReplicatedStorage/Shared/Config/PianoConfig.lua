@@ -12,12 +12,12 @@ local Config = {}
 -- Layout & Input
 Config.ACTION_INPUT = "PianoRhythmInputSink"
 Config.KEYS = {
+	Enum.KeyCode.A,
+	Enum.KeyCode.W,
+	Enum.KeyCode.S,
 	Enum.KeyCode.D,
-	Enum.KeyCode.F,
-	Enum.KeyCode.J,
-	Enum.KeyCode.K,
 }
-Config.KEY_LABELS = { "D", "F", "J", "K" }
+Config.KEY_LABELS = { "A", "W", "S", "D" }
 Config.COLUMN_COUNT = 4
 
 Config.TILE_HEIGHT = 0.16

@@ -16,6 +16,23 @@ local KeybindSystem = require(Shared:WaitForChild("Systems"):WaitForChild("Keybi
 
 local PianoUI = {}
 
+-- Centralized colors: ubah warna tile dari sini saja.
+local TILE_COLORS = {
+	Normal = Color3.fromRGB(0, 162, 232),
+	Hold = Color3.fromRGB(0, 175, 245),
+	Chord = Color3.fromRGB(255, 200, 80),
+
+	BorderNormal = Color3.fromRGB(255, 255, 255),
+	BorderNear = Color3.fromRGB(0, 240, 255),
+	BorderPerfect = Color3.fromRGB(255, 200, 80),
+
+	HoldTail = Color3.fromRGB(0, 220, 255),
+	HoldTailActive = Color3.fromRGB(255, 200, 80),
+	HoldTailStroke = Color3.fromRGB(180, 245, 255),
+	HoldTailStrokeActive = Color3.fromRGB(255, 245, 160),
+}
+
+
 local gui, arenaContainer, arenaFrame
 local castBonusLabel, songLabel, comboLabel, centerJudgementLabel, hitLine, perfectZoneGuide
 local resultOverlay, resultLabel, gradeBadgeLabel, gradeTitleLabel, statsDetailLabel, multiplierDetailLabel
@@ -31,7 +48,7 @@ local DEFAULT_RATINGS = {
 
 	PERFECT = {
 		flashColor = Color3.fromRGB(255, 215, 0),
-		color = Color3.fromRGB(255, 215, 0),
+		color = Color3.fromRGB(255, 200, 80),
 		symbol = "PERFECT",
 		scale = 1.25,
 	},
@@ -216,7 +233,7 @@ local function buildHybridGui(playerGui)
 			receptor.BorderSizePixel = 0
 			receptor.ZIndex = 12
 			receptor.Parent = col
-			Instance.new("UICorner", receptor).CornerRadius = UDim.new(0, 8)
+			Instance.new("UICorner", receptor).CornerRadius = UDim.new(0, 13)
 
 			local rAspect = Instance.new("UIAspectRatioConstraint")
 			rAspect.AspectRatio = 1
@@ -479,12 +496,11 @@ function PianoUI.CreateTile(column, y, isChord)
 	tile.Name = isChord and "ChordTile" or "Tile"
 	tile.Size = UDim2.new(0.82, 0, Config.TILE_HEIGHT, 0)
 	tile.Position = UDim2.new(0.09, 0, y, 0)
-	-- Not sejajar / CHORD berwarna emas bersinar, sedangkan not biasa berwarna biru tropis
-	tile.BackgroundColor3 = isChord and Color3.fromRGB(255, 195, 25) or Color3.fromRGB(0, 162, 232)
+	tile.BackgroundColor3 = isChord and TILE_COLORS.Chord or TILE_COLORS.Normal
 	tile.BorderSizePixel = 0
 	tile.ZIndex = 15
 	tile.Parent = parent
-	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 13)
 
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.AspectRatio = 1
@@ -503,29 +519,10 @@ function PianoUI.CreateTile(column, y, isChord)
 
 	local glow = Instance.new("UIStroke")
 	glow.Name = "TileGlow"
-	glow.Color = isChord and Color3.fromRGB(255, 225, 40) or Color3.fromRGB(255, 255, 255)
+	glow.Color = isChord and Color3.fromRGB(255, 225, 255) or Color3.fromRGB(255, 255, 255)
 	glow.Thickness = isChord and 4.0 or 2.5
 	glow.Transparency = 0
 	glow.Parent = tile
-
-	if isChord then
-		tile:SetAttribute("IsChord", true)
-
-		-- Badge "✦ CHORD ✦" mencolok pada not sejajar
-		local chordBadge = Instance.new("TextLabel")
-		chordBadge.Name = "ChordBadge"
-		chordBadge.Size = UDim2.new(1, 0, 0, 14)
-		chordBadge.Position = UDim2.new(0, 0, 1, -16)
-		chordBadge.BackgroundTransparency = 1
-		chordBadge.Text = "✦ CHORD ✦"
-		chordBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
-		chordBadge.TextStrokeColor3 = Color3.fromRGB(180, 100, 0)
-		chordBadge.TextStrokeTransparency = 0
-		chordBadge.Font = Enum.Font.GothamBold
-		chordBadge.TextSize = 10
-		chordBadge.ZIndex = 19
-		chordBadge.Parent = tile
-	end
 
 	return tile
 end
@@ -555,16 +552,16 @@ function PianoUI.CreateHoldTile(column, y, tailLength)
 	tail.Name = "HoldTail"
 	tail.Size = UDim2.new(0.60, 0, tailScaleInHold, 0)
 	tail.Position = UDim2.new(0.20, 0, -tailScaleInHold + 0.15, 0)
-	tail.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+	tail.BackgroundColor3 = TILE_COLORS.HoldTail
 	tail.BackgroundTransparency = 0.25
 	tail.BorderSizePixel = 0
 	tail.ZIndex = 14
 	tail.Parent = holdTile
-	Instance.new("UICorner", tail).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", tail).CornerRadius = UDim.new(0, 13)
 
 	local tailStroke = Instance.new("UIStroke")
 	tailStroke.Name = "TailStroke"
-	tailStroke.Color = Color3.fromRGB(180, 245, 255)
+	tailStroke.Color = TILE_COLORS.HoldTailStroke
 	tailStroke.Thickness = 2.5
 	tailStroke.Transparency = 0.1
 	tailStroke.Parent = tail
@@ -594,15 +591,19 @@ function PianoUI.CreateHoldTile(column, y, tailLength)
 	capStroke.Parent = cap
 
 	-- 3. Head Tile (Kepala tuts penekan)
+
+	-- Head Tile: ukurannya sama dengan tile default
 	local head = Instance.new("Frame")
 	head.Name = "HeadTile"
-	head.Size = UDim2.new(1, 0, 1, 0)
-	head.Position = UDim2.new(0, 0, 0, 0)
-	head.BackgroundColor3 = Color3.fromRGB(0, 175, 245)
+
+	head.Size = UDim2.fromScale(1, 1)
+	head.Position = UDim2.fromScale(0, 0)
+	head.BackgroundColor3 = TILE_COLORS.Hold
 	head.BorderSizePixel = 0
 	head.ZIndex = 17
 	head.Parent = holdTile
-	Instance.new("UICorner", head).CornerRadius = UDim.new(0, 8)
+
+	Instance.new("UICorner", head).CornerRadius = UDim.new(0, 13)
 
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.AspectRatio = 1
@@ -610,42 +611,30 @@ function PianoUI.CreateHoldTile(column, y, tailLength)
 
 	local fishImg = Instance.new("ImageLabel")
 	fishImg.Name = "FishImage"
-	fishImg.Size = UDim2.new(0.75, 0, 0.75, 0)
-	fishImg.Position = UDim2.new(0.125, 0, 0.125, 0)
+	fishImg.Size = UDim2.fromScale(1, 1)
+	fishImg.Position = UDim2.fromScale(0, 0)
 	fishImg.BackgroundTransparency = 1
-	fishImg.Image = (Config.TILE_IMAGES and Config.TILE_IMAGES[column]) or "rbxassetid://81497165860027"
+	fishImg.Image = (Config.TILE_IMAGES and Config.TILE_IMAGES[column])
+		or "rbxassetid://81497165860027"
 	fishImg.ScaleType = Enum.ScaleType.Fit
 	fishImg.BorderSizePixel = 0
 	fishImg.ZIndex = 18
 	fishImg.Parent = head
 
-	-- Label "★ HOLD ★" mencolok di kepala tuts
-	local holdBadge = Instance.new("TextLabel")
-	holdBadge.Name = "HoldBadge"
-	holdBadge.Size = UDim2.new(1, 0, 0, 14)
-	holdBadge.Position = UDim2.new(0, 0, 1, -16)
-	holdBadge.BackgroundTransparency = 1
-	holdBadge.Text = "★ HOLD ★"
-	holdBadge.TextColor3 = Color3.fromRGB(255, 235, 100)
-	holdBadge.TextStrokeColor3 = Color3.fromRGB(0, 40, 80)
-	holdBadge.TextStrokeTransparency = 0
-	holdBadge.Font = Enum.Font.GothamBold
-	holdBadge.TextSize = 10
-	holdBadge.ZIndex = 19
-	holdBadge.Parent = head
-
 	local glow = Instance.new("UIStroke")
 	glow.Name = "TileGlow"
-	glow.Color = Color3.fromRGB(255, 230, 80)
-	glow.Thickness = 3.5
+	glow.Color = TILE_COLORS.BorderNormal
+	glow.Thickness = 2.5
 	glow.Transparency = 0
-	glow.Parent = head
+	glow.Parent = head	
+
 
 	return holdTile
 end
 
 function PianoUI.UpdateHoldTile(holdTile, y, initialTailLength, isHolding, remainingRatio)
 	if not holdTile or not holdTile.Parent then return end
+
 	initialTailLength = math.max(0.18, initialTailLength or 0.40)
 	remainingRatio = math.clamp(remainingRatio or 1.0, 0, 1.0)
 	local tileHeight = Config.TILE_HEIGHT or 0.16
@@ -653,72 +642,80 @@ function PianoUI.UpdateHoldTile(holdTile, y, initialTailLength, isHolding, remai
 	local tail = holdTile:FindFirstChild("HoldTail")
 	local head = holdTile:FindFirstChild("HeadTile")
 	local glow = head and head:FindFirstChild("TileGlow")
-
 	local fullTailScale = initialTailLength / tileHeight
 
 	if not isHolding then
-		-- Falling downwards normally
 		holdTile.Position = UDim2.new(0.09, 0, y, 0)
+
 		if tail then
 			tail.Size = UDim2.new(0.60, 0, fullTailScale, 0)
 			tail.Position = UDim2.new(0.20, 0, -fullTailScale + 0.15, 0)
 		end
+
 		if glow then
 			local delta = math.abs(y - Config.HIT_LINE)
+
 			if delta <= 0.05 then
-				glow.Color = Color3.fromRGB(255, 215, 0)
-				glow.Thickness = 4.0
+				glow.Color = TILE_COLORS.BorderPerfect
+				glow.Thickness = 3.5
+				glow.Transparency = 0
+			elseif delta <= 0.09 then
+				glow.Color = TILE_COLORS.BorderNear
+				glow.Thickness = 2.5
+				glow.Transparency = 0.1
 			else
-				glow.Color = Color3.fromRGB(255, 230, 80)
-				glow.Thickness = 3.0
+				glow.Color = TILE_COLORS.BorderNormal
+				glow.Thickness = 2.5
+				glow.Transparency = 0
 			end
 		end
 	else
-		-- Actively being held: head locks onto HIT_LINE, tail shrinks smoothly
 		holdTile.Position = UDim2.new(0.09, 0, Config.HIT_LINE, 0)
 		local curTailScale = fullTailScale * remainingRatio
+
 		if tail then
 			tail.Size = UDim2.new(0.60, 0, curTailScale, 0)
 			tail.Position = UDim2.new(0.20, 0, -curTailScale + 0.15, 0)
-			tail.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			tail.BackgroundColor3 = TILE_COLORS.HoldTailActive
 			tail.BackgroundTransparency = 0.15
+
 			local tailStroke = tail:FindFirstChild("TailStroke")
 			if tailStroke then
-				tailStroke.Color = Color3.fromRGB(255, 245, 160)
+				tailStroke.Color = TILE_COLORS.HoldTailStrokeActive
 				tailStroke.Transparency = 0
 			end
 		end
+
 		if glow then
-			glow.Color = Color3.fromRGB(255, 215, 0)
+			glow.Color = TILE_COLORS.BorderPerfect
 			glow.Thickness = 4.5
+			glow.Transparency = 0
 		end
 	end
 end
 
 function PianoUI.MoveTile(tile, y)
-	if tile and tile.Parent then
-		tile.Position = UDim2.new(0.09, 0, y, 0)
-		local isChord = tile:GetAttribute("IsChord") == true
-		local glow = tile:FindFirstChild("TileGlow")
-		if glow then
-			local delta = math.abs(y - Config.HIT_LINE)
-			if delta <= 0.05 then
-				-- Zone PERFECT: Radiant Gold Glow
-				glow.Color = Color3.fromRGB(255, 215, 0)
-				glow.Thickness = isChord and 4.5 or 3.5
-				glow.Transparency = 0
-			elseif delta <= 0.09 then
-				-- Zone GREAT: Vibrant Cyan Glow
-				glow.Color = isChord and Color3.fromRGB(255, 235, 80) or Color3.fromRGB(0, 240, 255)
-				glow.Thickness = isChord and 4.0 or 2.5
-				glow.Transparency = 0.1
-			else
-				-- Normal State: Tetap Emas Menyala untuk Chord, Putih untuk Tap
-				glow.Color = isChord and Color3.fromRGB(255, 225, 40) or Color3.fromRGB(255, 255, 255)
-				glow.Thickness = isChord and 3.5 or 2.5
-				glow.Transparency = 0
-			end
-		end
+	if not tile or not tile.Parent then return end
+
+	tile.Position = UDim2.new(0.09, 0, y, 0)
+
+	local glow = tile:FindFirstChild("TileGlow")
+	if not glow then return end
+
+	local delta = math.abs(y - Config.HIT_LINE)
+
+	if delta <= 0.05 then
+		glow.Color = TILE_COLORS.BorderPerfect
+		glow.Thickness = 3.5
+		glow.Transparency = 0
+	elseif delta <= 0.09 then
+		glow.Color = TILE_COLORS.BorderNear
+		glow.Thickness = 2.5
+		glow.Transparency = 0.1
+	else
+		glow.Color = TILE_COLORS.BorderNormal
+		glow.Thickness = 2.5
+		glow.Transparency = 0
 	end
 end
 
@@ -826,13 +823,14 @@ function PianoUI.TriggerHoldActive(column, isHolding)
 	end
 end
 
+local holdPerfect = "Perfect!!"
 function PianoUI.PlayHoldComplete(holdTile, column)
 	if column then
 		PianoUI.TriggerHoldActive(column, false)
-		PianoUI.TriggerReceptorPress(column, "HOLD_OK")
-		PianoUI.FlashColumn(column, "HOLD_OK")
+		PianoUI.TriggerReceptorPress(column, holdPerfect)
+		PianoUI.FlashColumn(column, holdPerfect)
 	end
-	PianoUI.ShowHitRating("HOLD_OK", column, Config.HIT_LINE)
+	PianoUI.ShowHitRating(holdPerfect, column, Config.HIT_LINE)
 	AudioEffectsSystem.PlayNoteHit("PERFECT")
 
 	if holdTile and holdTile.Parent then
@@ -846,13 +844,14 @@ function PianoUI.PlayHoldComplete(holdTile, column)
 	end
 end
 
+local missHold = "Miss"
 function PianoUI.PlayHoldDrop(holdTile, column)
 	if column then
 		PianoUI.TriggerHoldActive(column, false)
-		PianoUI.TriggerReceptorPress(column, "HOLD_DROPPED")
-		PianoUI.FlashColumn(column, "HOLD_DROPPED")
+		PianoUI.TriggerReceptorPress(column, missHold)
+		PianoUI.FlashColumn(column, missHold)
 	end
-	PianoUI.ShowHitRating("HOLD_DROPPED", column, Config.HIT_LINE)
+	PianoUI.ShowHitRating(missHold, column, Config.HIT_LINE)
 	PianoUI.ShakeArena()
 
 	if holdTile and holdTile.Parent then
@@ -921,7 +920,7 @@ end
 function PianoUI.UpdateHUD(progress, combo, currentNotes, targetNotes, liveMetrics)
 	if comboLabel then
 		if combo and combo >= 2 then
-			comboLabel.Text = string.format("x%d", combo)
+			comboLabel.Text = string.format("%d", combo)
 			comboLabel.Visible = true
 		else
 			comboLabel.Visible = false

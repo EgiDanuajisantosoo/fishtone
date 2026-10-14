@@ -393,6 +393,7 @@ function PianoSession:Start(onWin, onLose)
 	return true
 end
 
+
 function PianoSession:EndSession(won, message)
 	if self.State ~= "PLAYING" then return end
 	self.State = "RESULT"
@@ -401,21 +402,37 @@ function PianoSession:EndSession(won, message)
 	self:_clearTiles()
 
 	local metrics = self:GetMetrics(won)
-	PianoUI.ShowResult(won, message, metrics)
-	if not won then playMissSound() end
+
+	if won then
+		-- Langsung sembunyikan seluruh GUI saat menang.
+		PianoUI.ShowResult(true, message, metrics)
+		PianoUI.SetEnabled(false)
+	else
+		-- Kalau kalah, result overlay tetap tampil.
+		PianoUI.ShowResult(false, message, metrics)
+		playMissSound()
+	end
 
 	local callback = won and self.OnWin or self.OnLose
 	self.OnWin = nil
 	self.OnLose = nil
 
-	if callback then task.spawn(callback, metrics) end
+	if callback then
+		task.spawn(callback, metrics)
+	end
 
-	task.delay(1.8, function()
-		PianoUI.HideResult()
-		PianoUI.SetEnabled(false)
+	if not won then
+		task.delay(1.8, function()
+			PianoUI.HideResult()
+			PianoUI.SetEnabled(false)
+			self.State = "IDLE"
+		end)
+	else
+		-- Tidak perlu menunggu 1,8 detik setelah menang.
 		self.State = "IDLE"
-	end)
+	end
 end
+
 
 function PianoSession:Cancel()
 	if self.State == "PLAYING" then

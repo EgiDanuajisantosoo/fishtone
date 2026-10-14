@@ -10,12 +10,12 @@ local Config = {}
 -- ============ GAME / UI LAYOUT ============
 Config.ACTION_PIANO_INPUT = "PianoTilesInputSink"
 Config.KEYS = {
+	Enum.KeyCode.A,
+	Enum.KeyCode.W,
+	Enum.KeyCode.S,
 	Enum.KeyCode.D,
-	Enum.KeyCode.F,
-	Enum.KeyCode.J,
-	Enum.KeyCode.K,
 }
-Config.KEY_LABELS = { "D", "F", "J", "K" }
+Config.KEY_LABELS = { "A", "W", "S", "D" }
 Config.COLUMN_COUNT = 4
 
 -- Nilai ini dipakai sebagai ukuran/logical height tile untuk gameplay.
@@ -76,7 +76,7 @@ Config.HIT_RATINGS = {
 	},
 	HOLD_OK = {
 		text = "HOLD OK",
-		symbol = "★ HOLD OK ★",
+		symbol = "★ PERFECT!! ★",
 		color = Color3.fromRGB(255, 215, 0), -- Radiant Gold
 		glowColor = Color3.fromRGB(255, 245, 160),
 		flashColor = Color3.fromRGB(255, 220, 80),
@@ -85,7 +85,7 @@ Config.HIT_RATINGS = {
 	},
 	HOLD_DROPPED = {
 		text = "DROPPED",
-		symbol = "▲ DROPPED ▲",
+		symbol = "▲ MISSED ▲",
 		color = Color3.fromRGB(255, 90, 90),
 		glowColor = Color3.fromRGB(255, 140, 140),
 		flashColor = Color3.fromRGB(255, 60, 60),
@@ -201,7 +201,7 @@ Config.INSTRUMENTS = {
 		icon = "🎹",
 		basePitch = 0.85,
 		volume = 0.85,
-		keyLabels = { "D", "F", "J", "K" },
+		keyLabels = { "A", "W", "S", "D" },
 		stringNames = { "I", "II", "III", "IV" },
 		stringColors = {
 			Color3.fromRGB(0, 200, 255),
