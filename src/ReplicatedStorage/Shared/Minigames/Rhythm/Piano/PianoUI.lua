@@ -161,53 +161,6 @@ local function buildHybridGui(playerGui)
 		columnFlashes[i] = flash
 
 		-- =====================================================
-		-- FEATURE TEMAN: FishingHook
-		-- Kalau belum ada, buat sementara.
-		-- =====================================================
-		local hookHolder = col:FindFirstChild("FishingHook" .. i)
-		if not hookHolder then
-			hookHolder = Instance.new("Frame")
-			hookHolder.Name = "FishingHook" .. i
-			hookHolder.Size = UDim2.new(0, 24, 0, 36)
-			hookHolder.Position = UDim2.new(0.5, -12, 1, -82)
-			hookHolder.BackgroundTransparency = 1
-			hookHolder.ZIndex = 11
-			hookHolder.Parent = col
-
-			local eyelet = Instance.new("Frame")
-			eyelet.Name = "Eyelet"
-			eyelet.Size = UDim2.new(0, 8, 0, 8)
-			eyelet.Position = UDim2.new(0.5, -4, 0, 0)
-			eyelet.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
-			eyelet.BorderSizePixel = 0
-			eyelet.ZIndex = 11
-			eyelet.Parent = hookHolder
-			Instance.new("UICorner", eyelet).CornerRadius = UDim.new(1, 0)
-
-			local shank = Instance.new("Frame")
-			shank.Name = "Shank"
-			shank.Size = UDim2.new(0, 3, 0, 20)
-			shank.Position = UDim2.new(0.5, -1.5, 0, 6)
-			shank.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
-			shank.BorderSizePixel = 0
-			shank.ZIndex = 11
-			shank.Parent = hookHolder
-
-			local bend = Instance.new("Frame")
-			bend.Name = "Bend"
-			bend.Size = UDim2.new(0, 16, 0, 14)
-			bend.Position = UDim2.new(0.5, -8, 0, 20)
-			bend.BackgroundTransparency = 1
-			bend.ZIndex = 11
-			bend.Parent = hookHolder
-			local bendStroke = Instance.new("UIStroke")
-			bendStroke.Color = Color3.fromRGB(240, 245, 255)
-			bendStroke.Thickness = 2.5
-			bendStroke.Parent = bend
-			Instance.new("UICorner", bend).CornerRadius = UDim.new(0, 7)
-		end
-
-		-- =====================================================
 		-- FEATURE RECEPTOR: Re-use Key1..Key4 di ArenaContainer (Studio-authored GUI)
 		-- =====================================================
 		local studioKey = container:FindFirstChild("Key" .. i) or container:FindFirstChild("Key_" .. i)
@@ -1001,11 +954,11 @@ end
 
 function PianoUI.UpdateHeader(castLabel, castColor, melodyName)
 	if castBonusLabel then
-		castBonusLabel.Text = "✨ " .. tostring(castLabel or "PERFECT CAST")
+		castBonusLabel.Text = "" .. tostring(castLabel or "PERFECT CAST")
 		castBonusLabel.TextColor3 = castColor or Color3.fromRGB(255, 255, 255)
 	end
 	if songLabel then
-		songLabel.Text = "🎵 " .. tostring(melodyName or "RIVER FLOWS IN YOU"):upper()
+		songLabel.Text = "" .. tostring(melodyName or "RIVER FLOWS IN YOU"):upper()
 	end
 end
 

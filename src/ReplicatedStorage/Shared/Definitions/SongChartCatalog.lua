@@ -714,18 +714,12 @@ function SongChartCatalog.SelectSongForSession(options)
 end
 
 -- ============ 4. FORMATTING HELPER ============
+-- Menampilkan judul lagu saja, tanpa emoji, rating bintang, atau BPM.
 function SongChartCatalog.FormatSongDisplay(songOrTitle, instrumentType, bpmOverride, difficultyOverride)
 	if type(songOrTitle) == "table" then
-		local song = songOrTitle
-		local instChart = song.charts and song.charts[instrumentType]
-		local bpm = bpmOverride or (instChart and instChart.bpm) or song.bpm or 120
-		local stars = song.starRating or "★★☆☆☆"
-		return string.format("🎵 %s • %s (%d BPM)", song.title, stars, bpm)
+		return tostring(songOrTitle.title or "UNKNOWN MELODY")
 	else
-		local title = tostring(songOrTitle or "UNKNOWN MELODY"):upper()
-		local stars = difficultyOverride or "★★☆☆☆"
-		local bpm = bpmOverride or 120
-		return string.format("🎵 %s • %s (%d BPM)", title, stars, bpm)
+		return tostring(songOrTitle or "UNKNOWN MELODY")
 	end
 end
 

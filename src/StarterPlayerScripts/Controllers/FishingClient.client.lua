@@ -272,11 +272,11 @@ local hideToken = 0
 local function showMessage(msg, color, duration)
 	color = color or Color3.fromRGB(0, 200, 255)
 	duration = duration or 3.5
-	
+
 	statusText.Text = msg
 	statusStroke.Color = color
 	statusFrame.Visible = true
-	
+
 	hideToken += 1
 	local currentToken = hideToken
 	task.delay(duration, function()
@@ -514,7 +514,7 @@ local function showStrikeAlert(pos)
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.new(0, 72, 0, 72)
 	billboard.AlwaysOnTop = true
-	
+
 	local anchor = Instance.new("Part")
 	anchor.Size = Vector3.new(0.1, 0.1, 0.1)
 	anchor.Position = pos + Vector3.new(0, 2.5, 0)
@@ -604,10 +604,10 @@ end
 local function animateFishLeap(startPos, endPos, duration, height)
 	duration = duration or 0.85
 	height = height or 5.5
-	
+
 	local fish = (fishTemplate and fishTemplate:Clone()) or createProceduralFishModel()
 	if not fish then return end
-	
+
 	fish.Parent = workspace
 	local midPos = (startPos + endPos) / 2 + Vector3.new(0, height, 0)
 
@@ -621,12 +621,12 @@ local function animateFishLeap(startPos, endPos, duration, height)
 
 		local elapsed = os.clock() - startTime
 		local t = math.clamp(elapsed / duration, 0, 1)
-		
+
 		local p0 = startPos
 		local p1 = midPos
 		local p2 = endPos
 		local currentPos = (1 - t)^2 * p0 + 2 * (1 - t) * t * p1 + t^2 * p2
-		
+
 		local nextT = math.min(t + 0.05, 1)
 		local nextPos = (1 - nextT)^2 * p0 + 2 * (1 - nextT) * nextT * p1 + nextT^2 * p2
 		local dir = (nextPos - currentPos)
@@ -686,7 +686,7 @@ local function ensureEquipped()
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local backpack = player:FindFirstChild("Backpack")
 	if not character or not humanoid or not backpack then return end
-	
+
 	local equipped = getEquippedRod()
 	if not equipped then
 		local inBackpack = getFishingRod()
@@ -741,7 +741,7 @@ function AnimSystem.SaveJoints(char)
 	local rShoulder = getMotor(char, "Right Shoulder") or getMotor(char, "RightShoulder")
 	local lShoulder = getMotor(char, "Left Shoulder") or getMotor(char, "LeftShoulder")
 	local waist = getMotor(char, "Waist")
-	
+
 	if rShoulder then AnimSystem.savedC0.RightShoulder = { joint = rShoulder, orig = rShoulder.C0 } end
 	if lShoulder then AnimSystem.savedC0.LeftShoulder = { joint = lShoulder, orig = lShoulder.C0 } end
 	if waist then AnimSystem.savedC0.Waist = { joint = waist, orig = waist.C0 } end
@@ -2476,32 +2476,31 @@ if remote then
 				foundTool = allBackpackFish[#allBackpackFish]
 			end
 
-			-- Tampilkan Layar Modal Hasil Tangkapan (FishingResultUI)
-			FishingResultUI.Show(gui, {
-				fishData = fishData,
-				rewardInfo = rewardInfo,
-				pityState = pityState,
-				toolInstance = foundTool,
-				playerData = pData or lastPlayerData,
-			}, function(actionType, targetTool)
-				if actionType == "LOCK" then
-					if targetTool and targetTool.Parent then
-						RemoteContract.Client.ToggleLockItem(targetTool)
-					end
-				elseif actionType == "SELL" then
-					if targetTool and targetTool.Parent then
-						RemoteContract.Client.SellFish(targetTool)
-					end
-				end
-				updateInventoryUI()
-				updatePityUI()
-			end)
-
+			-- Sinkronkan data terbaru lebih dulu
 			if pData and typeof(pData) == "table" then
 				mergePlayerData(pData)
+
 				if pData.journal then
 					FishDexUI.UpdateJournalData(pData.journal)
 				end
+			end
+
+			local playerGui = getPlayerGui()
+			local resultGui = playerGui
+				and playerGui:FindFirstChild("FishingResultGui")
+
+			if resultGui then
+				local popupData = table.clone(lastPlayerData)
+
+				popupData.fishData = fishData
+				popupData.rewardInfo = rewardInfo
+				popupData.pityState = pityState
+				popupData.toolInstance = foundTool
+				popupData.playerData = table.clone(lastPlayerData)
+
+				FishingResultUI.Show(resultGui, popupData, 2.5)
+			else
+				warn("[FishingClient] FishingResultGui tidak ditemukan di PlayerGui")
 			end
 
 			advanceTutorial(4)
@@ -2690,7 +2689,7 @@ if remote then
 
 	-- Client ProximityPrompt Handler untuk respon instan
 	local ProximityPromptService = game:GetService("ProximityPromptService")
-	
+
 	local function sanitizeClientPrompt(prompt)
 		if not prompt:IsA("ProximityPrompt") then return end
 		if prompt.Parent and prompt.Parent:IsA("Model") then
