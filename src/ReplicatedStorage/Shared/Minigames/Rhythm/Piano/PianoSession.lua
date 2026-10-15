@@ -44,6 +44,30 @@ local function playPianoNote(semitone)
 	end)
 end
 
+local function playPianoChord(semitones)
+	if not semitones or #semitones == 0 then
+		playPianoNote(0)
+		return
+	end
+
+	-- Normalisasi volume agar kombinasi multi-nada chord tidak mengalami distorsi/clipping
+	local count = #semitones
+	local chordVolume = Config.VOLUME * (count == 2 and 0.85 or (count >= 3 and 0.72 or 1.0))
+
+	for _, semitone in ipairs(semitones) do
+		local sound = Instance.new("Sound")
+		sound.SoundId = Config.SOUND_ID
+		sound.Volume = chordVolume
+		sound.PlaybackSpeed = Config.BASE_PITCH * (2 ^ ((semitone or 0) / 12))
+		sound.Parent = SoundService
+		sound:Play()
+
+		task.delay(1.2, function()
+			if sound then sound:Destroy() end
+		end)
+	end
+end
+
 local function playMissSound()
 	local sound = Instance.new("Sound")
 	sound.SoundId = Config.MISS_SOUND_ID
@@ -151,6 +175,8 @@ function PianoSession.new(options)
 	self.HeldColumns = { [1] = false, [2] = false, [3] = false, [4] = false }
 	self.ActiveHolds = {} -- [column] = { event, pressTime, holdDuration, tailLength, frame, note, column }
 	self.RecentChordHits = {}
+	self.PlayedChordAudios = {}
+	self.HandledChordMisses = {}
 	self.ActivePointers = {}
 	self.HoldHits = 0
 	self.ChordHits = 0
@@ -225,6 +251,8 @@ function PianoSession:_compileChartEvents()
 					chordTotal = #chordLanes,
 					column = l,
 					note = chordNotes[cIdx] or chordNotes[1] or 0,
+					allChordNotes = chordNotes,
+					allChordLanes = chordLanes,
 					hitTime = currentHitTime,
 					spawnTime = spawnTime,
 					status = "PENDING",
@@ -461,16 +489,27 @@ function PianoSession:_clearTiles()
 	table.clear(self.HeldColumns)
 	table.clear(self.ActivePointers)
 	table.clear(self.RecentChordHits)
+	table.clear(self.PlayedChordAudios)
+	table.clear(self.HandledChordMisses)
 end
 
 -- ============ GAMEPLAY & HIT DETECTION (FISH-045) ============
-function PianoSession:_registerHit(entry, y)
+function PianoSession:_registerHit(entry, y, skipAudio)
 	if self.State ~= "PLAYING" or entry.hit then return end
 	entry.hit = true
 	entry.status = "HIT"
 
 	-- Mainkan audio semitone nada yang otentik sesuai melodi lagu
-	playPianoNote(entry.note)
+	if not skipAudio then
+		if entry.type == "CHORD" and entry.chordId then
+			if not self.PlayedChordAudios[entry.chordId] then
+				self.PlayedChordAudios[entry.chordId] = true
+				playPianoChord(entry.allChordNotes or { entry.note })
+			end
+		else
+			playPianoNote(entry.note)
+		end
+	end
 
 	self.Score += 1
 	self.Combo += 1
@@ -617,9 +656,16 @@ function PianoSession:HandleColumnPress(column)
 			PianoUI.TriggerHoldActive(column, true)
 
 		elseif bestEv.type == "CHORD" then
-			-- CHORD NOTE: Daftarkan hit dan verifikasi keselarasan input chord
-			self:_registerHit(bestEv, bestEv.y)
+			-- CHORD NOTE: Sinkronisasi audio berbasis chart & verifikasi keselarasan input chord
 			local cId = bestEv.chordId
+			if cId and not self.PlayedChordAudios[cId] then
+				self.PlayedChordAudios[cId] = true
+				playPianoChord(bestEv.allChordNotes or { bestEv.note })
+			end
+
+			-- Daftarkan hit kolom ini (skipAudio = true agar tuts pasangan tidak membunyikan audio ganda)
+			self:_registerHit(bestEv, bestEv.y, true)
+
 			if cId then
 				self.RecentChordHits[cId] = (self.RecentChordHits[cId] or 0) + 1
 				if self.RecentChordHits[cId] >= (bestEv.chordTotal or 2) then
@@ -732,7 +778,16 @@ function PianoSession:_update(dt)
 				-- Tile terlewat melewati batas miss line!
 				if ev.frame then PianoUI.DestroyTile(ev.frame) end
 				table.remove(self.ActiveTiles, i)
-				self:_registerMistake(ev.column)
+
+				-- Cegah penalti ganda & double miss sound jika satu unit CHORD terlewat
+				if ev.type == "CHORD" and ev.chordId then
+					if not self.HandledChordMisses[ev.chordId] then
+						self.HandledChordMisses[ev.chordId] = true
+						self:_registerMistake(ev.column)
+					end
+				else
+					self:_registerMistake(ev.column)
+				end
 			else
 				if ev.type == "HOLD" then
 					PianoUI.UpdateHoldTile(ev.frame, y, ev.tailLength, false, 1.0)
