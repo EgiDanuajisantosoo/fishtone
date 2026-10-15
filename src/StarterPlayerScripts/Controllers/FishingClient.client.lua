@@ -2476,6 +2476,21 @@ if remote then
 				foundTool = allBackpackFish[#allBackpackFish]
 			end
 
+			-- Popup hasil tangkapan: ikan sudah diberikan oleh server, jadi tidak perlu aksi simpan/jual/kunci.
+			local playerGui = getPlayerGui()
+			local resultGui = playerGui and playerGui:FindFirstChild("FishingResultGui")
+			if resultGui then
+				FishingResultUI.Show(resultGui, {
+					fishData = fishData,
+					rewardInfo = rewardInfo,
+					pityState = pityState,
+					toolInstance = foundTool,
+					playerData = pData or lastPlayerData,
+				}, 2.5)
+			else
+				warn("[FishingClient] FishingResultGui tidak ditemukan di PlayerGui")
+			end
+
 			-- Sinkronkan data terbaru lebih dulu
 			if pData and typeof(pData) == "table" then
 				mergePlayerData(pData)
