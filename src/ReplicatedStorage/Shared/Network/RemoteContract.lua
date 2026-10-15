@@ -41,6 +41,8 @@ RemoteContract.C2S = {
 	SKIP_TUTORIAL           = "SkipTutorial",
 	-- Keybind Settings (FISH-045)
 	SET_KEYBINDS            = "SetKeybinds",
+	-- Song Selection (FISH-046)
+	SELECT_SONG             = "SelectSong",
 }
 
 -- Server -> Client Actions
@@ -64,6 +66,8 @@ RemoteContract.S2C = {
 	TUTORIAL_COMPLETED       = "TutorialCompleted",
 	-- Multiplayer Integration & Announcements (FISH-038)
 	GLOBAL_CATCH_ANNOUNCEMENT = "GlobalCatchAnnouncement",
+	-- Song Selection (FISH-046)
+	SONG_SELECTED            = "SongSelected",
 }
 
 -- ============ REMOTE PROVIDER ============
@@ -291,6 +295,13 @@ function RemoteContract.Server.BroadcastCatch(player, fishData)
 	end
 end
 
+function RemoteContract.Server.SongSelected(player, songId)
+	local remote = RemoteContract.GetRemote()
+	if remote and player then
+		remote:FireClient(player, RemoteContract.S2C.SONG_SELECTED, songId)
+	end
+end
+
 -- ============ CLIENT DISPATCHERS (Client -> Server) ============
 RemoteContract.Client = {}
 
@@ -417,6 +428,13 @@ function RemoteContract.Client.SetKeybinds(keybinds)
 	local remote = RemoteContract.GetRemote()
 	if remote then
 		remote:FireServer(RemoteContract.C2S.SET_KEYBINDS, { keybinds = keybinds })
+	end
+end
+
+function RemoteContract.Client.SelectSong(songId)
+	local remote = RemoteContract.GetRemote()
+	if remote then
+		remote:FireServer(RemoteContract.C2S.SELECT_SONG, songId)
 	end
 end
 

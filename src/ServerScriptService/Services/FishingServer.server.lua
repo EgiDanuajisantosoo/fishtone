@@ -342,6 +342,19 @@ if remote then
 			end
 			return
 		end
+
+		-- 19. Pemilihan Lagu Player (FISH-046)
+		if action == RemoteContract.C2S.SELECT_SONG then
+			local songId = arg1
+			local ok, res = PlayerDataService.SetPreferredSong(player, songId)
+			if ok then
+				print(string.format("[FishingServer] 🎵 Lagu pilihan untuk %s diperbarui: %s", player.Name, tostring(res)))
+				RemoteContract.Server.Notify(player, string.format("🎵 Lagu aktif: %s", res == "AUTO" and "Otomatis (Sesuai Zona & Rarity)" or tostring(res)))
+			else
+				warn(string.format("[FishingServer] ⚠️ Gagal mengatur preferred song untuk %s: %s", player.Name, tostring(res)))
+			end
+			return
+		end
 	end)
 else
 	warn("FishingServer: FishingRemote tidak ditemukan di ReplicatedStorage")

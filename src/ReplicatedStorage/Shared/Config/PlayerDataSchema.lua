@@ -74,6 +74,7 @@ PlayerDataSchema.DEFAULT_DATA = {
 	tutorialCompleted = false,
 
 	-- Preferensi & Pengaturan Pemain
+	preferredSongId = "AUTO", -- FISH-046: Lagu pilihan pemain ("AUTO" = acak dinamis sesuai zona & rarity)
 	settings = {
 		bgmVolume = 1.0,
 		sfxVolume = 1.0,
@@ -190,6 +191,11 @@ function PlayerDataSchema.Reconcile(target, template)
 	end
 	if target.activeSessionToken == nil or typeof(target.activeSessionToken) ~= "string" then
 		target.activeSessionToken = ""
+	end
+
+	-- 6. Rekonsiliasi Preferred Song (FISH-046)
+	if target.preferredSongId == nil or typeof(target.preferredSongId) ~= "string" then
+		target.preferredSongId = "AUTO"
 	end
 
 	return target

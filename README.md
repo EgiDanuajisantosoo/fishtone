@@ -15,6 +15,10 @@
 8. [Integrasi Multiplayer & Kehadiran Visual (FISH-038)](#-8-integrasi-multiplayer--kehadiran-visual-fish-038)
 9. [Keamanan Server & Anti-Exploit QA (FISH-039)](#-9-keamanan-server--anti-exploit-qa-fish-039)
 10. [Produksi Persistensi & Integritas Data QA (FISH-040)](#-10-produksi-persistensi--integritas-data-qa-fish-040)
+11. [Optimasi Performa & Memory Hygiene QA (FISH-041)](#-11-optimasi-performa--memory-hygiene-qa-fish-041)
+12. [Katalog Lagu & Chart Ritme Terpusat (FISH-043)](#-12-katalog-lagu--chart-ritme-terpusat-fish-043)
+13. [Validasi Sesi & Chart Ritme Server-Authoritative (FISH-044)](#-13-validasi-sesi--chart-ritme-server-authoritative-fish-044)
+14. [Katalog Pemilihan Lagu & Jukebox UI (FISH-046)](#-14-katalog-pemilihan-lagu--jukebox-ui-fish-046)
 
 ---
 
@@ -111,6 +115,8 @@ Di dalam mini-game Piano Tiles, arena permainan kini dilengkapi dengan **Indikat
 | **`K`** | Membuka / Menutup **Toko Samudra** (Joran, Umpan, Perluasan Tas, Jual Ikan) |
 | **`B`** atau **`I`** | Membuka / Menutup **Tas Inventaris** |
 | **`J`** | Membuka / Menutup **FishDex (Ensiklopedia Ikan & Mutasi)** |
+| **`M`** | Membuka / Menutup **Katalog Pemilihan Lagu & Jukebox (FISH-046)** |
+| **`O`** | Membuka / Menutup **Pengaturan Tombol Kontrol (Keybind Settings)** |
 | **`E`** atau **Klik Kiri** | Melempar Kail (*Casting*) / Interaksi ProximityPrompt / Pukul Beat Minigame |
 | **`D, F, J, K`** / **`1, 2, 3, 4`** | Memainkan tuts **Piano Tiles** (Presisi 4-Lane) |
 | **`A, S, D, J, K, L`** | Memainkan senar **Gitar Fretboard** |
@@ -333,3 +339,28 @@ Sesuai **Rule 5 & Rule 6**, FISH!TUNE mengimplementasikan **`RhythmService.lua`*
    - Setiap sesi langsung ditandai `Completed` dan dibersihkan dari memori secara atomik saat divalidasi, mencegah percobaan pengiriman tangkapan ganda (*double claim*).
 7. **Automated QA Test Suite**:
    - Diverifikasi melalui `test_chart_session_validation.py` (pengujian binding chart, starting progress 35%/20%/10%, deteksi impossible win, spoofing, speedhack, dan replay attack lulus 100%).
+
+---
+
+## 🎶 14. Katalog Pemilihan Lagu & Jukebox UI (FISH-046)
+
+Pemain kini memiliki kebebasan penuh untuk memilih melodi yang ingin dimainkan saat memancing melalui **Modal Antarmuka Pemilihan Lagu (Song Selection UI)**:
+1. **Modal Glassmorphism Terpadu (`SongSelectionUI.lua`)**:
+   - Membaca katalog 16 lagu dari `SongChartCatalog.lua` dengan live search berdasarkan judul, artis/komponis, dan genre.
+   - Tab filter multi-instrumen: **`[ 🌐 SEMUA ]`**, **`[ 🎹 PIANO ]`**, **`[ 🎸 GITAR ]`**, **`[ 🥁 DRUM ]`**.
+   - Setiap kartu menampilkan bintang kesulitan, tempo (BPM), badge genre, dan indikator status aktif.
+2. **Interactive Audio Melody Preview**:
+   - Pemain dapat menekan tombol **`[ ▶️ PREVIEW NADA ]`** untuk mendengarkan cuplikan melodi lagu secara langsung sebelum memilih.
+   - Animasi disc vinyl berputar visual saat lagu sedang dipratinjau.
+3. **Pilihan Lagu Otoritatif & Persistensi Cloud**:
+   - **`[ 🎶 GUNAKAN LAGU INI ]`**: Mengirim remote event `SELECT_SONG` ke server. Server memperbarui `preferredSongId` pada `PlayerDataService` dan menyimpannya secara permanen ke DataStore.
+   - **`[ 🎲 RESET KE OTOMATIS ]`**: Mengembalikan pemilihan lagu ke sistem rekomendasi cerdas berbasis zona memancing dan tingkat kelangkaan ikan.
+4. **Kepatuhan Mutlak Rule 2 & Dynamic Chart Fallback**:
+   - Jika pemain memilih lagu yang hanya memiliki chart Piano (misal: *Für Elise*), lalu pemain berganti menggunakan Joran Drum yang belum memiliki chart untuk lagu tersebut, server secara cerdas dan aman beralih (*graceful fallback*) ke lagu otomatis sesuai instrumen drum tanpa merusak jalannya permainan.
+5. **Aksesibilitas Multi-Platform**:
+   - Tombol HUD khusus **`[ 🎵 LAGU [M] ]`** di sisi kiri layar.
+   - Hotkey keyboard **`[M]`** pada PC, serta adaptasi layar sentuh otomatis (*CleanHotkeysForMobile*).
+   - Pengaman lockout: Semua hotkey dinonaktifkan saat modal terbuka untuk mencegah bentrokan input.
+6. **Automated QA Test Suite**:
+   - Diverifikasi melalui `test_song_selection_ui.py` (pengujian integritas katalog, validasi ID, fallback instrumen, schema persistensi, binding server otoritatif, remote contract, dan responsivitas mobile lulus 7/7 100%).
+
