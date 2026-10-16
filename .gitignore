@@ -11,6 +11,8 @@ inspect_place_now.py
 .__pycache__/
 *.pyc
 
+.continue/
+
 # OS Files
 Thumbs.db
 .DS_Store

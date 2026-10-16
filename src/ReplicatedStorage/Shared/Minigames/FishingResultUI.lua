@@ -16,6 +16,20 @@ local rotationConnection = nil
 local activeBarTween = nil
 local activeFadeTweens = {}
 
+local RARITY_IMAGES = {
+	COMMON = "rbxassetid://72414642890484",
+	RARE = "rbxassetid://71899573158649",
+	SUPER_RARE = "rbxassetid://91280591012511",
+	LEGENDARY = "rbxassetid://74496426632920",
+	SPECIAL = "rbxassetid://13780690345712",
+	MYTHIC = "rbxassetid://109116929246833",
+}
+
+local function normalizeRarity(rarity)
+	return string.upper(tostring(rarity or "COMMON"))
+		:gsub("[%s%-]+", "_")
+end
+
 local function cancelActiveFadeTweens()
 	for _, tween in ipairs(activeFadeTweens) do
 		pcall(function()
@@ -496,11 +510,29 @@ function FishingResultUI.Show(targetGui, data, duration)
 		string.format("%.1f KG", weight)
 	)
 
-	setText(
-		popup,
+	local rarityLabel = popup:FindFirstChild(
 		"RarityLabel",
-		string.upper(tostring(fishData.displayName or rarity))
+		true
 	)
+
+	if rarityLabel then
+		local rarityKey = normalizeRarity(rarity)
+
+		if rarityLabel:IsA("ImageLabel")
+			or rarityLabel:IsA("ImageButton") then
+
+			rarityLabel.Image = RARITY_IMAGES[rarityKey]
+				or RARITY_IMAGES.COMMON
+
+			rarityLabel.Visible = true
+
+		elseif rarityLabel:IsA("TextLabel") then
+			-- Fallback jika UI lama masih menggunakan TextLabel.
+			rarityLabel.Text = string.upper(tostring(
+				fishData.displayName or rarity
+				))
+		end
+	end
 
 	setText(
 		popup,

@@ -21,6 +21,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
+local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
 local function getPlayerGui()
@@ -57,6 +58,21 @@ local fsm = FishingStateMachine.new()
 local mobileActionCtrl = nil
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
+
+local playerGui = player:WaitForChild("PlayerGui")
+local fishDexGui = playerGui:WaitForChild("FishDexGui")
+local closeButton = fishDexGui:WaitForChild("CloseButton")
+
+local function isFishDexOpen()
+	return FishDexUI.IsOpen()
+end
+
+local function setHotbarVisible(visible)
+	StarterGui:SetCoreGuiEnabled(
+		Enum.CoreGuiType.Backpack,
+		visible
+	)
+end
 
 local function getEquippedRodTool()
 	local char = player.Character
@@ -2187,9 +2203,17 @@ local function buildFishDexHUD()
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
 		if FishDexUI.IsOpen() then
 			FishDexUI.Hide()
+			setHotbarVisible(true)
 		else
-			FishDexUI.Show(gui, lastPlayerData)
+			FishDexUI.Show(fishDexGui, lastPlayerData)
+			setHotbarVisible(false)
 		end
+	end)
+
+	closeButton.MouseButton1Click:Connect(function()
+		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+		FishDexUI.Hide()
+		setHotbarVisible(true)
 	end)
 end
 
@@ -2348,12 +2372,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 
 	-- Hotkey J untuk Toggle FishDex
-	if not gameProcessed and (input.KeyCode == Enum.KeyCode.J) then
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.J then
 		if FishDexUI.IsOpen() then
 			FishDexUI.Hide()
+			setHotbarVisible(true)
 		else
-			FishDexUI.Show(gui, lastPlayerData)
+			FishDexUI.Show(fishDexGui, lastPlayerData)
+			setHotbarVisible(false)
 		end
+		return
+	end
+
+	if FishDexUI.IsOpen() then
 		return
 	end
 

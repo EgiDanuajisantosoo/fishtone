@@ -1,1105 +1,573 @@
---[[
-	FishDexUI (ModuleScript)
-	FISH!TUNE — Oceanic FishDex & Discovery Encyclopedia (FISH-023 / Pixel-Perfect UI Redesign)
+-- FISH!TUNE - FishDex controller for manually-built ScreenGui
+-- Place this ModuleScript where the old FishDexUI ModuleScript lives.
+-- Expected GUI hierarchy: FishDexGui > Background > LeftPanel/CenterPanel/RightPanel
 
-	Desain Eksak Sesuai Mockup Visual:
-	1. Top Header: Icon Buku + "FISHDEX SAMUDRA" (Putih + Cyan Neon) + Subtitle Lore + Tombol Tutup Modern.
-	2. Bar Progress Koleksi: "📖 Koleksi Samudra 0 / 35 Spesies (0%)" dengan Track Bar Kapsul.
-	3. Bar Filter Rarity (Row 1): [⊞ Semua], [★ Common], [★★ Rare], [★★★ Super Rare], [★★★★ Legendary], [★★★★ Mythic], [◆ Special].
-	4. Bar Filter Habitat & Search (Row 2): [🌐 Semua Habitat], [🌴 Melody Bay], [🌊 Twin Eye Lagoon], [⛰️ Summit Abyss] + Kotak Pencarian [🔍 Cari spesies...].
-	5. 4-Column Species Grid:
-	   - Kartu Misterius: Preview Box gelap dengan Tanda Tanya Merah Terang [ ? ], Nama "??? [Misterius]", Tag [RARITY] ★★★, dan Pin Lokasi [📍 Summit].
-	   - Kartu Terbuka: Preview Ikan 3D/Icon dengan aura tier, nama spesies asli, bintang, rekor bobot & jumlah tangkapan.
-	6. Detail Popout Modal: Lengkap dengan Spektrum Gauge Bobot & Lore Cerita.
-]]
-
-local TweenService = game:GetService("TweenService")
-local SoundService = game:GetService("SoundService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("FishDefinitions"))
-local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
-local AudioEffectsSystem = require(Shared:WaitForChild("Systems"):WaitForChild("AudioEffectsSystem"))
-local MobileResponsiveHelper = require(Shared:WaitForChild("Systems"):WaitForChild("MobileResponsiveHelper"))
+local RaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
 
 local player = Players.LocalPlayer
-
 local FishDexUI = {}
-local activeModal = nil
-local activeOverlay = nil
-local activeDetailModal = nil
-local isClosing = false
 
--- State Filters
-local currentRarityFilter = "ALL"
-local currentZoneFilter = "ALL"
-local searchKeyword = ""
+local gui, background, leftPanel, centerPanel, rightPanel
+local locationGrid, locationTemplate, locationButton, locationButtonLabel
+local speciesGrid, fishCardTemplate, centerViewport
+local selectedFish
 local cachedJournal = {}
+local selectedZone = "ALL"
+local undiscoveredOnly = false
+local searchText = ""
+local isOpen = false
+local locationButtons = {}
+local previewModel, previewCamera, previewWorld
+local previewRotationConnection
+local dragStartX, dragStartRotation = nil, 0
+local RunService = game:GetService("RunService")
 
--- UI Component References
-local gridContainer = nil
-local progressSummaryLabel = nil
-local progressFillBar = nil
-local rarityTabWidgets = {}
-local zoneTabWidgets = {}
+local RARITY_IMAGES = {
+	COMMON = "rbxassetid://72414642890484",
+	RARE = "rbxassetid://71899573158649",
+	SUPER_RARE = "rbxassetid://91280591012511",
+	LEGENDARY = "rbxassetid://74496426632920",
+	SPECIAL = "rbxassetid://13780690345712",
+	MYTHIC = "rbxassetid://109116929246833",
+}
 
--- ============ SOUND HELPER ============
-local function playLocalSound(soundId, volume, speed)
-	task.spawn(function()
-		local snd = Instance.new("Sound")
-		snd.SoundId = soundId
-		snd.Volume = volume or 0.8
-		snd.PlaybackSpeed = speed or 1.0
-		snd.Parent = SoundService
-		snd:Play()
-		snd.Ended:Connect(function()
-			snd:Destroy()
-		end)
-		task.delay(4, function()
-			if snd and snd.Parent then snd:Destroy() end
-		end)
+local function normalizeRarity(rarity)
+	return string.upper(tostring(rarity or "COMMON"))
+		:gsub("[%s%-]+", "_")
+end
+
+-- IMPORTANT: Models in ReplicatedStorage > Fish are named "1" through "8".
+-- If you want a particular species to use a specific model, add its fish.id here.
+-- Example: COMMON_GOLDFISH = 1,
+local MODEL_INDEX_BY_FISH_ID = {
+	-- COMMON_GOLDFISH = 1,
+	-- COMMON_CATFISH = 2,
+}
+
+local MODEL_FOLDER = ReplicatedStorage:WaitForChild("Fish")
+local COLORS = {
+	background = Color3.fromRGB(5, 190, 232),
+	panel = Color3.fromRGB(4, 67, 82),
+	card = Color3.fromRGB(9, 48, 61),
+	accent = Color3.fromRGB(0, 221, 255),
+	white = Color3.fromRGB(255, 255, 255),
+	muted = Color3.fromRGB(190, 225, 235),
+	locked = Color3.fromRGB(25, 35, 42),
+}
+
+local function findText(parent, name)
+	local obj = parent and parent:FindFirstChild(name, true)
+	if obj and (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) then
+		return obj
+	end
+	return nil
+end
+
+local function setText(parent, name, text)
+	local obj = findText(parent, name)
+	if obj then obj.Text = tostring(text or "") end
+end
+
+local function journalEntry(fish)
+	return cachedJournal[fish.id] or cachedJournal[fish.name]
+end
+
+local function isDiscovered(fish)
+	local entry = journalEntry(fish)
+	return entry ~= nil and (tonumber(entry.count) or 0) > 0
+end
+
+
+local function getZoneName(zoneId)
+	if not zoneId or zoneId == "" then return "Samudra Terbuka" end
+	local ok, zone = pcall(function()
+		return ZoneConfig.GetZoneById(zoneId)
+	end)
+	if ok and zone and zone.name then return zone.name end
+	return tostring(zoneId):gsub("_", " "):lower():gsub("(%a)([%w]*)", function(a, b)
+		return a:upper() .. b
 	end)
 end
 
--- ============ CONFIGURATION ============
-local RARITY_CONFIG = {
-	{ id = "ALL", label = "Semua", icon = "⊞", stars = "" },
-	{ id = "COMMON", label = "Common", icon = "★", stars = "★", color = Color3.fromRGB(150, 160, 175) },
-	{ id = "RARE", label = "Rare", icon = "★★", stars = "★★", color = Color3.fromRGB(56, 189, 248) },
-	{ id = "SUPER_RARE", label = "Super Rare", icon = "★★★", stars = "★★★", color = Color3.fromRGB(192, 132, 252) },
-	{ id = "LEGENDARY", label = "Legendary", icon = "★★★★", stars = "★★★★", color = Color3.fromRGB(251, 191, 36) },
-	{ id = "MYTHIC", label = "Mythic", icon = "★★★★", stars = "★★★★★", color = Color3.fromRGB(248, 113, 113) },
-	{ id = "SPECIAL", label = "Special", icon = "◆", stars = "★★★★★★", color = Color3.fromRGB(232, 121, 249) },
-}
+local function getRarityInfo(fish)
+	local rarity = fish.rarity or "COMMON"
+	local ok, info = pcall(function()
+		return RaritySystem.GetTierData(rarity)
+	end)
+	if ok and info then
+		return info.displayName or rarity, info.color or fish.color or COLORS.accent, info.stars or ""
+	end
+	return rarity, fish.color or COLORS.accent, ""
+end
 
-local ZONE_CONFIG = {
-	{ id = "ALL", label = "Semua Habitat", icon = "🌐" },
-	{ id = "MELODY_BAY", label = "Melody Bay", icon = "🌴" },
-	{ id = "TWIN_EYE_LAGOON", label = "Twin Eye Lagoon", icon = "🌊" },
-	{ id = "SUMMIT_ABYSS", label = "Summit Abyss", icon = "⛰️" },
-}
-
--- ============ JOURNAL & PROGRESS HELPERS ============
-function FishDexUI.UpdateJournalData(journal)
-	cachedJournal = journal or {}
-	if FishDexUI.IsOpen() then
-		FishDexUI.UpdateProgressHeader()
-		FishDexUI.RenderGrid()
+local function clearViewport(viewport)
+	for _, child in ipairs(viewport:GetChildren()) do
+		if child:IsA("WorldModel") or child:IsA("Camera") then child:Destroy() end
 	end
 end
 
-local function getJournalEntry(fishId, fishName)
-	if not cachedJournal then return nil end
-	return cachedJournal[fishId] or cachedJournal[fishName]
+local function getModelIndex(fish, catalogIndex)
+	local mapped = MODEL_INDEX_BY_FISH_ID[fish.id]
+		or fish.modelIndex
+		or fish.modelId
+	if mapped and MODEL_FOLDER:FindFirstChild(tostring(mapped)) then
+		return tostring(mapped)
+	end
+	-- Convenient default: catalog entries 1-8 use models 1-8.
+	-- For any other species, set MODEL_INDEX_BY_FISH_ID above to choose a model.
+	if catalogIndex and catalogIndex <= 8 then
+		return tostring(catalogIndex)
+	end
+	return nil
 end
 
-local function calculateDiscoveryStats()
-	local totalSpecies = #FishDefinitions.CATALOG
-	local discoveredCount = 0
+local function putModelInViewport(viewport, fish, catalogIndex, rotateable)
+	clearViewport(viewport)
+	viewport.BackgroundTransparency = 1
+	viewport.Ambient = Color3.fromRGB(200, 220, 230)
+	viewport.LightColor = Color3.fromRGB(255, 255, 255)
+	viewport.LightDirection = Vector3.new(-1, -1, -1)
 
-	for _, fish in ipairs(FishDefinitions.CATALOG) do
-		local entry = getJournalEntry(fish.id, fish.name)
-		if entry and (entry.count or 0) > 0 then
-			discoveredCount += 1
+	local camera = Instance.new("Camera")
+	camera.Name = "FishCamera"
+	camera.FieldOfView = 35
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+
+	local world = Instance.new("WorldModel")
+	world.Name = "FishWorld"
+	world.Parent = viewport
+
+	local modelName = getModelIndex(fish, catalogIndex)
+	local source = modelName and MODEL_FOLDER:FindFirstChild(modelName)
+	if not source then
+		return nil, camera, world
+	end
+
+	local clone = source:Clone()
+	clone.Name = "PreviewFish"
+
+	local discovered = isDiscovered(fish)
+
+	if not discovered then
+		local function applySilhouette(object)
+			if object:IsA("BasePart") then
+				object.Color = Color3.fromRGB(0, 0, 0)
+				object.Material = Enum.Material.SmoothPlastic
+				object.MaterialVariant = ""
+				object.Transparency = 0
+				object.Reflectance = 0
+
+				if object:IsA("MeshPart") then
+					object.TextureID = ""
+				end
+
+			elseif object:IsA("SpecialMesh") then
+				object.TextureId = ""
+				object.VertexColor = Vector3.new(0, 0, 0)
+
+			elseif object:IsA("Decal")
+				or object:IsA("Texture")
+				or object:IsA("SurfaceAppearance") then
+				object:Destroy()
+			end
+		end
+		
+		print(
+			"[FishDex]",
+			fish.name,
+			"count =", journalEntry(fish) and journalEntry(fish).count,
+			"discovered =", discovered
+		)
+
+		-- Terapkan pada model dan semua turunannya.
+		applySilhouette(clone)
+
+		for _, object in ipairs(clone:GetDescendants()) do
+			applySilhouette(object)
 		end
 	end
 
-	local percentage = (totalSpecies > 0) and math.floor((discoveredCount / totalSpecies) * 100) or 0
-	return {
-		total = totalSpecies,
-		discovered = discoveredCount,
-		percentage = percentage,
-	}
-end
+	clone.Parent = world
 
-function FishDexUI.UpdateProgressHeader()
-	local stats = calculateDiscoveryStats()
-	if progressSummaryLabel then
-		progressSummaryLabel.Text = string.format("📖 Koleksi Samudra    <font color=\"#38BDF8\"><b>%d / %d Spesies (%d%%)</b></font>", stats.discovered, stats.total, stats.percentage)
-	end
-	if progressFillBar then
-		local frac = math.clamp(stats.discovered / math.max(1, stats.total), 0, 1)
-		TweenService:Create(progressFillBar, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.new(frac, 0, 1, 0)
-		}):Play()
-	end
-end
-
--- ============ CLOSE / HIDE ============
-function FishDexUI.HideDetail()
-	if activeDetailModal and activeDetailModal.Parent then
-		activeDetailModal:Destroy()
-		activeDetailModal = nil
-	end
-end
-
-function FishDexUI.Hide(callback)
-	if isClosing or not activeModal or not activeOverlay then
-		if callback then callback() end
-		return
-	end
-
-	isClosing = true
-	FishDexUI.HideDetail()
-
-	local card = activeModal
-	local overlay = activeOverlay
-
-	local closeTween = TweenService:Create(card, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		Size = UDim2.new(0, 700, 0, 520),
-		Position = UDim2.new(0.5, 0, 0.54, 0),
-		BackgroundTransparency = 1,
-	})
-	local overlayTween = TweenService:Create(overlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		BackgroundTransparency = 1,
-	})
-
-	closeTween:Play()
-	overlayTween:Play()
-	AudioEffectsSystem.PlayModalClose()
-
-	closeTween.Completed:Connect(function()
-		if overlay and overlay.Parent then
-			overlay:Destroy()
-		end
-		activeModal = nil
-		activeOverlay = nil
-		isClosing = false
-		if callback then callback() end
-	end)
-end
-
-function FishDexUI.IsOpen()
-	return activeOverlay ~= nil and activeOverlay.Parent ~= nil
-end
-
--- ============ DETAIL POPUP MODAL ============
-local function showFishDetailModal(parentContainer, fish)
-	FishDexUI.HideDetail()
-
-	local entry = getJournalEntry(fish.id, fish.name)
-	local isDiscovered = (entry ~= nil and (entry.count or 0) > 0)
-	local r = fish.rarity or "COMMON"
-	local tierData = FishingRaritySystem.GetTierData(r)
-	local rColor = tierData.color or Color3.fromRGB(0, 200, 255)
-
-	local zoneData = ZoneConfig.GetZoneById(fish.favoriteZone)
-	local zoneName = zoneData and zoneData.name or fish.favoriteZone or "Samudra Terbuka"
-
-	-- Detail Backdrop
-	local detailOverlay = Instance.new("Frame")
-	detailOverlay.Name = "DetailOverlay"
-	detailOverlay.Size = UDim2.new(1, 0, 1, 0)
-	detailOverlay.Position = UDim2.new(0, 0, 0, 0)
-	detailOverlay.BackgroundColor3 = Color3.fromRGB(3, 6, 12)
-	detailOverlay.BackgroundTransparency = 0.35
-	detailOverlay.BorderSizePixel = 0
-	detailOverlay.ZIndex = 60
-	detailOverlay.Parent = parentContainer
-	activeDetailModal = detailOverlay
-
-	local modal = Instance.new("Frame")
-	modal.Name = "DetailCard"
-	modal.AnchorPoint = Vector2.new(0.5, 0.5)
-	modal.Size = UDim2.new(0, 520, 0, 480)
-	modal.Position = UDim2.new(0.5, 0, 0.5, 0)
-	modal.BackgroundColor3 = Color3.fromRGB(15, 23, 38)
-	modal.BackgroundTransparency = 0.08
-	modal.BorderSizePixel = 0
-	modal.ZIndex = 61
-	modal.Parent = detailOverlay
-	Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 18)
-
-	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
-	MobileResponsiveHelper.AttachResponsiveScale(modal, 520, 480)
-
-	local mStroke = Instance.new("UIStroke")
-	mStroke.Color = isDiscovered and rColor or Color3.fromRGB(70, 85, 110)
-	mStroke.Thickness = 1.8
-	mStroke.Transparency = 0.25
-	mStroke.Parent = modal
-
-	-- Header
-	local header = Instance.new("Frame")
-	header.Size = UDim2.new(1, 0, 0, 50)
-	header.BackgroundTransparency = 1
-	header.ZIndex = 62
-	header.Parent = modal
-
-	local headerTitle = Instance.new("TextLabel")
-	headerTitle.Size = UDim2.new(0.8, 0, 1, 0)
-	headerTitle.Position = UDim2.new(0, 22, 0, 0)
-	headerTitle.BackgroundTransparency = 1
-	headerTitle.Text = isDiscovered and "🔍 DETAIL SPESIES IKAN" or "🔒 SPESIES MISTERIUS"
-	headerTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-	headerTitle.Font = Enum.Font.GothamBlack
-	headerTitle.TextSize = 15
-	headerTitle.TextXAlignment = Enum.TextXAlignment.Left
-	headerTitle.ZIndex = 63
-	headerTitle.Parent = header
-
-	local closeBtn = Instance.new("TextButton")
-	closeBtn.Size = UDim2.new(0, 32, 0, 32)
-	closeBtn.Position = UDim2.new(1, -44, 0, 9)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(25, 36, 54)
-	closeBtn.BorderSizePixel = 0
-	closeBtn.Text = "✕"
-	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	closeBtn.Font = Enum.Font.GothamBlack
-	closeBtn.TextSize = 15
-	closeBtn.ZIndex = 63
-	closeBtn.Parent = header
-	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-
-	closeBtn.MouseButton1Click:Connect(function()
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.2)
-		FishDexUI.HideDetail()
-	end)
-
-	-- Showcase Box
-	local showcaseRow = Instance.new("Frame")
-	showcaseRow.Size = UDim2.new(1, -44, 0, 86)
-	showcaseRow.Position = UDim2.new(0, 22, 0, 52)
-	showcaseRow.BackgroundColor3 = Color3.fromRGB(18, 27, 44)
-	showcaseRow.BackgroundTransparency = 0.3
-	showcaseRow.BorderSizePixel = 0
-	showcaseRow.ZIndex = 62
-	showcaseRow.Parent = modal
-	Instance.new("UICorner", showcaseRow).CornerRadius = UDim.new(0, 12)
-
-	local iconCircle = Instance.new("Frame")
-	iconCircle.Size = UDim2.new(0, 66, 0, 66)
-	iconCircle.Position = UDim2.new(0, 10, 0.5, -33)
-	iconCircle.BackgroundColor3 = Color3.fromRGB(11, 17, 29)
-	iconCircle.BorderSizePixel = 0
-	iconCircle.ZIndex = 63
-	iconCircle.Parent = showcaseRow
-	Instance.new("UICorner", iconCircle).CornerRadius = UDim.new(0, 12)
-
-	local iconLabel = Instance.new("TextLabel")
-	iconLabel.Size = UDim2.new(1, 0, 1, 0)
-	iconLabel.BackgroundTransparency = 1
-	iconLabel.Text = isDiscovered and "🐟" or "?"
-	iconLabel.TextColor3 = isDiscovered and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(244, 63, 94)
-	iconLabel.Font = Enum.Font.GothamBlack
-	iconLabel.TextSize = isDiscovered and 32 or 36
-	iconLabel.ZIndex = 64
-	iconLabel.Parent = iconCircle
-
-	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Size = UDim2.new(1, -95, 0, 24)
-	titleLabel.Position = UDim2.new(0, 86, 0, 12)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = isDiscovered and fish.name or "??? [Misterius]"
-	titleLabel.TextColor3 = isDiscovered and rColor or Color3.fromRGB(226, 232, 240)
-	titleLabel.Font = Enum.Font.GothamBlack
-	titleLabel.TextSize = 15
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	titleLabel.ZIndex = 63
-	titleLabel.Parent = showcaseRow
-
-	local tierSubLabel = Instance.new("TextLabel")
-	tierSubLabel.Size = UDim2.new(1, -95, 0, 20)
-	tierSubLabel.Position = UDim2.new(0, 86, 0, 36)
-	tierSubLabel.BackgroundTransparency = 1
-	tierSubLabel.Text = string.format("[%s]  %s", tierData.displayName, tierData.stars)
-	tierSubLabel.TextColor3 = rColor
-	tierSubLabel.Font = Enum.Font.GothamBold
-	tierSubLabel.TextSize = 12
-	tierSubLabel.TextXAlignment = Enum.TextXAlignment.Left
-	tierSubLabel.ZIndex = 63
-	tierSubLabel.Parent = showcaseRow
-
-	local statusPill = Instance.new("TextLabel")
-	statusPill.Size = UDim2.new(0, 125, 0, 18)
-	statusPill.Position = UDim2.new(0, 86, 0, 58)
-	statusPill.BackgroundColor3 = isDiscovered and Color3.fromRGB(15, 60, 40) or Color3.fromRGB(45, 25, 30)
-	statusPill.BorderSizePixel = 0
-	statusPill.Text = isDiscovered and "✅ SUDAH DITEMUKAN" or "🔒 BELUM DITEMUKAN"
-	statusPill.TextColor3 = isDiscovered and Color3.fromRGB(74, 222, 128) or Color3.fromRGB(248, 113, 113)
-	statusPill.Font = Enum.Font.GothamBold
-	statusPill.TextSize = 9
-	statusPill.ZIndex = 63
-	statusPill.Parent = showcaseRow
-	Instance.new("UICorner", statusPill).CornerRadius = UDim.new(0, 4)
-
-	-- Lore Description
-	local descFrame = Instance.new("Frame")
-	descFrame.Size = UDim2.new(1, -44, 0, 56)
-	descFrame.Position = UDim2.new(0, 22, 0, 146)
-	descFrame.BackgroundColor3 = Color3.fromRGB(18, 27, 44)
-	descFrame.BackgroundTransparency = 0.4
-	descFrame.BorderSizePixel = 0
-	descFrame.ZIndex = 62
-	descFrame.Parent = modal
-	Instance.new("UICorner", descFrame).CornerRadius = UDim.new(0, 10)
-
-	local descLabel = Instance.new("TextLabel")
-	descLabel.Size = UDim2.new(1, -16, 1, -8)
-	descLabel.Position = UDim2.new(0, 8, 0, 4)
-	descLabel.BackgroundTransparency = 1
-	if isDiscovered then
-		descLabel.Text = fish.description or "Spesies ikan samudra FishTune yang menakjubkan."
+	local model
+	if clone:IsA("Model") then
+		model = clone
+	elseif clone:IsA("BasePart") then
+		model = Instance.new("Model")
+		model.Name = "PreviewFish"
+		clone.Parent = model
+		model.PrimaryPart = clone
+		model.Parent = world
 	else
-		descLabel.Text = string.format("Spesies misterius yang hidup di perairan %s. Lemparkan kailmu dan tangkap spesies ini!", zoneName)
-	end
-	descLabel.TextColor3 = Color3.fromRGB(180, 205, 230)
-	descLabel.Font = Enum.Font.GothamMedium
-	descLabel.TextSize = 11
-	descLabel.TextWrapped = true
-	descLabel.TextXAlignment = Enum.TextXAlignment.Left
-	descLabel.TextYAlignment = Enum.TextYAlignment.Top
-	descLabel.ZIndex = 63
-	descLabel.Parent = descFrame
-
-	-- Weight Spectrum Gauge
-	local gaugeFrame = Instance.new("Frame")
-	gaugeFrame.Size = UDim2.new(1, -44, 0, 54)
-	gaugeFrame.Position = UDim2.new(0, 22, 0, 210)
-	gaugeFrame.BackgroundColor3 = Color3.fromRGB(18, 27, 44)
-	gaugeFrame.BackgroundTransparency = 0.4
-	gaugeFrame.BorderSizePixel = 0
-	gaugeFrame.ZIndex = 62
-	gaugeFrame.Parent = modal
-	Instance.new("UICorner", gaugeFrame).CornerRadius = UDim.new(0, 10)
-
-	local gaugeTitle = Instance.new("TextLabel")
-	gaugeTitle.Size = UDim2.new(0.5, 0, 0, 16)
-	gaugeTitle.Position = UDim2.new(0, 10, 0, 6)
-	gaugeTitle.BackgroundTransparency = 1
-	gaugeTitle.Text = "⚖️ SPEKTRUM BOBOT IKAN"
-	gaugeTitle.TextColor3 = Color3.fromRGB(148, 163, 184)
-	gaugeTitle.Font = Enum.Font.GothamBold
-	gaugeTitle.TextSize = 10
-	gaugeTitle.TextXAlignment = Enum.TextXAlignment.Left
-	gaugeTitle.ZIndex = 63
-	gaugeTitle.Parent = gaugeFrame
-
-	local maxRecord = isDiscovered and (entry.maxWeight or fish.minWeight) or 0
-	local gaugeRecord = Instance.new("TextLabel")
-	gaugeRecord.Size = UDim2.new(0.48, 0, 0, 16)
-	gaugeRecord.Position = UDim2.new(0.5, 0, 0, 6)
-	gaugeRecord.BackgroundTransparency = 1
-	gaugeRecord.Text = isDiscovered and string.format("👑 Rekor Kamu: %.1f Kg", maxRecord) or "🔒 Belum Ada Rekor"
-	gaugeRecord.TextColor3 = isDiscovered and Color3.fromRGB(251, 191, 36) or Color3.fromRGB(148, 163, 184)
-	gaugeRecord.Font = Enum.Font.GothamBold
-	gaugeRecord.TextSize = 10
-	gaugeRecord.TextXAlignment = Enum.TextXAlignment.Right
-	gaugeRecord.ZIndex = 63
-	gaugeRecord.Parent = gaugeFrame
-
-	local trackBg = Instance.new("Frame")
-	trackBg.Size = UDim2.new(1, -20, 0, 8)
-	trackBg.Position = UDim2.new(0, 10, 0, 26)
-	trackBg.BackgroundColor3 = Color3.fromRGB(11, 17, 29)
-	trackBg.BorderSizePixel = 0
-	trackBg.ZIndex = 63
-	trackBg.Parent = gaugeFrame
-	Instance.new("UICorner", trackBg).CornerRadius = UDim.new(1, 0)
-
-	local minW = fish.minWeight or 0.5
-	local maxW = fish.maxWeight or 5.0
-	local fillFrac = 0
-	if isDiscovered and maxW > minW then
-		fillFrac = math.clamp((maxRecord - minW) / (maxW - minW), 0.05, 1.0)
+		clone:Destroy()
+		return nil, camera, world
 	end
 
-	local trackFill = Instance.new("Frame")
-	trackFill.Size = UDim2.new(fillFrac, 0, 1, 0)
-	trackFill.BackgroundColor3 = isDiscovered and Color3.fromRGB(251, 191, 36) or Color3.fromRGB(56, 189, 248)
-	trackFill.BorderSizePixel = 0
-	trackFill.ZIndex = 64
-	trackFill.Parent = trackBg
-	Instance.new("UICorner", trackFill).CornerRadius = UDim.new(1, 0)
-
-	local trackLabels = Instance.new("TextLabel")
-	trackLabels.Size = UDim2.new(1, -20, 0, 14)
-	trackLabels.Position = UDim2.new(0, 10, 0, 36)
-	trackLabels.BackgroundTransparency = 1
-	trackLabels.Text = string.format("Min: %.1f Kg                                                   Max: %.1f Kg", minW, maxW)
-	trackLabels.TextColor3 = Color3.fromRGB(148, 163, 184)
-	trackLabels.Font = Enum.Font.GothamMedium
-	trackLabels.TextSize = 9
-	trackLabels.ZIndex = 63
-	trackLabels.Parent = gaugeFrame
-
-	-- Stats Grid (2x2)
-	local statsGrid = Instance.new("Frame")
-	statsGrid.Size = UDim2.new(1, -44, 0, 136)
-	statsGrid.Position = UDim2.new(0, 22, 0, 272)
-	statsGrid.BackgroundTransparency = 1
-	statsGrid.ZIndex = 62
-	statsGrid.Parent = modal
-
-	local sLayout = Instance.new("UIGridLayout")
-	sLayout.CellSize = UDim2.new(0.485, 0, 0, 62)
-	sLayout.CellPadding = UDim2.new(0.03, 0, 0, 10)
-	sLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	sLayout.Parent = statsGrid
-
-	local function addDetailCard(title, mainVal, subVal, valColor, order)
-		local c = Instance.new("Frame")
-		c.BackgroundColor3 = Color3.fromRGB(18, 27, 44)
-		c.BackgroundTransparency = 0.35
-		c.BorderSizePixel = 0
-		c.LayoutOrder = order
-		c.ZIndex = 63
-		c.Parent = statsGrid
-		Instance.new("UICorner", c).CornerRadius = UDim.new(0, 8)
-
-		local tLbl = Instance.new("TextLabel")
-		tLbl.Size = UDim2.new(1, -12, 0, 14)
-		tLbl.Position = UDim2.new(0, 8, 0, 6)
-		tLbl.BackgroundTransparency = 1
-		tLbl.Text = title
-		tLbl.TextColor3 = Color3.fromRGB(148, 163, 184)
-		tLbl.Font = Enum.Font.GothamMedium
-		tLbl.TextSize = 10
-		tLbl.TextXAlignment = Enum.TextXAlignment.Left
-		tLbl.ZIndex = 64
-		tLbl.Parent = c
-
-		local vLbl = Instance.new("TextLabel")
-		vLbl.Size = UDim2.new(1, -12, 0, 20)
-		vLbl.Position = UDim2.new(0, 8, 0, 20)
-		vLbl.BackgroundTransparency = 1
-		vLbl.Text = mainVal
-		vLbl.TextColor3 = valColor or Color3.fromRGB(255, 255, 255)
-		vLbl.Font = Enum.Font.GothamBlack
-		vLbl.TextSize = 13
-		vLbl.TextXAlignment = Enum.TextXAlignment.Left
-		vLbl.ZIndex = 64
-		vLbl.Parent = c
-
-		local sLbl = Instance.new("TextLabel")
-		sLbl.Size = UDim2.new(1, -12, 0, 14)
-		sLbl.Position = UDim2.new(0, 8, 0, 42)
-		sLbl.BackgroundTransparency = 1
-		sLbl.Text = subVal
-		sLbl.TextColor3 = Color3.fromRGB(148, 163, 184)
-		sLbl.Font = Enum.Font.GothamMedium
-		sLbl.TextSize = 9
-		sLbl.TextXAlignment = Enum.TextXAlignment.Left
-		sLbl.ZIndex = 64
-		sLbl.Parent = c
-	end
-
-	addDetailCard("🎣 TOTAL DITANGKAP", string.format("%d Ekor", isDiscovered and (entry.count or 1) or 0), isDiscovered and "Tercatat di Jurnal" or "Belum Ditemukan", Color3.fromRGB(56, 189, 248), 1)
-	addDetailCard("💎 NILAI DASAR", isDiscovered and string.format("💰 %d Koin", fish.baseCoins or 15) or "??? Koin", isDiscovered and string.format("⭐ %d EXP", fish.baseExp or 10) or "??? EXP", Color3.fromRGB(251, 191, 36), 2)
-	addDetailCard("🗺️ HABITAT UTAMA", zoneName, string.format("Skala Model: %.2f", fish.scale or 1.0), Color3.fromRGB(74, 222, 128), 3)
-
-	local mutCount = 0
-	if isDiscovered and entry.mutations then
-		for _ in pairs(entry.mutations) do mutCount += 1 end
-	end
-	addDetailCard("🌠 VARIAN MUTASI", (mutCount > 0) and string.format("%d Varian Mutasi", mutCount) or "Belum Ada", "Tercatat di Buku Koleksi", Color3.fromRGB(232, 121, 249), 4)
-
-	-- Bottom Close Button
-	local dismissBtn = Instance.new("TextButton")
-	dismissBtn.Size = UDim2.new(1, -44, 0, 40)
-	dismissBtn.Position = UDim2.new(0, 22, 1, -50)
-	dismissBtn.BackgroundColor3 = Color3.fromRGB(2, 132, 199)
-	dismissBtn.BorderSizePixel = 0
-	dismissBtn.Text = "KEMBALI KE FISHDEX"
-	dismissBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	dismissBtn.Font = Enum.Font.GothamBlack
-	dismissBtn.TextSize = 13
-	dismissBtn.ZIndex = 64
-	dismissBtn.Parent = modal
-	Instance.new("UICorner", dismissBtn).CornerRadius = UDim.new(0, 10)
-
-	dismissBtn.MouseButton1Click:Connect(function()
-		playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.2)
-		FishDexUI.HideDetail()
-	end)
-
-	modal.Size = UDim2.new(0, 480, 0, 440)
-	TweenService:Create(modal, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Size = UDim2.new(0, 520, 0, 480)
-	}):Play()
-end
-
--- ============ UPDATE TAB BUTTON STYLES ============
-local function updateFilterTabStyles()
-	for catId, widget in pairs(rarityTabWidgets) do
-		local isSel = (catId == currentRarityFilter)
-		if isSel then
-			widget.button.BackgroundColor3 = Color3.fromRGB(2, 132, 199) -- Bright active blue #0284C7
-			widget.button.TextColor3 = Color3.fromRGB(255, 255, 255)
-			widget.stroke.Color = Color3.fromRGB(56, 189, 248)
-			widget.stroke.Transparency = 0.2
-			widget.stroke.Thickness = 1.5
-		else
-			widget.button.BackgroundColor3 = Color3.fromRGB(19, 29, 46) -- Dark tab #131D2E
-			widget.button.TextColor3 = Color3.fromRGB(203, 213, 225)
-			widget.stroke.Color = Color3.fromRGB(30, 45, 68)
-			widget.stroke.Transparency = 0.6
-			widget.stroke.Thickness = 1
+	-- Make sure the preview does not depend on live physics.
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
 		end
 	end
 
-	for zoneId, widget in pairs(zoneTabWidgets) do
-		local isSel = (zoneId == currentZoneFilter)
-		if isSel then
-			widget.button.BackgroundColor3 = Color3.fromRGB(2, 132, 199)
-			widget.button.TextColor3 = Color3.fromRGB(255, 255, 255)
-			widget.stroke.Color = Color3.fromRGB(56, 189, 248)
-			widget.stroke.Transparency = 0.2
-			widget.stroke.Thickness = 1.5
-		else
-			widget.button.BackgroundColor3 = Color3.fromRGB(19, 29, 46)
-			widget.button.TextColor3 = Color3.fromRGB(203, 213, 225)
-			widget.stroke.Color = Color3.fromRGB(30, 45, 68)
-			widget.stroke.Transparency = 0.6
-			widget.stroke.Thickness = 1
+	local boxCFrame, boxSize = model:GetBoundingBox()
+	model:PivotTo(model:GetPivot() - boxCFrame.Position)
+	boxSize = Vector3.new(math.max(boxSize.X, 0.1), math.max(boxSize.Y, 0.1), math.max(boxSize.Z, 0.1))
+	local maxDimension = math.max(boxSize.X, boxSize.Y, boxSize.Z)
+	local distance = maxDimension * 2.1 + 1
+	camera.CFrame = CFrame.lookAt(Vector3.new(0, boxSize.Y * 0.08, distance), Vector3.new(0, 0, 0))
+	
+	-- Rotasi otomatis hanya untuk preview CenterPanel.
+	if rotateable then
+		if previewRotationConnection then
+			previewRotationConnection:Disconnect()
+			previewRotationConnection = nil
+		end
+
+		local basePivot = model:GetPivot()
+		local angle = 0
+
+		previewRotationConnection = RunService.RenderStepped:Connect(function(dt)
+			if not model.Parent or not FishDexUI.IsOpen() then
+				previewRotationConnection:Disconnect()
+				previewRotationConnection = nil
+				return
+			end
+
+			angle += math.rad(30) * dt
+			model:PivotTo(basePivot * CFrame.Angles(0, angle, 0))
+		end)
+	end
+
+	return model, camera, world
+end
+
+local function setPreview(fish)
+	if not centerViewport or not fish then return end
+	local index
+	for i, item in ipairs(FishDefinitions.CATALOG) do
+		if item == fish or item.id == fish.id then index = i break end
+	end
+	previewModel, previewCamera, previewWorld = putModelInViewport(centerViewport, fish, index, true)
+	if not previewModel then
+		-- No misleading fish model: show a readable fallback message.
+		local hint = centerViewport:FindFirstChild("PreviewHint")
+		if not hint then
+			hint = Instance.new("TextLabel")
+			hint.Name = "PreviewHint"
+			hint.Size = UDim2.fromScale(1, 1)
+			hint.BackgroundTransparency = 1
+			hint.TextWrapped = true
+			hint.Font = Enum.Font.GothamBold
+			hint.TextSize = 16
+			hint.TextColor3 = COLORS.white
+			hint.Parent = centerViewport
+		end
+		hint.Text = "Model belum dipetakan\n" .. fish.name .. "\nTambahkan ID ikan ke MODEL_INDEX_BY_FISH_ID"
+	else
+		local hint = centerViewport:FindFirstChild("PreviewHint")
+		if hint then hint:Destroy() end
+	end
+end
+
+local function updateDetails(fish)
+	if not fish then return end
+	local entry = journalEntry(fish)
+	local discovered = isDiscovered(fish)
+	local rarityName, rarityColor, stars = getRarityInfo(fish)
+	local zoneName = getZoneName(fish.favoriteZone)
+
+	setText(rightPanel, "FishName", discovered and fish.name or "???")
+	setText(rightPanel, "DesciptionLabel", discovered and (fish.description or "Spesies ikan FISH!TUNE.") or "Spesies ini belum ditemukan. Jelajahi habitatnya dan cobalah memancing!")
+	setText(rightPanel, "DescriptionLabel", discovered and (fish.description or "Spesies ikan FISH!TUNE.") or "Spesies ini belum ditemukan. Jelajahi habitatnya dan cobalah memancing!")
+	setText(rightPanel, "HabitatLabel", zoneName)
+	setText(rightPanel, "CatchCountLabel", discovered and string.format("%d", tonumber(entry.count) or 0) or "0")
+	setText(rightPanel, "WeightLabel", string.format("%.1f–%.1f kg", fish.minWeight or 0, fish.maxWeight or 0))
+	setText(rightPanel, "RecordLabel", discovered and string.format("%.1f kg", tonumber(entry.maxWeight) or (fish.minWeight or 0)) or "Rekor: —")
+	setText(rightPanel, "RewardLabel", string.format("%d koin  •  %d EXP", fish.baseCoins or 0, fish.baseExp or 0))
+	local rarityImage = centerPanel:FindFirstChild(
+		"RarityImage",
+		true
+	)
+
+	if rarityImage and rarityImage:IsA("ImageLabel") then
+		local rarityKey = normalizeRarity(fish.rarity)
+
+		rarityImage.Image = RARITY_IMAGES[rarityKey]
+			or RARITY_IMAGES.COMMON
+
+		rarityImage.Visible = true
+	end
+
+	local rarityLabel = findText(rightPanel, "RarityLabel")
+	if rarityLabel then rarityLabel.TextColor3 = rarityColor end
+end
+
+local function selectFish(fish)
+	selectedFish = fish
+	setPreview(fish)
+	updateDetails(fish)
+	for _, card in ipairs(speciesGrid:GetChildren()) do
+		if card:IsA("GuiObject") and card:GetAttribute("FishId") then
+			local stroke = card:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				stroke.Color = card:GetAttribute("FishId") == fish.id and COLORS.accent or Color3.fromRGB(70, 110, 125)
+				stroke.Thickness = card:GetAttribute("FishId") == fish.id and 2 or 1
+			end
 		end
 	end
 end
 
--- ============ RENDER GRID ============
+local function updateProgress()
+	local discovered, total = 0, #FishDefinitions.CATALOG
+	for _, fish in ipairs(FishDefinitions.CATALOG) do
+		if isDiscovered(fish) then discovered += 1 end
+	end
+	setText(gui, "ProgressLabel", string.format("%d / %d SPESIES  •  %d%%", discovered, total, total > 0 and math.floor(discovered / total * 100) or 0))
+end
+
+local function makeCard(fish, catalogIndex, layoutOrder)
+	local card = fishCardTemplate:Clone()
+	card.Name = "FishCard_" .. tostring(fish.id)
+	card.Visible = true
+	card.LayoutOrder = layoutOrder
+	card:SetAttribute("FishId", fish.id)
+	card.Parent = speciesGrid
+
+	local nameLabel = findText(card, "FishName")
+	if nameLabel then
+		nameLabel.Text = isDiscovered(fish) and fish.name or "???"
+	end
+
+	local cardViewport = card:FindFirstChild("ViewportFrame", true)
+	if cardViewport and cardViewport:IsA("ViewportFrame") then
+		local model = putModelInViewport(cardViewport, fish, catalogIndex, false)
+		if not model then
+			local hint = Instance.new("TextLabel")
+			hint.Name = "ModelHint"
+			hint.Size = UDim2.fromScale(1, 1)
+			hint.BackgroundTransparency = 1
+			hint.Text = "?"
+			hint.TextColor3 = Color3.fromRGB(255, 255, 255)
+			hint.Font = Enum.Font.GothamBlack
+			hint.TextScaled = true
+			hint.Parent = cardViewport
+		end
+	end
+
+	local click = card:FindFirstChild("CardClick", true)
+	if not click then
+		click = Instance.new("TextButton")
+		click.Name = "CardClick"
+		click.BackgroundTransparency = 1
+		click.Text = ""
+		click.Size = UDim2.fromScale(1, 1)
+		click.ZIndex = 50
+		click.Parent = card
+	end
+	if click:IsA("GuiButton") then
+		click.Activated:Connect(function() selectFish(fish) end)
+	end
+end
+
 function FishDexUI.RenderGrid()
-	if not gridContainer then return end
-
-	for _, child in ipairs(gridContainer:GetChildren()) do
-		if child:IsA("Frame") or child:IsA("TextLabel") then
+	if not speciesGrid or not fishCardTemplate then return end
+	for _, child in ipairs(speciesGrid:GetChildren()) do
+		if child ~= fishCardTemplate and not child:IsA("UIGridStyleLayout") then
 			child:Destroy()
 		end
 	end
 
-	FishDexUI.UpdateProgressHeader()
-
-	-- Filter List
-	local displayList = {}
-	local searchLower = searchKeyword:lower():gsub("^%s+", ""):gsub("%s+$", "")
-
-	for _, fish in ipairs(FishDefinitions.CATALOG) do
-		local matchRarity = (currentRarityFilter == "ALL" or fish.rarity == currentRarityFilter)
-		local matchZone = (currentZoneFilter == "ALL" or fish.favoriteZone == currentZoneFilter)
-
-		local matchSearch = true
-		if searchLower ~= "" then
-			local n = fish.name:lower()
-			local r = (fish.rarity or ""):lower()
-			matchSearch = n:find(searchLower) ~= nil or r:find(searchLower) ~= nil
-		end
-
-		if matchRarity and matchZone and matchSearch then
-			table.insert(displayList, fish)
+	local filtered = {}
+	local needle = string.lower(searchText or "")
+	for index, fish in ipairs(FishDefinitions.CATALOG) do
+		local zoneMatches = selectedZone == "ALL" or fish.favoriteZone == selectedZone
+		local discoveryMatches = not undiscoveredOnly or not isDiscovered(fish)
+		local searchMatches = needle == "" or string.find(string.lower(fish.name or ""), needle, 1, true) ~= nil
+		if zoneMatches and discoveryMatches and searchMatches then
+			table.insert(filtered, { fish = fish, index = index })
 		end
 	end
 
-	if #displayList == 0 then
-		local emptyLabel = Instance.new("TextLabel")
-		emptyLabel.Size = UDim2.new(1, 0, 0, 160)
-		emptyLabel.BackgroundTransparency = 1
-		emptyLabel.Text = "🔍 Tidak ada spesies yang cocok dengan filter yang dipilih."
-		emptyLabel.TextColor3 = Color3.fromRGB(148, 163, 184)
-		emptyLabel.Font = Enum.Font.GothamMedium
-		emptyLabel.TextSize = 14
-		emptyLabel.ZIndex = 50
-		emptyLabel.Parent = gridContainer
-		return
+	for order, item in ipairs(filtered) do
+		makeCard(item.fish, item.index, order)
 	end
 
-	for idx, fish in ipairs(displayList) do
-		local entry = getJournalEntry(fish.id, fish.name)
-		local isDiscovered = (entry ~= nil and (entry.count or 0) > 0)
-		local r = fish.rarity or "COMMON"
-		local tierData = FishingRaritySystem.GetTierData(r)
-		local rColor = tierData.color or Color3.fromRGB(0, 200, 255)
-
-		-- Outer Card
-		local card = Instance.new("Frame")
-		card.Name = "FishCard_" .. fish.id
-		card.Size = UDim2.new(0, 182, 0, 160)
-		card.BackgroundColor3 = Color3.fromRGB(18, 27, 43) -- Card dark #121B2B
-		card.BorderSizePixel = 0
-		card.LayoutOrder = idx
-		card.ZIndex = 50
-		card.Parent = gridContainer
-		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
-
-		local cardStroke = Instance.new("UIStroke")
-		cardStroke.Color = Color3.fromRGB(30, 45, 68) -- Border #1E2D44
-		cardStroke.Thickness = 1.2
-		cardStroke.Parent = card
-
-		-- Top Preview Box with Dark Silhouette Background
-		local previewBox = Instance.new("Frame")
-		previewBox.Name = "PreviewBox"
-		previewBox.Size = UDim2.new(1, -12, 0, 84)
-		previewBox.Position = UDim2.new(0, 6, 0, 6)
-		previewBox.BackgroundColor3 = Color3.fromRGB(10, 17, 29) -- Dark preview #0A111D
-		previewBox.BorderSizePixel = 0
-		previewBox.ZIndex = 51
-		previewBox.Parent = card
-		Instance.new("UICorner", previewBox).CornerRadius = UDim.new(0, 10)
-
-		if isDiscovered then
-			local iconLbl = Instance.new("TextLabel")
-			iconLbl.Size = UDim2.new(1, 0, 1, 0)
-			iconLbl.BackgroundTransparency = 1
-			iconLbl.Text = "🐟"
-			iconLbl.Font = Enum.Font.GothamBlack
-			iconLbl.TextSize = 38
-			iconLbl.ZIndex = 52
-			iconLbl.Parent = previewBox
-		else
-			-- Red Mystery Question Mark
-			local qMark = Instance.new("TextLabel")
-			qMark.Size = UDim2.new(1, 0, 1, 0)
-			qMark.BackgroundTransparency = 1
-			qMark.Text = "?"
-			qMark.TextColor3 = Color3.fromRGB(244, 63, 94) -- Vibrant Red/Coral #F43F5E
-			qMark.Font = Enum.Font.GothamBlack
-			qMark.TextSize = 36
-			qMark.ZIndex = 52
-			qMark.Parent = previewBox
+	if #filtered > 0 then
+		local stillExists = false
+		for _, item in ipairs(filtered) do
+			if selectedFish and item.fish.id == selectedFish.id then stillExists = true break end
 		end
-
-		-- Line 1: Species Name (or "??? [Misterius]")
-		local nameLbl = Instance.new("TextLabel")
-		nameLbl.Size = UDim2.new(1, -16, 0, 18)
-		nameLbl.Position = UDim2.new(0, 8, 0, 96)
-		nameLbl.BackgroundTransparency = 1
-		nameLbl.Text = isDiscovered and fish.name or "??? [Misterius]"
-		nameLbl.TextColor3 = isDiscovered and rColor or Color3.fromRGB(226, 232, 240)
-		nameLbl.Font = Enum.Font.GothamBold
-		nameLbl.TextSize = 12
-		nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-		nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
-		nameLbl.ZIndex = 51
-		nameLbl.Parent = card
-
-		-- Line 2: Rarity Badge + Stars
-		local rStars = ""
-		for _, rc in ipairs(RARITY_CONFIG) do
-			if rc.id == r then
-				rStars = rc.stars
-				break
-			end
-		end
-
-		local tagLbl = Instance.new("TextLabel")
-		tagLbl.Size = UDim2.new(1, -16, 0, 16)
-		tagLbl.Position = UDim2.new(0, 8, 0, 116)
-		tagLbl.BackgroundTransparency = 1
-		tagLbl.RichText = true
-
-		local hexColor = string.format("#%02X%02X%02X", math.floor(rColor.R * 255), math.floor(rColor.G * 255), math.floor(rColor.B * 255))
-		tagLbl.Text = string.format("<font color=\"%s\"><b>[%s]</b></font>  <font color=\"#F59E0B\">%s</font>", hexColor, tierData.displayName, rStars)
-		tagLbl.Font = Enum.Font.GothamBold
-		tagLbl.TextSize = 10
-		tagLbl.TextXAlignment = Enum.TextXAlignment.Left
-		tagLbl.ZIndex = 51
-		tagLbl.Parent = card
-
-		-- Line 3: Location Pin + Zone Name (or catch stats)
-		local locLbl = Instance.new("TextLabel")
-		locLbl.Size = UDim2.new(1, -16, 0, 16)
-		locLbl.Position = UDim2.new(0, 8, 0, 136)
-		locLbl.BackgroundTransparency = 1
-
-		local zoneShort = (fish.favoriteZone == "SUMMIT_ABYSS" and "Summit") or (fish.favoriteZone == "TWIN_EYE_LAGOON" and "Twin Eye") or "Melody Bay"
-		if isDiscovered then
-			locLbl.Text = string.format("📍 %s  •  🎣 %dx", zoneShort, entry.count or 1)
-		else
-			locLbl.Text = string.format("📍 %s", zoneShort)
-		end
-		locLbl.TextColor3 = Color3.fromRGB(148, 163, 184)
-		locLbl.Font = Enum.Font.GothamMedium
-		locLbl.TextSize = 10
-		locLbl.TextXAlignment = Enum.TextXAlignment.Left
-		locLbl.ZIndex = 51
-		locLbl.Parent = card
-
-		-- Click Button & Hover Effect
-		local clickBtn = Instance.new("TextButton")
-		clickBtn.Size = UDim2.new(1, 0, 1, 0)
-		clickBtn.BackgroundTransparency = 1
-		clickBtn.Text = ""
-		clickBtn.ZIndex = 53
-		clickBtn.Parent = card
-
-		clickBtn.MouseEnter:Connect(function()
-			TweenService:Create(card, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundColor3 = Color3.fromRGB(24, 36, 56),
-			}):Play()
-		end)
-
-		clickBtn.MouseLeave:Connect(function()
-			TweenService:Create(card, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundColor3 = Color3.fromRGB(18, 27, 43),
-			}):Play()
-		end)
-
-		clickBtn.MouseButton1Click:Connect(function()
-			playLocalSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.4)
-			showFishDetailModal(activeModal, fish)
-		end)
+		if not stillExists then selectFish(filtered[1].fish) end
+	else
+		selectedFish = nil
+		clearViewport(centerViewport)
+		setText(rightPanel, "FishName", "Tidak ada ikan")
+		setText(rightPanel, "DescriptionLabel", "Coba ubah filter lokasi atau pencarian.")
 	end
 end
 
--- ============ SHOW FISHDEX MODAL ============
-function FishDexUI.Show(targetGui, pData)
-	if not targetGui then return end
-
-	if activeOverlay then
-		activeOverlay:Destroy()
-		activeOverlay = nil
-		activeModal = nil
-		isClosing = false
+local function buildLocationDropdown()
+	if not locationGrid or not locationTemplate then return end
+	locationTemplate.Visible = false
+	for _, child in ipairs(locationGrid:GetChildren()) do
+		if child ~= locationTemplate and not child:IsA("UIGridStyleLayout") then child:Destroy() end
 	end
+	locationButtons = {}
 
-	pData = pData or {}
-	cachedJournal = pData.journal or cachedJournal or {}
+	local unique = {}
+	for _, fish in ipairs(FishDefinitions.CATALOG) do
+		if fish.favoriteZone and fish.favoriteZone ~= "" then unique[fish.favoriteZone] = true end
+	end
+	local ids = {}
+	for id in pairs(unique) do table.insert(ids, id) end
+	table.sort(ids)
+	table.insert(ids, 1, "ALL")
 
-	-- 1. Fullscreen Dark Backdrop
-	local overlay = Instance.new("Frame")
-	overlay.Name = "FishDexOverlay"
-	overlay.Size = UDim2.new(1, 0, 1, 0)
-	overlay.Position = UDim2.new(0, 0, 0, 0)
-	overlay.BackgroundColor3 = Color3.fromRGB(2, 6, 12)
-	overlay.BackgroundTransparency = 1
-	overlay.BorderSizePixel = 0
-	overlay.ZIndex = 40
-	overlay.Parent = targetGui
-	activeOverlay = overlay
-
-	-- 2. Main FishDex Card Container
-	local card = Instance.new("Frame")
-	card.Name = "FishDexCard"
-	card.AnchorPoint = Vector2.new(0.5, 0.5)
-	card.Size = UDim2.new(0, 840, 0, 620)
-	card.Position = UDim2.new(0.5, 0, 0.54, 0)
-	card.BackgroundColor3 = Color3.fromRGB(13, 21, 32) -- Background #0D1520
-	card.BorderSizePixel = 0
-	card.ZIndex = 41
-	card.Parent = overlay
-	activeModal = card
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
-
-	-- Responsive Auto-Fit untuk Layar HP / Tablet (FISH-037)
-	MobileResponsiveHelper.AttachResponsiveScale(card, 840, 620)
-
-	local cardStroke = Instance.new("UIStroke")
-	cardStroke.Color = Color3.fromRGB(26, 40, 60)
-	cardStroke.Thickness = 1.8
-	cardStroke.Parent = card
-
-	-- Header Bar
-	local header = Instance.new("Frame")
-	header.Name = "Header"
-	header.Size = UDim2.new(1, 0, 0, 56)
-	header.BackgroundTransparency = 1
-	header.ZIndex = 42
-	header.Parent = card
-
-	-- Book Icon
-	local bookIcon = Instance.new("TextLabel")
-	bookIcon.Size = UDim2.new(0, 36, 0, 36)
-	bookIcon.Position = UDim2.new(0, 24, 0, 10)
-	bookIcon.BackgroundTransparency = 1
-	bookIcon.Text = "📖"
-	bookIcon.Font = Enum.Font.GothamBlack
-	bookIcon.TextSize = 28
-	bookIcon.ZIndex = 43
-	bookIcon.Parent = header
-
-	-- Header Title: "FISHDEX SAMUDRA"
-	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Size = UDim2.new(0.65, 0, 0, 24)
-	titleLabel.Position = UDim2.new(0, 66, 0, 10)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.RichText = true
-	titleLabel.Text = "<font color=\"#FFFFFF\"><b>FISHDEX</b></font> <font color=\"#38BDF8\"><b>SAMUDRA</b></font>"
-	titleLabel.Font = Enum.Font.GothamBlack
-	titleLabel.TextSize = 20
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	titleLabel.ZIndex = 43
-	titleLabel.Parent = header
-
-	local subtitleLabel = Instance.new("TextLabel")
-	subtitleLabel.Size = UDim2.new(0.65, 0, 0, 16)
-	subtitleLabel.Position = UDim2.new(0, 66, 0, 34)
-	subtitleLabel.BackgroundTransparency = 1
-	subtitleLabel.Text = "Katalog seluruh spesies ikan, habitat, dan catatan rekor pribadi."
-	subtitleLabel.TextColor3 = Color3.fromRGB(143, 160, 181)
-	subtitleLabel.Font = Enum.Font.GothamMedium
-	subtitleLabel.TextSize = 12
-	subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	subtitleLabel.ZIndex = 43
-	subtitleLabel.Parent = header
-
-	-- Close Button Top-Right
-	local closeBtn = Instance.new("TextButton")
-	closeBtn.Name = "CloseBtn"
-	closeBtn.Size = UDim2.new(0, 34, 0, 34)
-	closeBtn.Position = UDim2.new(1, -54, 0, 12)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(19, 29, 46)
-	closeBtn.BorderSizePixel = 0
-	closeBtn.Text = "🗙"
-	closeBtn.TextColor3 = Color3.fromRGB(203, 213, 225)
-	closeBtn.Font = Enum.Font.GothamBold
-	closeBtn.TextSize = 16
-	closeBtn.ZIndex = 43
-	closeBtn.Parent = header
-	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-
-	local closeStroke = Instance.new("UIStroke")
-	closeStroke.Color = Color3.fromRGB(30, 45, 68)
-	closeStroke.Thickness = 1
-	closeStroke.Parent = closeBtn
-
-	closeBtn.MouseButton1Click:Connect(function()
-		AudioEffectsSystem.PlayButtonClick()
-		FishDexUI.Hide()
-	end)
-
-	-- Progress Bar Frame: "📖 Koleksi Samudra   0 / 35 Spesies (0%)"
-	local progressFrame = Instance.new("Frame")
-	progressFrame.Name = "ProgressFrame"
-	progressFrame.Size = UDim2.new(1, -48, 0, 40)
-	progressFrame.Position = UDim2.new(0, 24, 0, 60)
-	progressFrame.BackgroundColor3 = Color3.fromRGB(15, 23, 38)
-	progressFrame.BorderSizePixel = 0
-	progressFrame.ZIndex = 42
-	progressFrame.Parent = card
-	Instance.new("UICorner", progressFrame).CornerRadius = UDim.new(0, 10)
-
-	local progressStroke = Instance.new("UIStroke")
-	progressStroke.Color = Color3.fromRGB(26, 40, 60)
-	progressStroke.Thickness = 1
-	progressStroke.Parent = progressFrame
-
-	progressSummaryLabel = Instance.new("TextLabel")
-	progressSummaryLabel.Size = UDim2.new(0.42, 0, 1, 0)
-	progressSummaryLabel.Position = UDim2.new(0, 16, 0, 0)
-	progressSummaryLabel.BackgroundTransparency = 1
-	progressSummaryLabel.RichText = true
-	progressSummaryLabel.Text = "📖 Koleksi Samudra    <font color=\"#38BDF8\"><b>0 / 35 Spesies (0%)</b></font>"
-	progressSummaryLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	progressSummaryLabel.Font = Enum.Font.GothamBold
-	progressSummaryLabel.TextSize = 12
-	progressSummaryLabel.TextXAlignment = Enum.TextXAlignment.Left
-	progressSummaryLabel.ZIndex = 43
-	progressSummaryLabel.Parent = progressFrame
-
-	local barTrack = Instance.new("Frame")
-	barTrack.Name = "BarTrack"
-	barTrack.Size = UDim2.new(0.52, 0, 0, 10)
-	barTrack.Position = UDim2.new(0.44, 0, 0.5, -5)
-	barTrack.BackgroundColor3 = Color3.fromRGB(10, 17, 29)
-	barTrack.BorderSizePixel = 0
-	barTrack.ZIndex = 43
-	barTrack.Parent = progressFrame
-	Instance.new("UICorner", barTrack).CornerRadius = UDim.new(1, 0)
-
-	progressFillBar = Instance.new("Frame")
-	progressFillBar.Name = "Fill"
-	progressFillBar.Size = UDim2.new(0, 0, 1, 0)
-	progressFillBar.BackgroundColor3 = Color3.fromRGB(2, 132, 199)
-	progressFillBar.BorderSizePixel = 0
-	progressFillBar.ZIndex = 44
-	progressFillBar.Parent = barTrack
-	Instance.new("UICorner", progressFillBar).CornerRadius = UDim.new(1, 0)
-
-	-- Filter Row 1: Rarity Tabs
-	local rarityContainer = Instance.new("Frame")
-	rarityContainer.Name = "RarityTabs"
-	rarityContainer.Size = UDim2.new(1, -48, 0, 36)
-	rarityContainer.Position = UDim2.new(0, 24, 0, 108)
-	rarityContainer.BackgroundTransparency = 1
-	rarityContainer.ZIndex = 42
-	rarityContainer.Parent = card
-
-	local rLayout = Instance.new("UIListLayout")
-	rLayout.FillDirection = Enum.FillDirection.Horizontal
-	rLayout.Padding = UDim.new(0, 8)
-	rLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	rLayout.Parent = rarityContainer
-
-	rarityTabWidgets = {}
-	for idx, tab in ipairs(RARITY_CONFIG) do
-		local tabBtn = Instance.new("TextButton")
-		tabBtn.Name = "RarityTab_" .. tab.id
-		tabBtn.Size = UDim2.new(0, (tab.id == "ALL" and 94) or (tab.id == "SUPER_RARE" and 124) or (tab.id == "LEGENDARY" and 124) or 100, 1, 0)
-		tabBtn.LayoutOrder = idx
-		tabBtn.BackgroundColor3 = Color3.fromRGB(19, 29, 46)
-		tabBtn.BorderSizePixel = 0
-		tabBtn.RichText = true
-
-		if tab.id == "ALL" then
-			tabBtn.Text = "<b>⊞  Semua</b>"
-		elseif tab.id == "SPECIAL" then
-			tabBtn.Text = "<font color=\"#E879F9\"><b>◆</b></font>  Special"
-		else
-			tabBtn.Text = string.format("<font color=\"#F59E0B\"><b>%s</b></font>  %s", tab.icon, tab.label)
+	for order, id in ipairs(ids) do
+		local button = locationTemplate:Clone()
+		button.Name = "LocationOption_" .. id
+		button.Visible = true
+		button.LayoutOrder = order
+		button.Parent = locationGrid
+		local label = findText(button, "LocationName")
+		local displayName = id == "ALL" and "Semua Lokasi" or getZoneName(id)
+		if label then label.Text = displayName elseif button:IsA("TextButton") then button.Text = displayName end
+		if button:IsA("GuiButton") then
+			button.Activated:Connect(function()
+				selectedZone = id
+				if locationButtonLabel then locationButtonLabel.Text = displayName .. "  ▼" end
+				locationGrid.Visible = false
+				FishDexUI.RenderGrid()
+			end)
 		end
-
-		tabBtn.TextColor3 = Color3.fromRGB(203, 213, 225)
-		tabBtn.Font = Enum.Font.GothamBold
-		tabBtn.TextSize = 11
-		tabBtn.ZIndex = 43
-		tabBtn.Parent = rarityContainer
-		Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
-
-		local tStroke = Instance.new("UIStroke")
-		tStroke.Color = Color3.fromRGB(30, 45, 68)
-		tStroke.Thickness = 1
-		tStroke.Parent = tabBtn
-
-		rarityTabWidgets[tab.id] = { button = tabBtn, stroke = tStroke }
-
-		tabBtn.MouseButton1Click:Connect(function()
-			AudioEffectsSystem.PlayButtonClick()
-			currentRarityFilter = tab.id
-			updateFilterTabStyles()
-			FishDexUI.RenderGrid()
-		end)
 	end
+end
 
-	-- Filter Row 2: Habitat Zones & Live Search
-	local secondFilterRow = Instance.new("Frame")
-	secondFilterRow.Name = "SecondFilterRow"
-	secondFilterRow.Size = UDim2.new(1, -48, 0, 36)
-	secondFilterRow.Position = UDim2.new(0, 24, 0, 150)
-	secondFilterRow.BackgroundTransparency = 1
-	secondFilterRow.ZIndex = 42
-	secondFilterRow.Parent = card
-
-	local zoneContainer = Instance.new("Frame")
-	zoneContainer.Size = UDim2.new(0.68, 0, 1, 0)
-	zoneContainer.BackgroundTransparency = 1
-	zoneContainer.ZIndex = 42
-	zoneContainer.Parent = secondFilterRow
-
-	local zLayout = Instance.new("UIListLayout")
-	zLayout.FillDirection = Enum.FillDirection.Horizontal
-	zLayout.Padding = UDim.new(0, 8)
-	zLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	zLayout.Parent = zoneContainer
-
-	zoneTabWidgets = {}
-	for idx, zone in ipairs(ZONE_CONFIG) do
-		local zBtn = Instance.new("TextButton")
-		zBtn.Name = "ZoneFilter_" .. zone.id
-		zBtn.Size = UDim2.new(0, (zone.id == "ALL" and 124) or (zone.id == "TWIN_EYE_LAGOON" and 142) or 118, 1, 0)
-		zBtn.LayoutOrder = idx
-		zBtn.BackgroundColor3 = Color3.fromRGB(19, 29, 46)
-		zBtn.BorderSizePixel = 0
-		zBtn.Text = string.format("%s  %s", zone.icon, zone.label)
-		zBtn.TextColor3 = Color3.fromRGB(203, 213, 225)
-		zBtn.Font = Enum.Font.GothamBold
-		zBtn.TextSize = 11
-		zBtn.ZIndex = 43
-		zBtn.Parent = zoneContainer
-		Instance.new("UICorner", zBtn).CornerRadius = UDim.new(0, 8)
-
-		local zStroke = Instance.new("UIStroke")
-		zStroke.Color = Color3.fromRGB(30, 45, 68)
-		zStroke.Thickness = 1
-		zStroke.Parent = zBtn
-
-		zoneTabWidgets[zone.id] = { button = zBtn, stroke = zStroke }
-
-		zBtn.MouseButton1Click:Connect(function()
-			AudioEffectsSystem.PlayButtonClick()
-			currentZoneFilter = zone.id
-			updateFilterTabStyles()
-			FishDexUI.RenderGrid()
-		end)
-	end
-
-	-- Live Search Input on Right
-	local searchFrame = Instance.new("Frame")
-	searchFrame.Name = "SearchFrame"
-	searchFrame.Size = UDim2.new(0.30, 0, 1, 0)
-	searchFrame.Position = UDim2.new(0.70, 0, 0, 0)
-	searchFrame.BackgroundColor3 = Color3.fromRGB(19, 29, 46)
-	searchFrame.BorderSizePixel = 0
-	searchFrame.ZIndex = 42
-	searchFrame.Parent = secondFilterRow
-	Instance.new("UICorner", searchFrame).CornerRadius = UDim.new(0, 8)
-
-	local sStroke = Instance.new("UIStroke")
-	sStroke.Color = Color3.fromRGB(30, 45, 68)
-	sStroke.Thickness = 1
-	sStroke.Parent = searchFrame
-
-	local sIcon = Instance.new("TextLabel")
-	sIcon.Size = UDim2.new(0, 28, 1, 0)
-	sIcon.Position = UDim2.new(0, 6, 0, 0)
-	sIcon.BackgroundTransparency = 1
-	sIcon.Text = "🔍"
-	sIcon.Font = Enum.Font.GothamBold
-	sIcon.TextSize = 12
-	sIcon.ZIndex = 43
-	sIcon.Parent = searchFrame
-
-	local searchBox = Instance.new("TextBox")
-	searchBox.Name = "SearchBox"
-	searchBox.Size = UDim2.new(1, -38, 1, 0)
-	searchBox.Position = UDim2.new(0, 34, 0, 0)
-	searchBox.BackgroundTransparency = 1
-	searchBox.PlaceholderText = "Cari spesies..."
-	searchBox.PlaceholderColor3 = Color3.fromRGB(100, 116, 139)
-	searchBox.Text = searchKeyword
-	searchBox.TextColor3 = Color3.fromRGB(241, 245, 249)
-	searchBox.Font = Enum.Font.GothamMedium
-	searchBox.TextSize = 11
-	searchBox.TextXAlignment = Enum.TextXAlignment.Left
-	searchBox.ClearTextOnFocus = false
-	searchBox.ZIndex = 43
-	searchBox.Parent = searchFrame
-
-	searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-		searchKeyword = searchBox.Text
-		FishDexUI.RenderGrid()
-	end)
-
-	-- Scrollable 4-Column Species Grid
-	local scrollFrame = Instance.new("ScrollingFrame")
-	scrollFrame.Name = "SpeciesGrid"
-	scrollFrame.Size = UDim2.new(1, -48, 1, -204)
-	scrollFrame.Position = UDim2.new(0, 24, 0, 194)
-	scrollFrame.BackgroundTransparency = 1
-	scrollFrame.BorderSizePixel = 0
-	scrollFrame.ScrollBarThickness = 6
-	scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(2, 132, 199)
-	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-	scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	scrollFrame.ZIndex = 42
-	scrollFrame.Parent = card
-	gridContainer = scrollFrame
-
-	local gLayout = Instance.new("UIGridLayout")
-	gLayout.CellSize = UDim2.new(0, 187, 0, 160)
-	gLayout.CellPadding = UDim2.new(0, 12, 0, 12)
-	gLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	gLayout.Parent = scrollFrame
-
-	updateFilterTabStyles()
+function FishDexUI.UpdateJournalData(journal)
+	cachedJournal = journal or {}
+	updateProgress()
 	FishDexUI.RenderGrid()
+end
 
-	-- Entrance Animation
-	local overlayIn = TweenService:Create(overlay, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		BackgroundTransparency = 0.35,
-	})
-	local cardIn = TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Size = UDim2.new(0, 840, 0, 620),
-		Position = UDim2.new(0.5, 0, 0.5, 0),
-		BackgroundTransparency = 0,
-	})
+function FishDexUI.SetZoneFilter(zoneId)
+	selectedZone = zoneId or "ALL"
+	FishDexUI.RenderGrid()
+end
 
-	overlayIn:Play()
-	cardIn:Play()
-	AudioEffectsSystem.PlayModalOpen()
+function FishDexUI.SetUndiscoveredOnly(enabled)
+	undiscoveredOnly = enabled == true
+	FishDexUI.RenderGrid()
+end
 
-	return overlay
+function FishDexUI.Show(targetGui, pData)
+	local playerGui = player:WaitForChild("PlayerGui")
+
+	gui = playerGui:WaitForChild("FishDexGui")
+	background = gui:WaitForChild("Background")
+	leftPanel = gui:WaitForChild("LeftPanel")
+	centerPanel = gui:WaitForChild("CenterPanel")
+	rightPanel = gui:WaitForChild("RightPanel")
+
+	locationGrid = leftPanel:WaitForChild("LocationGrid")
+	locationTemplate = locationGrid:WaitForChild("LocationTemplate")
+	locationButton = leftPanel:WaitForChild("LocationButton")
+	locationButtonLabel = findText(locationButton, "LocationName")
+	speciesGrid = leftPanel:WaitForChild("SpeciesGrid")
+	fishCardTemplate = speciesGrid:WaitForChild("FishCardTemplate")
+	centerViewport = centerPanel:WaitForChild("FishViewport")
+
+	cachedJournal = (pData and pData.journal) or cachedJournal or {}
+	isOpen = true
+	gui.Enabled = true
+	background.Visible = true
+	locationGrid.Visible = false
+	fishCardTemplate.Visible = false
+
+	buildLocationDropdown()
+	if locationButton:IsA("GuiButton") and not locationButton:GetAttribute("FishDexBound") then
+		locationButton:SetAttribute("FishDexBound", true)
+		locationButton.Activated:Connect(function()
+			locationGrid.Visible = not locationGrid.Visible
+		end)
+	end
+
+	-- The TextButton directly under LeftPanel is treated as the undiscovered-only toggle.
+	local undiscoveredButton = leftPanel:FindFirstChild("TextButton")
+	if undiscoveredButton and undiscoveredButton:IsA("GuiButton") then
+		local label = findText(undiscoveredButton, "TextLabel")
+		local function refreshToggleText()
+			if undiscoveredButton:IsA("TextButton") then
+				undiscoveredButton.Text = undiscoveredOnly and "☑" or "☐"
+			end
+		end
+		refreshToggleText()
+		if not undiscoveredButton:GetAttribute("FishDexBound") then
+			undiscoveredButton:SetAttribute("FishDexBound", true)
+			undiscoveredButton.Activated:Connect(function()
+				undiscoveredOnly = not undiscoveredOnly
+				refreshToggleText()
+				FishDexUI.RenderGrid()
+			end)
+		end
+	end
+
+	local searchBox = leftPanel:FindFirstChild("SearchBox", true)
+	if searchBox and searchBox:IsA("TextBox") then
+		searchText = searchBox.Text
+		if not searchBox:GetAttribute("FishDexBound") then
+			searchBox:SetAttribute("FishDexBound", true)
+			searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+				searchText = searchBox.Text
+				FishDexUI.RenderGrid()
+			end)
+		end
+	end
+
+	local closeButton = gui:FindFirstChild("CloseButton", true)
+	if closeButton and closeButton:IsA("GuiButton") and not closeButton:GetAttribute("FishDexBound") then
+		closeButton:SetAttribute("FishDexBound", true)
+		closeButton.Activated:Connect(function() FishDexUI.Hide() end)
+	end
+
+	updateProgress()
+	FishDexUI.RenderGrid()
+	return gui
+end
+
+function FishDexUI.Hide(callback)
+	isOpen = false
+
+	if previewRotationConnection then
+		previewRotationConnection:Disconnect()
+		previewRotationConnection = nil
+	end
+
+	if gui then
+		gui.Enabled = false
+	end
+
+	if callback then
+		callback()
+	end
+end
+
+function FishDexUI.IsOpen()
+	return isOpen and gui ~= nil and gui.Enabled
+end
+
+function FishDexUI.SelectFish(fish)
+	if fish then selectFish(fish) end
 end
 
 return FishDexUI
