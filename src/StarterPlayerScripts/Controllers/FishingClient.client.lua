@@ -21,7 +21,6 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
-local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
 local function getPlayerGui()
@@ -43,8 +42,6 @@ local EconomyHUD = require(Shared:WaitForChild("Minigames"):WaitForChild("Econom
 local TutorialUI = require(Shared:WaitForChild("Minigames"):WaitForChild("TutorialUI"))
 local KeybindSystem = require(Shared:WaitForChild("Systems"):WaitForChild("KeybindSystem"))
 local KeybindSettingsUI = require(Shared:WaitForChild("Minigames"):WaitForChild("KeybindSettingsUI"))
-local SongSelectionUI = require(Shared:WaitForChild("Minigames"):WaitForChild("SongSelectionUI"))
-local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local FishingRaritySystem = require(Shared:WaitForChild("Systems"):WaitForChild("FishingRaritySystem"))
@@ -58,14 +55,21 @@ local fsm = FishingStateMachine.new()
 local mobileActionCtrl = nil
 local fishTemplate = ReplicatedStorage:WaitForChild("AnimatedFish", 5)
 local bobberTemplate = ReplicatedStorage:WaitForChild("BobberTemplate", 5)
+local fishDexGui = game.Players.LocalPlayer
+	:WaitForChild("PlayerGui")
+	:WaitForChild("FishDexGui")
 
-local playerGui = player:WaitForChild("PlayerGui")
-local fishDexGui = playerGui:WaitForChild("FishDexGui")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local fishDexGui = player.PlayerGui:WaitForChild("FishDexGui")
 local closeButton = fishDexGui:WaitForChild("CloseButton")
 
 local function isFishDexOpen()
 	return FishDexUI.IsOpen()
 end
+
+local StarterGui = game:GetService("StarterGui")
 
 local function setHotbarVisible(visible)
 	StarterGui:SetCoreGuiEnabled(
@@ -2201,6 +2205,7 @@ local function buildFishDexHUD()
 
 	fishDexBtn.MouseButton1Click:Connect(function()
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+
 		if FishDexUI.IsOpen() then
 			FishDexUI.Hide()
 			setHotbarVisible(true)
@@ -2209,11 +2214,11 @@ local function buildFishDexHUD()
 			setHotbarVisible(false)
 		end
 	end)
-
+	
 	closeButton.MouseButton1Click:Connect(function()
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
-		FishDexUI.Hide()
-		setHotbarVisible(true)
+			FishDexUI.Hide()
+			setHotbarVisible(true)
 	end)
 end
 
@@ -2285,41 +2290,6 @@ end
 
 buildPanduanHUD()
 
--- ============ SISTEM PEMILIHAN LAGU HUD (FISH-046) ============
-local songSelectBtn
-local function buildSongSelectionHUD()
-	songSelectBtn = Instance.new("TextButton")
-	songSelectBtn.Name = "SongSelectBtn"
-	songSelectBtn.Size = UDim2.new(0, 145, 0, 36)
-	songSelectBtn.Position = UDim2.new(0, 20, 0.50, 0)
-	songSelectBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
-	songSelectBtn.BackgroundTransparency = 0.25
-	songSelectBtn.BorderSizePixel = 0
-	songSelectBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("🎵 LAGU [M]")
-	songSelectBtn.TextColor3 = Color3.fromRGB(192, 132, 252)
-	songSelectBtn.Font = Enum.Font.GothamBlack
-	songSelectBtn.TextSize = 12
-	songSelectBtn.Parent = gui
-	Instance.new("UICorner", songSelectBtn).CornerRadius = UDim.new(0, 10)
-
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(168, 85, 247)
-	btnStroke.Thickness = 1.5
-	btnStroke.Transparency = 0.4
-	btnStroke.Parent = songSelectBtn
-
-	songSelectBtn.MouseButton1Click:Connect(function()
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
-		if SongSelectionUI.IsOpen() then
-			SongSelectionUI.Hide()
-		else
-			SongSelectionUI.Show(gui, lastPlayerData)
-		end
-	end)
-end
-
-buildSongSelectionHUD()
-
 -- ============ LISTENER INPUT AKTIVASI ============
 local lastTriggerTime = 0
 local function handleInteractionTrigger()
@@ -2359,8 +2329,8 @@ if mobileActionCtrl then
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	-- 1. Jika modal pengaturan tombol atau pemilihan lagu sedang terbuka, cegah SEMUA hotkey agar tidak bentrok!
-	if KeybindSettingsUI.IsOpen() or SongSelectionUI.IsOpen() then return end
+	-- 1. Jika modal pengaturan tombol sedang terbuka, cegah SEMUA hotkey agar tidak bentrok saat rebinding!
+	if KeybindSettingsUI.IsOpen() then return end
 
 	-- 2. Jika minigame rhythm sedang aktif atau tantangan sedang berlangsung, cegah semua hotkey!
 	if RhythmController.IsPlaying() or (fsm and fsm:GetState() == "CHALLENGE") then return end
@@ -2382,7 +2352,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 		return
 	end
-
+	
 	if FishDexUI.IsOpen() then
 		return
 	end
@@ -2412,16 +2382,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	-- Hotkey O untuk Toggle Pengaturan Tombol Keybind Rhythm (FISH-045)
 	if not gameProcessed and (input.KeyCode == Enum.KeyCode.O) then
 		KeybindSettingsUI.Toggle(gui)
-		return
-	end
-
-	-- Hotkey M untuk Toggle Katalog Pemilihan Lagu (FISH-046)
-	if not gameProcessed and (input.KeyCode == Enum.KeyCode.M) then
-		if SongSelectionUI.IsOpen() then
-			SongSelectionUI.Hide()
-		else
-			SongSelectionUI.Show(gui, lastPlayerData)
-		end
 		return
 	end
 	if gameProcessed then return end
@@ -2678,9 +2638,6 @@ if remote then
 			if pData.journal then
 				FishDexUI.UpdateJournalData(pData.journal)
 			end
-			if pData.preferredSongId then
-				SongSelectionUI.UpdateSelectedSong(pData.preferredSongId)
-			end
 			syncTutorialState(lastPlayerData)
 			updatePityUI()
 			EconomyHUD.Update(lastPlayerData, #getFishInBackpack())
@@ -2773,13 +2730,6 @@ if remote then
 			if tostring(arg1):find("❌") or tostring(arg1):find("tidak valid") or tostring(arg1):find("Gagal") then
 				fsm:ForceReset("ServerRejectedAction")
 			end
-		elseif action == RemoteContract.S2C.SONG_SELECTED then
-			local songId = arg1
-			lastPlayerData.preferredSongId = songId
-			SongSelectionUI.UpdateSelectedSong(songId)
-			local song = SongChartCatalog.GetSong(songId)
-			local name = song and song.title or (songId == "AUTO" and "Otomatis" or tostring(songId))
-			showMessage(string.format("🎵 Lagu aktif: %s", name), Color3.fromRGB(192, 132, 252), 3.0)
 		end
 	end)
 

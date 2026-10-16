@@ -22,7 +22,6 @@ local XPProgressionSystem = require(Shared:WaitForChild("Systems"):WaitForChild(
 local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitForChild("InstrumentDefinitions"))
 local RemoteContract = require(Shared:WaitForChild("Network"):WaitForChild("RemoteContract"))
 local PlayerDataSchema = require(Shared:WaitForChild("Config"):WaitForChild("PlayerDataSchema"))
-local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 
 -- Lazy-load InventoryService untuk mencegah circular dependency
 local InventoryService = nil
@@ -248,32 +247,6 @@ function PlayerDataService.SetKeybinds(player, keybinds)
 	end)
 
 	return true
-end
-
-function PlayerDataService.SetPreferredSong(player, songId)
-	local pData = PlayerDataService.Get(player)
-	if not pData then return false, "Data pemain tidak ditemukan." end
-
-	local cleanSongId = "AUTO"
-	if songId and typeof(songId) == "string" and songId ~= "" and songId ~= "AUTO" then
-		local song = SongChartCatalog.GetSong(songId)
-		if song then
-			cleanSongId = song.id
-		else
-			cleanSongId = "AUTO"
-		end
-	end
-
-	pData.preferredSongId = cleanSongId
-	RemoteContract.Server.PlayerDataUpdate(player, pData, pData.pity)
-	RemoteContract.Server.SongSelected(player, cleanSongId)
-
-	-- Simpan seketika ke DataStore agar pilihan lagu tersimpan aman
-	task.spawn(function()
-		PlayerDataService.SaveData(player)
-	end)
-
-	return true, cleanSongId
 end
 
 function PlayerDataService.AddExp(player, amount)

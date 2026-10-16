@@ -176,29 +176,12 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 	local instrumentType = (pData and pData.equippedInstrument) or InstrumentDefinitions.GetInstrumentTypeForRod(equippedRod)
 	local rodMapping = InstrumentDefinitions.GetRodMapping(equippedRod)
 
-	-- 8. Pilih Lagu/Chart Ritme Secara Authoritative (FISH-043 / FISH-046)
-	local preferredSongId = pData and pData.preferredSongId
-	local preferredSong = (preferredSongId and preferredSongId ~= "AUTO") and SongChartCatalog.GetSong(preferredSongId)
-	local selectedSong = nil
-
-	if preferredSong and preferredSong.charts and preferredSong.charts[instrumentType] then
-		local chart = preferredSong.charts[instrumentType]
-		selectedSong = {
-			song = preferredSong,
-			chart = chart,
-			songId = preferredSong.id,
-			title = preferredSong.title,
-			bpm = chart.bpm or preferredSong.bpm,
-			difficulty = preferredSong.difficulty or 2,
-			starRating = preferredSong.starRating or "★★☆☆☆",
-		}
-	else
-		selectedSong = SongChartCatalog.SelectSongForSession({
-			instrumentType = instrumentType,
-			zoneId = zone and zone.id or "MELODY_BAY",
-			rarity = rolledRarity,
-		})
-	end
+	-- 8. Pilih Lagu/Chart Ritme Secara Authoritative (FISH-043)
+	local selectedSong = SongChartCatalog.SelectSongForSession({
+		instrumentType = instrumentType,
+		zoneId = zone and zone.id or "MELODY_BAY",
+		rarity = rolledRarity,
+	})
 
 	local sessionData = {
 		sessionId = sessionId,
@@ -207,8 +190,8 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		rodId = equippedRod,
 		instrumentType = instrumentType,
 		instrumentVariant = rodMapping.instrumentVariant or "DEFAULT",
-		songId = selectedSong.song and selectedSong.song.id or selectedSong.songId or "CANON_IN_D",
-		songTitle = selectedSong.title or (selectedSong.song and selectedSong.song.title) or "Canon in D",
+		songId = selectedSong.song and selectedSong.song.id or "CANON_IN_D",
+		songTitle = selectedSong.title or "Canon in D",
 		songBpm = selectedSong.bpm or 120,
 		songDifficulty = selectedSong.difficulty or 2,
 		waterPos = waterPos,
