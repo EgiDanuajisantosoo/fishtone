@@ -78,7 +78,7 @@ function LootTableSystem.RollCategory(luck, zoneId)
 end
 
 -- ============ 3. GENERATOR LOOT LENGKAP ============
-function LootTableSystem.GenerateLoot(category, rarity, playerLevel, performanceScore, zoneId, effectiveLuck)
+function LootTableSystem.GenerateLoot(category, rarity, playerLevel, performanceScore, zoneId, effectiveLuck, preselectedCandidate)
 	category = tostring(category or "FISH"):upper()
 	rarity = tostring(rarity or "COMMON"):upper():gsub("%s+", "_")
 	playerLevel = math.max(1, tonumber(playerLevel) or 1)
@@ -87,7 +87,7 @@ function LootTableSystem.GenerateLoot(category, rarity, playerLevel, performance
 
 	-- KATEGORI 1: IKAN (FISH)
 	if category == "FISH" then
-		local fishData = FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId, effectiveLuck)
+		local fishData = FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId, effectiveLuck, preselectedCandidate)
 		fishData.itemType = "FISH"
 		fishData.categoryName = "Ikan Samudra"
 		fishData.categoryBadge = "🐟 IKAN"

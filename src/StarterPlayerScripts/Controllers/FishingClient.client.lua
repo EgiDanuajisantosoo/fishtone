@@ -104,6 +104,7 @@ local activeSessionId = nil
 local activeSessionSongId = nil
 local activeSessionTargetNotes = nil
 local activeSessionBasePenalty = nil
+local activeSessionSpeed = nil
 
 local function mergePlayerData(newData)
 	if not newData or typeof(newData) ~= "table" then return end
@@ -1288,7 +1289,7 @@ executeCastAfterMeter = function()
 	})
 end
 
-onSessionStarted = function(sessionId, waitDuration, castQuality, songId, targetNotes, basePenalty)
+onSessionStarted = function(sessionId, waitDuration, castQuality, songId, targetNotes, basePenalty, speed)
 	serverSessionReceived = true
 
 	-- Batalkan jika status bukan CASTING atau WAITING_FOR_BITE yang cocok
@@ -1302,6 +1303,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, songId, target
 	activeSessionSongId = songId
 	activeSessionTargetNotes = targetNotes
 	activeSessionBasePenalty = basePenalty
+	activeSessionSpeed = speed
 
 	local waterPos = currentWaterTarget or findWaterTarget()
 	if not waterPos then
@@ -1400,6 +1402,7 @@ onSessionStarted = function(sessionId, waitDuration, castQuality, songId, target
 		tier = "MYSTERY",
 		targetNotes = activeSessionTargetNotes,
 		basePenaltyNotes = activeSessionBasePenalty,
+		speed = activeSessionSpeed,
 		rodId = currentRod,
 		instrumentType = instType,
 		zoneId = zoneId,
@@ -2336,7 +2339,7 @@ watchInventory()
 
 -- ============ RESPON REMOTE SERVER ============
 if remote then
-	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3, arg4, arg5, arg6)
+	remote.OnClientEvent:Connect(function(action, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 		if action == RemoteContract.S2C.SESSION_STARTED then
 			local sessionId = arg1
 			local waitDuration = arg2 or 3.0
@@ -2344,6 +2347,7 @@ if remote then
 			local songId = arg4
 			local targetNotes = arg5
 			local basePenalty = arg6
+			local speed = arg7
 
 			task.spawn(function()
 				onSessionStarted(
@@ -2352,7 +2356,8 @@ if remote then
 					castQuality,
 					songId,
 					targetNotes,
-					basePenalty
+					basePenalty,
+					speed
 				)
 			end)
 		elseif action == RemoteContract.S2C.CATCH_SUCCESS then

@@ -187,7 +187,8 @@ if remote then
 				session.castQuality,
 				session.songId,
 				cv.targetNotes,
-				cv.basePenaltyNotes
+				cv.basePenaltyNotes,
+				cv.speed
 			)
 			return
 		end

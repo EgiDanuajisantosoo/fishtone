@@ -67,13 +67,17 @@ function RhythmService.BindSessionChart(session)
 	local chart = (song.charts and song.charts[instrumentType]) or song.charts[InstrumentDefinitions.Types.PIANO]
 	local chartBpm = (chart and chart.bpm) or song.bpm or 120
 
-	-- 2. Turunkan target notes dan modifier lingkungan
+	-- 2. Turunkan target notes, speed, dan penalti (Sistem Hybrid: Data Ikan override Tier)
 	local tierData = FishingRaritySystem.GetTierData(rarity) or {}
 	local islandMod = InstrumentConfig.GetIslandModifier(zoneId) or {}
 	local castBonus = InstrumentConfig.CAST_BONUSES[castQuality] or InstrumentConfig.CAST_BONUSES.GOOD
 
-	local baseTarget = tierData.targetNotes or 30
+	local candidate = session.candidateFish
+	local baseTarget = (candidate and candidate.targetNotes) or tierData.targetNotes or 30
 	local targetNotes = baseTarget + (islandMod.targetNotesBonus or 0)
+
+	local baseSpeed = (candidate and candidate.speed) or tierData.speed or 0.35
+	local basePenalty = (candidate and candidate.basePenaltyNotes) or tierData.basePenaltyNotes or 3
 
 	-- 3. Hitung starting progress dari cast quality (Rule 7: PERFECT = 35%, GREAT = 20%, GOOD = 10%)
 	local startRatio = castBonus.startRatio or 0.10
@@ -82,7 +86,7 @@ function RhythmService.BindSessionChart(session)
 
 	-- 4. Hitung batas penalti kesalahan
 	local penaltyMult = castBonus.penaltyMult or 1.0
-	local basePenaltyNotes = math.max(1, math.floor((tierData.basePenaltyNotes or 3) * penaltyMult * (islandMod.penaltyMultiplier or 1.0)))
+	local basePenaltyNotes = math.max(1, math.floor(basePenalty * penaltyMult * (islandMod.penaltyMultiplier or 1.0)))
 
 	-- 5. Hitung batas durasi tantangan fisik minimal berdasarkan BPM lagu
 	-- 1 beat = (60 / BPM) detik. Aliran nada tercepat wajar adalah subdivisi 1/8 atau 1/16
@@ -98,6 +102,7 @@ function RhythmService.BindSessionChart(session)
 		difficulty = song.difficulty or 2,
 		starRating = song.starRating or "★★☆☆☆",
 		targetNotes = targetNotes,
+		speed = baseSpeed,
 		startRatio = startRatio,
 		initialNotes = initialNotes,
 		notesNeededToWin = notesNeededToWin,

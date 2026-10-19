@@ -55,62 +55,62 @@ FishingRaritySystem.CONFIG = {
 	}
 }
 
--- Definisi 6 Tier Rarity & Visual & Target Nada
+-- Definisi 6 Tier Rarity & Visual & Target Nada Default (Sistem Hybrid FISH-017)
 FishingRaritySystem.TIERS = {
 	SPECIAL = {
 		name = "SPECIAL",
 		displayName = "SPECIAL",
-		targetNotes = 500,
+		targetNotes = 175,
 		stars = "⭐⭐⭐⭐⭐⭐",
 		color = Color3.fromRGB(255, 60, 200),
 		badgeColor = Color3.fromRGB(255, 120, 30),
 		order = 6,
-		basePenaltyNotes = 30,
-		speed = 0.52,
+		basePenaltyNotes = 14,
+		speed = 0.62,
 	},
 	MYTHIC = {
 		name = "MYTHIC",
 		displayName = "MYTHIC",
-		targetNotes = 300,
+		targetNotes = 120,
 		stars = "⭐⭐⭐⭐⭐",
 		color = Color3.fromRGB(235, 45, 45),
 		badgeColor = Color3.fromRGB(195, 25, 25),
 		order = 5,
-		basePenaltyNotes = 20,
-		speed = 0.48,
+		basePenaltyNotes = 10,
+		speed = 0.56,
 	},
 	LEGENDARY = {
 		name = "LEGENDARY",
 		displayName = "LEGENDARY",
-		targetNotes = 250,
+		targetNotes = 85,
 		stars = "⭐⭐⭐⭐",
 		color = Color3.fromRGB(240, 185, 20),
 		badgeColor = Color3.fromRGB(210, 160, 10),
 		order = 4,
-		basePenaltyNotes = 15,
-		speed = 0.44,
+		basePenaltyNotes = 7,
+		speed = 0.50,
 	},
 	SUPER_RARE = {
 		name = "SUPER RARE",
 		displayName = "SUPER RARE",
-		targetNotes = 100,
+		targetNotes = 55,
 		stars = "⭐⭐⭐",
 		color = Color3.fromRGB(170, 50, 240),
 		badgeColor = Color3.fromRGB(140, 30, 210),
 		order = 3,
-		basePenaltyNotes = 10,
-		speed = 0.39,
+		basePenaltyNotes = 5,
+		speed = 0.44,
 	},
 	RARE = {
 		name = "RARE",
 		displayName = "RARE",
-		targetNotes = 60,
+		targetNotes = 35,
 		stars = "⭐⭐",
 		color = Color3.fromRGB(0, 140, 255),
 		badgeColor = Color3.fromRGB(0, 110, 220),
 		order = 2,
-		basePenaltyNotes = 7,
-		speed = 0.34,
+		basePenaltyNotes = 3,
+		speed = 0.38,
 	},
 	COMMON = {
 		name = "COMMON",
@@ -120,8 +120,8 @@ FishingRaritySystem.TIERS = {
 		color = Color3.fromRGB(150, 155, 165),
 		badgeColor = Color3.fromRGB(120, 125, 135),
 		order = 1,
-		basePenaltyNotes = 5,
-		speed = 0.30,
+		basePenaltyNotes = 2,
+		speed = 0.32,
 	},
 }
 
@@ -291,9 +291,9 @@ function FishingRaritySystem.UpdatePityOnCatch(pityState, obtainedRarity)
 end
 
 -- ============ 6. GENERATOR IKAN DENGAN STATS LENGKAP & MUTASI (FISH-019) ============
-function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId, effectiveLuck)
+function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore, zoneId, effectiveLuck, preselectedTemplate)
 	local tierKey = tostring(rarity or "COMMON"):upper():gsub("%s+", "_")
-	local template = FishDefinitions.GetRandomFish(tierKey, zoneId)
+	local template = preselectedTemplate or FishDefinitions.GetRandomFish(tierKey, zoneId)
 	local tierData = FishingRaritySystem.GetTierData(tierKey)
 
 	playerLevel = math.max(1, tonumber(playerLevel) or 1)
@@ -338,6 +338,11 @@ function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore,
 		end
 	end
 
+	-- 5. Sistem Hybrid: Periksa kustomisasi pada ikan, jika kosong gunakan default tier
+	local finalTargetNotes = template.targetNotes or tierData.targetNotes
+	local finalSpeed = template.speed or tierData.speed
+	local finalPenalty = template.basePenaltyNotes or tierData.basePenaltyNotes
+
 	return {
 		id = template.id or ("FISH_" .. string.gsub(template.name:upper(), "%s+", "_")),
 		name = fishName,
@@ -348,7 +353,9 @@ function FishingRaritySystem.GenerateFish(rarity, playerLevel, performanceScore,
 		stars = tierData.stars,
 		color = color,
 		badgeColor = tierData.badgeColor,
-		targetNotes = tierData.targetNotes,
+		targetNotes = finalTargetNotes,
+		speed = finalSpeed,
+		basePenaltyNotes = finalPenalty,
 		weight = weight,
 		coins = coins,
 		exp = exp,

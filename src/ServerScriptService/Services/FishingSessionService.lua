@@ -162,11 +162,16 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		waitDuration = math.random(14, 20) / 10
 	end
 
-	-- 6. Hitung TTL Sesi Dinamis Berdasarkan Target Notes Rarity
+	-- 6. Hitung TTL Sesi Dinamis Berdasarkan Target Notes Rarity (Hybrid Fish Support)
 	local tierData = FishingRaritySystem.GetTierData(rolledRarity)
-	local targetNotes = tierData.targetNotes or 30
+	local candidateFish = nil
+	if rolledCategory == "FISH" then
+		candidateFish = FishDefinitions.GetRandomFish(rolledRarity, zone and zone.id)
+	end
+
+	local baseTarget = (candidateFish and candidateFish.targetNotes) or tierData.targetNotes or 30
 	-- Beri waktu leluasa: minimal 120 detik, atau (targetNotes * 1.5 detik) + 45 detik
-	local sessionTTL = math.max(BASE_SESSION_TTL, math.ceil(targetNotes * 1.5) + 45)
+	local sessionTTL = math.max(BASE_SESSION_TTL, math.ceil(baseTarget * 1.5) + 45)
 
 	-- 7. Bangun Session ID Unik & Bind Instrument Authoritative
 	local sessionId = string.format("%d_%d_%d", player.UserId, os.time(), math.random(1000, 9999))
@@ -204,6 +209,7 @@ function FishingSessionService.CreateSession(player, waterPos, castQuality, cast
 		wasPity = wasPity,
 		zoneId = zone and zone.id or "MELODY_BAY",
 		lootCategory = rolledCategory,
+		candidateFish = candidateFish, -- Server-Only secret pre-roll (Blind Fishing Rule 4)
 		effectiveLuck = effectiveLuck,
 		rawLuck = luckAudit.rawLuck,
 		luckMultiplier = luckAudit.multiplier,
@@ -307,7 +313,8 @@ function FishingSessionService.ValidateAndComplete(player, sessionId, rawMetrics
 		pData.level or 1,
 		performance.performanceScore,
 		session.zoneId,
-		session.effectiveLuck or 0
+		session.effectiveLuck or 0,
+		session.candidateFish
 	)
 
 	-- 7. Terapkan Pengganda Performa & Valuasi EXP/Koin Server-Authoritative (FISH-030)

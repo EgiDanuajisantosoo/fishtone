@@ -5,8 +5,11 @@
 	Katalog Terpusat Seluruh Spesies Ikan di Game FISH!TUNE:
 	1. Definisi Lengkap 6 Tingkat Rarity (COMMON, RARE, SUPER_RARE, LEGENDARY, MYTHIC, SPECIAL).
 	2. Metadata Lengkap: ID Unik, Nama, Rarity, Rentang Bobot (Kg), Nilai Koin, EXP, Deskripsi Lore, Zona Habitat, Warna Aura 3D, dan Skala Model.
-	3. Pengelompokan Cerdas (Index by ID, Rarity, dan Zone Pool).
-	4. Fungsi Helper Query & Filter Habitat Perairan (Melody Bay, Twin Eye Lagoon, Summit Abyss).
+	3. Sistem Hybrid Minigame:
+	   - Secara DEFAULT, ikan tidak perlu menuliskan `targetNotes`, `speed`, dan `basePenaltyNotes` (otomatis memakai standar Rarity).
+	   - Jika ingin dikustomisasi (OVERRIDE), cukup tambahkan parameter `targetNotes`, `speed`, atau `basePenaltyNotes` pada data ikan bersangkutan.
+	4. Pengelompokan Cerdas (Index by ID, Rarity, dan Zone Pool).
+	5. Fungsi Helper Query & Filter Habitat Perairan (Melody Bay, Twin Eye Lagoon, Summit Abyss).
 ]]
 
 local FishDefinitions = {}
@@ -15,6 +18,7 @@ local FishDefinitions = {}
 FishDefinitions.CATALOG = {
 	-- ==========================================
 	-- TIER 1: COMMON (⭐ | Level 1+)
+	-- Default Tier: targetNotes = 20 | speed = 0.32 | penalty = 2
 	-- ==========================================
 	{
 		id = "COMMON_GOLDFISH",
@@ -28,6 +32,7 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "MELODY_BAY",
 		color = Color3.fromRGB(255, 160, 60),
 		scale = 0.9,
+		-- Memakai Default Rarity (targetNotes = 20, speed = 0.32, penalty = 2)
 	},
 	{
 		id = "COMMON_CATFISH",
@@ -41,6 +46,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "MELODY_BAY",
 		color = Color3.fromRGB(120, 115, 110),
 		scale = 0.95,
+		-- OVERRIDE: Karakter liat/berat (nada lebih banyak, gerakan lebih lambat, penalti lebih berat)
+		targetNotes = 25,
+		speed = 0.28,
+		basePenaltyNotes = 3,
 	},
 	{
 		id = "COMMON_TILAPIA",
@@ -80,6 +89,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "MELODY_BAY",
 		color = Color3.fromRGB(240, 70, 120),
 		scale = 0.75,
+		-- OVERRIDE: Karakter kecil & lincah (nada lebih sedikit, gerakan lebih cepat)
+		targetNotes = 15,
+		speed = 0.38,
+		basePenaltyNotes = 2,
 	},
 	{
 		id = "COMMON_MACKEREL",
@@ -110,6 +123,7 @@ FishDefinitions.CATALOG = {
 
 	-- ==========================================
 	-- TIER 2: RARE (⭐⭐ | Level 3+)
+	-- Default Tier: targetNotes = 35 | speed = 0.38 | penalty = 3
 	-- ==========================================
 	{
 		id = "RARE_GOURAMI",
@@ -123,6 +137,7 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "MELODY_BAY",
 		color = Color3.fromRGB(180, 210, 240),
 		scale = 1.1,
+		-- Memakai Default Rarity (targetNotes = 35, speed = 0.38, penalty = 3)
 	},
 	{
 		id = "RARE_SALMON",
@@ -136,6 +151,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "TWIN_EYE_LAGOON",
 		color = Color3.fromRGB(255, 130, 90),
 		scale = 1.15,
+		-- OVERRIDE: Karakter gesit melompat arus (speed tinggi, target sedikit lebih ringkas)
+		targetNotes = 30,
+		speed = 0.44,
+		basePenaltyNotes = 4,
 	},
 	{
 		id = "RARE_POMFRET",
@@ -162,6 +181,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "TWIN_EYE_LAGOON",
 		color = Color3.fromRGB(235, 75, 75),
 		scale = 1.2,
+		-- OVERRIDE: Tarikan kuat & ulet (target notes lebih banyak, stamina tarikan lebih lama)
+		targetNotes = 42,
+		speed = 0.35,
+		basePenaltyNotes = 4,
 	},
 	{
 		id = "RARE_CLOWNFISH",
@@ -192,6 +215,7 @@ FishDefinitions.CATALOG = {
 
 	-- ==========================================
 	-- TIER 3: SUPER RARE (⭐⭐⭐ | Level 5+)
+	-- Default Tier: targetNotes = 55 | speed = 0.44 | penalty = 5
 	-- ==========================================
 	{
 		id = "SR_ARAPAIMA",
@@ -205,6 +229,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "TWIN_EYE_LAGOON",
 		color = Color3.fromRGB(190, 45, 60),
 		scale = 1.45,
+		-- OVERRIDE: Tanker Purba (Target notes tinggi, tarikan berat, penalti berat)
+		targetNotes = 68,
+		speed = 0.40,
+		basePenaltyNotes = 7,
 	},
 	{
 		id = "SR_ELECTRIC_RAY",
@@ -218,6 +246,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "SUMMIT_ABYSS",
 		color = Color3.fromRGB(60, 220, 255),
 		scale = 1.35,
+		-- OVERRIDE: Sengatan listrik cepat (speed tinggi, target sedikit lebih padat)
+		targetNotes = 48,
+		speed = 0.50,
+		basePenaltyNotes = 6,
 	},
 	{
 		id = "SR_MONSTER_CATFISH",
@@ -274,6 +306,7 @@ FishDefinitions.CATALOG = {
 
 	-- ==========================================
 	-- TIER 4: LEGENDARY (⭐⭐⭐⭐ | Level 10+)
+	-- Default Tier: targetNotes = 85 | speed = 0.50 | penalty = 7
 	-- ==========================================
 	{
 		id = "LEG_SEA_DRAGON",
@@ -300,6 +333,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "SUMMIT_ABYSS",
 		color = Color3.fromRGB(255, 215, 0),
 		scale = 1.85,
+		-- OVERRIDE: Predator Puncak Gesit (speed sangat tinggi, menuntut reaksi cepat)
+		targetNotes = 78,
+		speed = 0.55,
+		basePenaltyNotes = 9,
 	},
 	{
 		id = "LEG_ROYAL_CARP",
@@ -339,6 +376,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "SUMMIT_ABYSS",
 		color = Color3.fromRGB(80, 110, 150),
 		scale = 1.8,
+		-- OVERRIDE: Fosil Hidup Berat (Stamina tarikan panjang, tempo lebih tenang tapi berbobot)
+		targetNotes = 98,
+		speed = 0.46,
+		basePenaltyNotes = 8,
 	},
 	{
 		id = "LEG_CRYSTAL_HAMMERHEAD",
@@ -356,6 +397,7 @@ FishDefinitions.CATALOG = {
 
 	-- ==========================================
 	-- TIER 5: MYTHIC (⭐⭐⭐⭐⭐ | Level 15+)
+	-- Default Tier: targetNotes = 120 | speed = 0.56 | penalty = 10
 	-- ==========================================
 	{
 		id = "MYT_RED_MEGALODON",
@@ -395,6 +437,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "SUMMIT_ABYSS",
 		color = Color3.fromRGB(150, 30, 80),
 		scale = 2.3,
+		-- OVERRIDE: Boss Palung Laut (Banyak tentakel = target notes ekstra banyak)
+		targetNotes = 140,
+		speed = 0.52,
+		basePenaltyNotes = 12,
 	},
 	{
 		id = "MYT_NEBULA_MANTA",
@@ -425,6 +471,7 @@ FishDefinitions.CATALOG = {
 
 	-- ==========================================
 	-- TIER 6: SPECIAL (⭐⭐⭐⭐⭐⭐ | Level 20+)
+	-- Default Tier: targetNotes = 175 | speed = 0.62 | penalty = 14
 	-- ==========================================
 	{
 		id = "SPE_POSEIDON_GODDESS",
@@ -451,6 +498,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "SUMMIT_ABYSS",
 		color = Color3.fromRGB(180, 80, 255),
 		scale = 2.8,
+		-- OVERRIDE: Kecepatan Kosmik Supernova (speed ekstrem, nada ringkas namun sangat intens)
+		targetNotes = 160,
+		speed = 0.68,
+		basePenaltyNotes = 16,
 	},
 	{
 		id = "SPE_ABYSS_LEVIATHAN",
@@ -464,6 +515,10 @@ FishDefinitions.CATALOG = {
 		favoriteZone = "SUMMIT_ABYSS",
 		color = Color3.fromRGB(20, 20, 35),
 		scale = 3.0,
+		-- OVERRIDE: Monster Kegelapan Paling Masif (Stamina tertinggi di seluruh game)
+		targetNotes = 210,
+		speed = 0.58,
+		basePenaltyNotes = 18,
 	},
 	{
 		id = "SPE_ANCIENT_KRAKEN",
