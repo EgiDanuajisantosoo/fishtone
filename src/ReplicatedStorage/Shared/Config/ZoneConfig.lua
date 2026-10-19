@@ -200,9 +200,18 @@ local function isPointInsidePart(pos, part)
 	if not part or not part:IsA("BasePart") then return false end
 	local localPos = part.CFrame:PointToObjectSpace(pos)
 	local halfSize = part.Size * 0.5
-	return math.abs(localPos.X) <= halfSize.X
-		and math.abs(localPos.Y) <= halfSize.Y
-		and math.abs(localPos.Z) <= halfSize.Z
+
+	-- Cek horizontal X dan Z sesuai rotasi part
+	local inX = math.abs(localPos.X) <= halfSize.X
+	local inZ = math.abs(localPos.Z) <= halfSize.Z
+
+	-- Cek vertikal Y:
+	-- Karakter sering berjalan di atas dermaga, daratan berbukit, atau melompat di atas air.
+	-- Beri toleransi vertikal leluasa (minimal 150 studs) agar part tipis di air tetap mendeteksi karakter di atasnya.
+	local vertTolerance = math.max(halfSize.Y, 150)
+	local inY = math.abs(localPos.Y) <= vertTolerance
+
+	return inX and inZ and inY
 end
 
 -- Helper untuk mencari konfigurasi zona berdasarkan ID, nama display, atau alias
