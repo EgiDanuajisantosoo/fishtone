@@ -22,12 +22,6 @@ ZoneConfig.ZONES = {
 		themeColor = Color3.fromRGB(0, 200, 255),
 		waterColor = Color3.fromRGB(0, 180, 230),
 		musicTrack = "CanonInD",
-		bounds = {
-			min = Vector3.new(-150, -20, -150),
-			max = Vector3.new(150, 60, 150),
-		},
-		dockCenter = Vector3.new(0, 5, 20),
-		spawnPosition = Vector3.new(0, 6, 45),
 
 		-- ============ ENHANCED ENVIRONMENT & POLISH (FISH-035) ============
 		lighting = {
@@ -88,11 +82,6 @@ ZoneConfig.ZONES = {
 		themeColor = Color3.fromRGB(80, 220, 120),
 		waterColor = Color3.fromRGB(0, 220, 200),
 		musicTrack = "RiverFlows",
-		bounds = {
-			min = Vector3.new(-120, 60, -80),
-			max = Vector3.new(120, 110, 0),
-		},
-		dockCenter = Vector3.new(-42, 69, -25),
 
 		-- ============ ENHANCED ENVIRONMENT & POLISH (FISH-035) ============
 		lighting = {
@@ -153,11 +142,6 @@ ZoneConfig.ZONES = {
 		themeColor = Color3.fromRGB(220, 60, 255),
 		waterColor = Color3.fromRGB(140, 20, 220),
 		musicTrack = "FurElise",
-		bounds = {
-			min = Vector3.new(-80, 120, -120),
-			max = Vector3.new(80, 200, -40),
-		},
-		dockCenter = Vector3.new(0, 134, -75),
 
 		-- ============ ENHANCED ENVIRONMENT & POLISH (FISH-035) ============
 		lighting = {
@@ -209,20 +193,81 @@ ZoneConfig.ZONES = {
 	},
 }
 
--- Helper untuk mendeteksi zona berdasarkan koordinat Vector3
-function ZoneConfig.GetZoneAtPosition(pos)
-	if not pos then return ZoneConfig.ZONES.MELODY_BAY end
+local Workspace = game:GetService("Workspace")
 
-	for _, zone in pairs(ZoneConfig.ZONES) do
-		local b = zone.bounds
-		if pos.X >= b.min.X and pos.X <= b.max.X
-			and pos.Y >= b.min.Y and pos.Y <= b.max.Y
-			and pos.Z >= b.min.Z and pos.Z <= b.max.Z then
+-- Helper untuk mengecek apakah titik Vector3 berada di dalam volume BasePart (memperhitungkan rotasi & ukuran)
+local function isPointInsidePart(pos, part)
+	if not part or not part:IsA("BasePart") then return false end
+	local localPos = part.CFrame:PointToObjectSpace(pos)
+	local halfSize = part.Size * 0.5
+	return math.abs(localPos.X) <= halfSize.X
+		and math.abs(localPos.Y) <= halfSize.Y
+		and math.abs(localPos.Z) <= halfSize.Z
+end
+
+-- Helper untuk mencari konfigurasi zona berdasarkan ID, nama display, atau alias
+function ZoneConfig.GetZoneById(zoneId)
+	if not zoneId then return nil end
+	local clean = string.upper(tostring(zoneId)):gsub("[%s%-]+", "_")
+	for id, zone in pairs(ZoneConfig.ZONES) do
+		if string.upper(tostring(id)):gsub("[%s%-]+", "_") == clean
+			or string.upper(tostring(zone.id)):gsub("[%s%-]+", "_") == clean
+			or string.upper(tostring(zone.displayName)):gsub("[%s%-]+", "_") == clean then
 			return zone
 		end
 	end
+	return nil
+end
 
-	-- Default fallback
+-- Helper untuk mendeteksi zona secara dinamis berdasarkan Part fisik yang dibuat di Roblox Studio
+-- TIDAK ADA LAGI KOORDINAT HARDCODED! Wilayah 100% mengikuti penempatan Part di Studio.
+function ZoneConfig.GetZoneAtPosition(pos)
+	if not pos then return ZoneConfig.ZONES.MELODY_BAY end
+
+	-- 1. Periksa folder khusus wilayah di Workspace (Workspace.Zones atau Workspace.OceanMap)
+	local containers = {
+		Workspace:FindFirstChild("Zones"),
+		Workspace:FindFirstChild("OceanMap"),
+	}
+
+	for _, container in ipairs(containers) do
+		if container then
+			for _, item in ipairs(container:GetChildren()) do
+				local targetPart = nil
+				if item:IsA("BasePart") then
+					targetPart = item
+				elseif item:IsA("Model") then
+					targetPart = item.PrimaryPart or item:FindFirstChild("Zone") or item:FindFirstChild("Bounds") or item:FindFirstChildWhichIsA("BasePart")
+				end
+
+				if targetPart and isPointInsidePart(pos, targetPart) then
+					local zoneKey = item:GetAttribute("ZoneId") or targetPart:GetAttribute("ZoneId") or item.Name
+					local found = ZoneConfig.GetZoneById(zoneKey)
+					if found then
+						return found
+					end
+				end
+			end
+		end
+	end
+
+	-- 2. Periksa apakah ada objek di Workspace yang memiliki Attribute "ZoneId"
+	for _, desc in ipairs(Workspace:GetChildren()) do
+		if desc.Name ~= "Terrain" and desc.Name ~= "Camera" then
+			local zoneAttr = desc:GetAttribute("ZoneId")
+			if zoneAttr then
+				local targetPart = desc:IsA("BasePart") and desc or (desc:IsA("Model") and (desc.PrimaryPart or desc:FindFirstChildWhichIsA("BasePart")))
+				if targetPart and isPointInsidePart(pos, targetPart) then
+					local found = ZoneConfig.GetZoneById(zoneAttr)
+					if found then
+						return found
+					end
+				end
+			end
+		end
+	end
+
+	-- 3. Default fallback jika pemain belum berada di dalam Part zona khusus
 	return ZoneConfig.ZONES.MELODY_BAY
 end
 
