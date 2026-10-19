@@ -144,11 +144,12 @@ local function applyZoneLighting(zone, transitionDuration)
 	-- 3. Tween Atmosphere Colors (Stabil, hindari re-baking volumetrik berulang)
 	if activeAtmosphere and pData.atmosphere then
 		local atm = pData.atmosphere
+		activeAtmosphere.Density = atm.density or 0.3
+		activeAtmosphere.Haze = atm.haze or 0.8
+		activeAtmosphere.Glare = atm.glare or 0.35
 		local tAtm = TweenService:Create(activeAtmosphere, tweenInfo, {
 			Color = atm.color or Color3.fromRGB(180, 210, 240),
 			Decay = atm.decay or Color3.fromRGB(120, 165, 210),
-			Density = atm.density or 0.3,
-			Haze = atm.haze or 0.8,
 		})
 		table.insert(activeTweens, tAtm)
 		tAtm:Play()
@@ -377,8 +378,10 @@ local function init()
 		applyZoneSoundscape(defaultZone, 1.0)
 	end
 
-	-- Catatan: Deteksi zona dikemudikan secara terpusat oleh ZoneController (FISH-006 & FISH-035)
-	-- dengan debounce & konfirmasi bertahap, sehingga 0% CPU loop ganda dan 0% border oscillation.
+	-- Dengarkan perubahan zona resmi dari ZoneController via shared BindableEvent (100% sinkron & 0% overhead)
+	ZoneConfig.OnZoneChanged:Connect(function(zone)
+		EnvironmentController.OnZoneChanged(zone, 2.0)
+	end)
 
 	print("[EnvironmentController] Inisialisasi Environment & Atmospheric Polish selesai (FISH-035).")
 end

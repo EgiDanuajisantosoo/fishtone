@@ -195,6 +195,15 @@ ZoneConfig.ZONES = {
 
 local Workspace = game:GetService("Workspace")
 
+local zoneChangedBindable = Instance.new("BindableEvent")
+ZoneConfig.OnZoneChanged = zoneChangedBindable.Event
+
+function ZoneConfig.FireZoneChanged(zone)
+	if zone then
+		zoneChangedBindable:Fire(zone)
+	end
+end
+
 -- Helper untuk mengecek apakah titik Vector3 berada di dalam volume BasePart (memperhitungkan rotasi & ukuran)
 local function isPointInsidePart(pos, part, margin)
 	if not part or not part:IsA("BasePart") then return false end
@@ -207,7 +216,7 @@ local function isPointInsidePart(pos, part, margin)
 	local inZ = math.abs(localPos.Z) <= (halfSize.Z + margin)
 
 	-- Cek vertikal Y:
-	local vertTolerance = math.max(halfSize.Y, 200)
+	local vertTolerance = math.max(halfSize.Y + 15, 35)
 	local inY = math.abs(localPos.Y) <= vertTolerance
 
 	return inX and inZ and inY

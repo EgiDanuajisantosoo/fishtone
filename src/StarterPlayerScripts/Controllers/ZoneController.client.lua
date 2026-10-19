@@ -197,15 +197,8 @@ task.spawn(function()
 								tostring(detectedZone.displayName), tostring(detectedZone.id), hrp.Position.X, hrp.Position.Y, hrp.Position.Z))
 
 							showZoneBanner(detectedZone)
-
-							-- Notifikasi EnvironmentController secara langsung & sinkron
-							local envCtrl = script.Parent:FindFirstChild("EnvironmentController")
-							if envCtrl then
-								local ok, mod = pcall(require, envCtrl)
-								if ok and mod and mod.OnZoneChanged then
-									mod.OnZoneChanged(detectedZone, 2.0)
-								end
-							end
+							-- Notifikasi EnvironmentController via shared BindableEvent (100% bebas require error)
+							ZoneConfig.FireZoneChanged(detectedZone)
 						end
 					end
 				else
