@@ -26,6 +26,7 @@ local InstrumentDefinitions = require(Shared:WaitForChild("Definitions"):WaitFor
 local SongChartCatalog = require(Shared:WaitForChild("Definitions"):WaitForChild("SongChartCatalog"))
 local ZoneConfig = require(Shared:WaitForChild("Config"):WaitForChild("ZoneConfig"))
 local EconomyConfig = require(Shared:WaitForChild("Config"):WaitForChild("EconomyConfig"))
+local FishDefinitions = require(Shared:WaitForChild("Config"):WaitForChild("FishDefinitions"))
 local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
 local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 local AntiExploitService = require(script.Parent:WaitForChild("AntiExploitService"))
