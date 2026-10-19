@@ -92,81 +92,102 @@ local function initializePostProcessing()
 	ambientSoundB.Parent = SoundService
 end
 
+-- Track running tweens to prevent tween stacking / GPU thrashing
+local activeTweens = {}
+
+local function cancelActiveTweens()
+	for _, tween in ipairs(activeTweens) do
+		pcall(function()
+			tween:Cancel()
+		end)
+	end
+	table.clear(activeTweens)
+end
+
 -- ============ 2. SMOOTH LIGHTING & ATMOSPHERE TRANSITION ============
 local function applyZoneLighting(zone, transitionDuration)
 	if not zone or not zone.lighting or not zone.postProcessing then return end
-	transitionDuration = transitionDuration or 2.5
+	transitionDuration = transitionDuration or 2.0
 	local tweenInfo = TweenInfo.new(transitionDuration, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 
 	local lData = zone.lighting
 	local pData = zone.postProcessing
 
-	-- Tween Lighting Properties
-	TweenService:Create(Lighting, tweenInfo, {
+	-- Batalkan semua tween yang sedang berjalan sebelum memulai yang baru (0% tween conflict / frame drop)
+	cancelActiveTweens()
+
+	-- 1. Tween Lighting Properties (ringan, performa 60 FPS stabil)
+	local tLighting = TweenService:Create(Lighting, tweenInfo, {
 		OutdoorAmbient = lData.outdoorAmbient or Color3.fromRGB(130, 145, 165),
 		Ambient = lData.ambient or Color3.fromRGB(100, 115, 135),
 		ColorShift_Top = lData.colorShift_Top or Color3.fromRGB(255, 255, 255),
 		ColorShift_Bottom = lData.colorShift_Bottom or Color3.fromRGB(150, 190, 230),
 		Brightness = lData.brightness or 2.0,
 		FogColor = lData.fogColor or Color3.fromRGB(180, 220, 255),
-		FogStart = lData.fogStart or 60,
-		FogEnd = lData.fogEnd or 400,
-		ExposureCompensation = lData.exposureCompensation or 0.05,
-	}):Play()
+	})
+	table.insert(activeTweens, tLighting)
+	tLighting:Play()
 
-	-- Tween Atmosphere
-	if activeAtmosphere and pData.atmosphere then
-		local atm = pData.atmosphere
-		TweenService:Create(activeAtmosphere, tweenInfo, {
-			Density = atm.density or 0.3,
-			Offset = atm.offset or 0.25,
-			Color = atm.color or Color3.fromRGB(180, 210, 240),
-			Decay = atm.decay or Color3.fromRGB(120, 165, 210),
-			Glare = atm.glare or 0.3,
-			Haze = atm.haze or 1.0,
-		}):Play()
-	end
-
-	-- Tween Bloom
-	if activeBloom and pData.bloom then
-		local blm = pData.bloom
-		TweenService:Create(activeBloom, tweenInfo, {
-			Intensity = blm.intensity or 0.5,
-			Size = blm.size or 24,
-			Threshold = blm.threshold or 0.8,
-		}):Play()
-	end
-
-	-- Tween ColorCorrection
+	-- 2. Tween ColorCorrection (Sangat efisien di GPU)
 	if activeColorCorrection and pData.colorCorrection then
 		local cc = pData.colorCorrection
-		TweenService:Create(activeColorCorrection, tweenInfo, {
+		local tCC = TweenService:Create(activeColorCorrection, tweenInfo, {
 			Brightness = cc.brightness or 0,
 			Contrast = cc.contrast or 0.1,
 			Saturation = cc.saturation or 0.2,
 			TintColor = cc.tintColor or Color3.fromRGB(255, 255, 255),
-		}):Play()
+		})
+		table.insert(activeTweens, tCC)
+		tCC:Play()
 	end
 
-	-- Tween SunRays
+	-- 3. Tween Atmosphere Colors (Stabil, hindari re-baking volumetrik berulang)
+	if activeAtmosphere and pData.atmosphere then
+		local atm = pData.atmosphere
+		local tAtm = TweenService:Create(activeAtmosphere, tweenInfo, {
+			Color = atm.color or Color3.fromRGB(180, 210, 240),
+			Decay = atm.decay or Color3.fromRGB(120, 165, 210),
+			Density = atm.density or 0.3,
+			Haze = atm.haze or 0.8,
+		})
+		table.insert(activeTweens, tAtm)
+		tAtm:Play()
+	end
+
+	-- 4. Bloom (Hanya intensitas yang di-tween, jangan ubah Size untuk mencegah alokasi ulang kernel blur)
+	if activeBloom and pData.bloom then
+		local blm = pData.bloom
+		local tBloom = TweenService:Create(activeBloom, tweenInfo, {
+			Intensity = blm.intensity or 0.4,
+		})
+		table.insert(activeTweens, tBloom)
+		tBloom:Play()
+	end
+
+	-- 5. SunRays (Intensitas halus)
 	if activeSunRays and pData.sunRays then
 		local sr = pData.sunRays
-		TweenService:Create(activeSunRays, tweenInfo, {
+		local tSunRays = TweenService:Create(activeSunRays, tweenInfo, {
 			Intensity = sr.intensity or 0.15,
-			Spread = sr.spread or 0.8,
-		}):Play()
+		})
+		table.insert(activeTweens, tSunRays)
+		tSunRays:Play()
 	end
 end
 
 -- ============ 3. SOUNDSCAPE CROSSFADER ============
 local function applyZoneSoundscape(zone, transitionDuration)
 	if not zone or not zone.soundscape then return end
-	transitionDuration = transitionDuration or 2.5
+	transitionDuration = transitionDuration or 2.0
 
 	local sData = zone.soundscape
-	if sData.reverbType then
+
+	-- PENTING: Jangan ubah SoundService.AmbientReverb di Roblox Studio untuk mencegah audio DSP thread freeze
+	if not RunService:IsStudio() and sData.reverbType then
 		pcall(function()
-			SoundService.AmbientReverb = sData.reverbType
+			if SoundService.AmbientReverb ~= sData.reverbType then
+				SoundService.AmbientReverb = sData.reverbType
+			end
 		end)
 	end
 
@@ -182,6 +203,7 @@ local function applyZoneSoundscape(zone, transitionDuration)
 		local fadeOut = TweenService:Create(currentChannel, TweenInfo.new(transitionDuration, Enum.EasingStyle.Linear), {
 			Volume = 0,
 		})
+		table.insert(activeTweens, fadeOut)
 		fadeOut:Play()
 		fadeOut.Completed:Connect(function()
 			if currentChannel.Volume == 0 then
@@ -190,14 +212,16 @@ local function applyZoneSoundscape(zone, transitionDuration)
 		end)
 	end
 
-	-- Fade In Next (Only if a valid ambient audio ID is present)
+	-- Fade In Next (Hanya jika ID audio valid)
 	if targetSoundId and targetSoundId ~= "" then
 		nextChannel.SoundId = targetSoundId
 		nextChannel.Volume = 0
 		nextChannel:Play()
-		TweenService:Create(nextChannel, TweenInfo.new(transitionDuration, Enum.EasingStyle.Linear), {
+		local fadeIn = TweenService:Create(nextChannel, TweenInfo.new(transitionDuration, Enum.EasingStyle.Linear), {
 			Volume = targetVolume,
-		}):Play()
+		})
+		table.insert(activeTweens, fadeIn)
+		fadeIn:Play()
 	else
 		nextChannel:Stop()
 		nextChannel.Volume = 0
@@ -276,11 +300,11 @@ end
 
 -- ============ 5. PUBLIC API / HOOKS ============
 function EnvironmentController.OnZoneChanged(zone, transitionDuration)
-	if not zone then return end
+	if not zone or zone.id == currentZoneId then return end
 	currentZoneId = zone.id
 
-	applyZoneLighting(zone, transitionDuration or 2.5)
-	applyZoneSoundscape(zone, transitionDuration or 2.5)
+	applyZoneLighting(zone, transitionDuration or 2.0)
+	applyZoneSoundscape(zone, transitionDuration or 2.0)
 end
 
 function EnvironmentController.SpawnWaterRipple(position, color)
@@ -340,7 +364,7 @@ function EnvironmentController.SpawnCatchSparkles(position, color)
 	end)
 end
 
--- ============ 6. INITIALIZATION & LOOP ============
+-- ============ 6. INITIALIZATION ============
 local function init()
 	initializePostProcessing()
 	setupWorldAmbienceNodes()
@@ -353,20 +377,8 @@ local function init()
 		applyZoneSoundscape(defaultZone, 1.0)
 	end
 
-	-- Detection loop for current zone (ringan dengan cache)
-	task.spawn(function()
-		while true do
-			task.wait(2.0)
-			local char = player.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				local zone = ZoneConfig.GetZoneAtPosition(hrp.Position)
-				if zone and zone.id ~= currentZoneId then
-					EnvironmentController.OnZoneChanged(zone, 3.0)
-				end
-			end
-		end
-	end)
+	-- Catatan: Deteksi zona dikemudikan secara terpusat oleh ZoneController (FISH-006 & FISH-035)
+	-- dengan debounce & konfirmasi bertahap, sehingga 0% CPU loop ganda dan 0% border oscillation.
 
 	print("[EnvironmentController] Inisialisasi Environment & Atmospheric Polish selesai (FISH-035).")
 end

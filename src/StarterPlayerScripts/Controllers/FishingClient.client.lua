@@ -2647,12 +2647,8 @@ if remote then
 		end
 	end
 
-	workspace.DescendantAdded:Connect(function(desc)
-		if desc:IsA("ProximityPrompt") then
-			task.defer(function()
-				sanitizeClientPrompt(desc)
-			end)
-		end
+	ProximityPromptService.PromptShown:Connect(function(prompt)
+		sanitizeClientPrompt(prompt)
 	end)
 
 	ProximityPromptService.PromptTriggered:Connect(function(prompt)

@@ -91,26 +91,26 @@ ZoneConfig.ZONES = {
 			colorShift_Bottom = Color3.fromRGB(120, 210, 180),
 			brightness = 2.0,
 			fogColor = Color3.fromRGB(140, 215, 185),
-			fogStart = 40,
-			fogEnd = 320,
+			fogStart = 150,
+			fogEnd = 650,
 			exposureCompensation = 0.05,
 		},
 		postProcessing = {
-			bloom = { intensity = 0.65, size = 26, threshold = 0.78 },
+			bloom = { intensity = 0.50, size = 22, threshold = 0.82 },
 			colorCorrection = {
 				brightness = 0.02,
-				contrast = 0.16,
-				saturation = 0.35,
-				tintColor = Color3.fromRGB(225, 255, 238),
+				contrast = 0.14,
+				saturation = 0.28,
+				tintColor = Color3.fromRGB(230, 255, 242),
 			},
-			sunRays = { intensity = 0.22, spread = 0.85 },
+			sunRays = { intensity = 0.18, spread = 0.80 },
 			atmosphere = {
-				density = 0.45,
-				offset = 0.35,
-				color = Color3.fromRGB(130, 215, 175),
-				decay = Color3.fromRGB(80, 170, 135),
-				glare = 0.50,
-				haze = 1.8,
+				density = 0.32,
+				offset = 0.28,
+				color = Color3.fromRGB(140, 215, 185),
+				decay = Color3.fromRGB(90, 170, 145),
+				glare = 0.35,
+				haze = 0.8,
 			},
 		},
 		soundscape = {
@@ -145,32 +145,32 @@ ZoneConfig.ZONES = {
 
 		-- ============ ENHANCED ENVIRONMENT & POLISH (FISH-035) ============
 		lighting = {
-			outdoorAmbient = Color3.fromRGB(95, 60, 120),
-			ambient = Color3.fromRGB(70, 40, 95),
+			outdoorAmbient = Color3.fromRGB(105, 75, 130),
+			ambient = Color3.fromRGB(80, 55, 105),
 			colorShift_Top = Color3.fromRGB(240, 160, 255),
 			colorShift_Bottom = Color3.fromRGB(130, 45, 180),
 			brightness = 1.8,
-			fogColor = Color3.fromRGB(110, 40, 150),
-			fogStart = 30,
-			fogEnd = 260,
+			fogColor = Color3.fromRGB(120, 60, 160),
+			fogStart = 120,
+			fogEnd = 550,
 			exposureCompensation = -0.05,
 		},
 		postProcessing = {
-			bloom = { intensity = 0.95, size = 32, threshold = 0.70 },
+			bloom = { intensity = 0.70, size = 24, threshold = 0.75 },
 			colorCorrection = {
 				brightness = -0.02,
-				contrast = 0.24,
-				saturation = 0.45,
-				tintColor = Color3.fromRGB(245, 210, 255),
+				contrast = 0.18,
+				saturation = 0.32,
+				tintColor = Color3.fromRGB(245, 215, 255),
 			},
-			sunRays = { intensity = 0.35, spread = 0.92 },
+			sunRays = { intensity = 0.25, spread = 0.85 },
 			atmosphere = {
-				density = 0.55,
-				offset = 0.40,
-				color = Color3.fromRGB(140, 45, 195),
-				decay = Color3.fromRGB(80, 20, 125),
-				glare = 0.75,
-				haze = 2.4,
+				density = 0.35,
+				offset = 0.32,
+				color = Color3.fromRGB(150, 60, 205),
+				decay = Color3.fromRGB(90, 30, 135),
+				glare = 0.45,
+				haze = 1.0,
 			},
 		},
 		soundscape = {
@@ -198,7 +198,7 @@ local Workspace = game:GetService("Workspace")
 -- Helper untuk mengecek apakah titik Vector3 berada di dalam volume BasePart (memperhitungkan rotasi & ukuran)
 local function isPointInsidePart(pos, part, margin)
 	if not part or not part:IsA("BasePart") then return false end
-	margin = margin or 15 -- Toleransi 15 studs di sekeliling part (bibir danau, pinggiran pantai, dermaga)
+	margin = margin or 4 -- Toleransi ketat 4 studs untuk mencegah osilasi / flickering antar perbatasan
 	local localPos = part.CFrame:PointToObjectSpace(pos)
 	local halfSize = part.Size * 0.5
 
@@ -207,8 +207,6 @@ local function isPointInsidePart(pos, part, margin)
 	local inZ = math.abs(localPos.Z) <= (halfSize.Z + margin)
 
 	-- Cek vertikal Y:
-	-- Karakter sering berjalan di atas dermaga, daratan berbukit, atau melompat di atas air.
-	-- Beri toleransi vertikal leluasa (minimal 200 studs) agar part tipis di air tetap mendeteksi karakter di atasnya.
 	local vertTolerance = math.max(halfSize.Y, 200)
 	local inY = math.abs(localPos.Y) <= vertTolerance
 
@@ -235,11 +233,14 @@ end
 -- ============ ZONE DETECTION WITH LIGHTWEIGHT CACHE (NO LAG) ============
 local cachedZoneParts = {}
 local lastCacheRefresh = 0
-local CACHE_TTL = 3.0 -- Refresh cache struktur setiap 3 detik, evaluasi posisi 100% instan
+local CACHE_TTL = 4.0 -- Refresh cache struktur setiap 4 detik
+
+local lastEvaluatedPos = nil
+local lastEvaluatedZone = nil
 
 local function getActiveZoneParts()
 	local now = os.clock()
-	if (now - lastCacheRefresh) < CACHE_TTL and #cachedZoneParts > 0 then
+	if (now - lastCacheRefresh) < CACHE_TTL then
 		return cachedZoneParts
 	end
 
@@ -287,18 +288,27 @@ local function getActiveZoneParts()
 end
 
 -- Helper untuk mendeteksi zona secara dinamis berdasarkan Part fisik yang dibuat di Roblox Studio
--- Ringan, di-cache, dan 100% bebas lag (0% CPU overhead).
+-- Ringan, di-cache dengan jarak posisi, dan 100% bebas lag (0% CPU overhead).
 function ZoneConfig.GetZoneAtPosition(pos)
 	if not pos then return ZoneConfig.ZONES.MELODY_BAY end
+
+	-- Distance Cache: Jika pemain bergerak kurang dari 2.5 studs dari evaluasi terakhir, kembalikan instan (O(1))
+	if lastEvaluatedPos and lastEvaluatedZone and (pos - lastEvaluatedPos).Magnitude < 2.5 then
+		return lastEvaluatedZone
+	end
 
 	local activeParts = getActiveZoneParts()
 	for _, entry in ipairs(activeParts) do
 		if entry.part and entry.part.Parent and isPointInsidePart(pos, entry.part) then
+			lastEvaluatedPos = pos
+			lastEvaluatedZone = entry.zone
 			return entry.zone
 		end
 	end
 
 	-- Default fallback jika pemain berada di luar part zona khusus (Melody Bay)
+	lastEvaluatedPos = pos
+	lastEvaluatedZone = ZoneConfig.ZONES.MELODY_BAY
 	return ZoneConfig.ZONES.MELODY_BAY
 end
 

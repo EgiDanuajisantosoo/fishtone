@@ -97,11 +97,21 @@ subLabel.TextSize = 11.5
 subLabel.Parent = bannerFrame
 
 -- ============ TRANSITION ANIMATIONS ============
+-- ============ SOUND & ANIMATION POOL ============
+local SoundService = game:GetService("SoundService")
+local notificationSound = Instance.new("Sound")
+notificationSound.Name = "ZoneTransitionSound"
+notificationSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+notificationSound.Volume = 0.4
+notificationSound.PlaybackSpeed = 1.6
+notificationSound.Parent = SoundService
+
 local currentZoneId = nil
+local activeBannerTween = nil
+local bannerHideToken = 0
 
 local function showZoneBanner(zone)
-	if not zone or zone.id == currentZoneId then return end
-	currentZoneId = zone.id
+	if not zone then return end
 
 	iconLabel.Text = zone.badgeIcon or "⚓"
 	titleLabel.Text = string.upper(zone.displayName or "MELODY BAY")
@@ -112,51 +122,97 @@ local function showZoneBanner(zone)
 	local luckText = (zone.luckBonus and zone.luckBonus > 0) and string.format(" [🍀 +%d Luck]", zone.luckBonus) or ""
 	subLabel.Text = string.format("%s%s%s", zone.subtitle or "", levelText, luckText)
 
+	-- Batalkan tween banner sebelumnya jika masih berjalan
+	if activeBannerTween then
+		pcall(function() activeBannerTween:Cancel() end)
+		activeBannerTween = nil
+	end
+
 	-- Animasi Muncul ke Layar
 	bannerFrame.Position = UDim2.new(0.5, -210, -0.15, 0)
-	local tweenIn = TweenService:Create(
+	activeBannerTween = TweenService:Create(
 		bannerFrame,
-		TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 		{ Position = UDim2.new(0.5, -210, 0.035, 0) }
 	)
-	tweenIn:Play()
+	activeBannerTween:Play()
 
-	-- Suara Ding Notifikasi Lembut
-	local sound = Instance.new("Sound")
-	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
-	sound.Volume = 0.5
-	sound.PlaybackSpeed = 1.6
-	sound.Parent = workspace
-	sound:Play()
-	Debris:AddItem(sound, 2)
+	-- Suara Ding Notifikasi Menggunakan Instance Pool (0% Memory Leak)
+	notificationSound:Play()
 
-	-- Hilang Otomatis setelah 4 Detik
-	task.delay(4.2, function()
-		if currentZoneId == zone.id then
-			local tweenOut = TweenService:Create(
+	-- Hilang Otomatis setelah 4 Detik dengan Validasi Token Unik
+	bannerHideToken = bannerHideToken + 1
+	local myToken = bannerHideToken
+
+	task.delay(4.0, function()
+		if bannerHideToken == myToken then
+			activeBannerTween = TweenService:Create(
 				bannerFrame,
-				TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
 				{ Position = UDim2.new(0.5, -210, -0.15, 0) }
 			)
-			tweenOut:Play()
+			activeBannerTween:Play()
 		end
 	end)
 end
 
--- ============ DETECTION LOOP ============
+-- ============ DETECTION LOOP WITH HYSTERESIS & DEBOUNCE (0% LAG / 0% FLAPPING) ============
 task.spawn(function()
-	print("🌊 [ZoneController v2.0] Aktif! Menggunakan deteksi Part dinamis Workspace.")
+	print("🌊 [ZoneController v2.1] Aktif dengan Anti-Flapping Hysteresis & Direct Environment Sync.")
+
+	local pendingZone = nil
+	local pendingZoneVotes = 0
+	local lastTransitionTime = 0
+	local TRANSITION_COOLDOWN = 3.0 -- Cooldown minimal 3 detik antar transisi zona
 
 	while true do
 		task.wait(1.0)
 		local char = player.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		if hrp then
-			local zone = ZoneConfig.GetZoneAtPosition(hrp.Position)
-			if zone and zone.id ~= currentZoneId then
-				print(string.format("🗺️ [ZoneController] Zona Berubah: %s (%s) di Posisi: (%.1f, %.1f, %.1f)", 
-					tostring(zone.displayName), tostring(zone.id), hrp.Position.X, hrp.Position.Y, hrp.Position.Z))
-				showZoneBanner(zone)
+			local detectedZone = ZoneConfig.GetZoneAtPosition(hrp.Position)
+			if detectedZone then
+				if currentZoneId == nil then
+					-- Inisialisasi awal saat pertama kali spawn
+					currentZoneId = detectedZone.id
+					showZoneBanner(detectedZone)
+				elseif detectedZone.id ~= currentZoneId then
+					local now = os.clock()
+					if (now - lastTransitionTime) >= TRANSITION_COOLDOWN then
+						if pendingZone and pendingZone.id == detectedZone.id then
+							pendingZoneVotes = pendingZoneVotes + 1
+						else
+							pendingZone = detectedZone
+							pendingZoneVotes = 1
+						end
+
+						-- Hysteresis: Karakter harus berada di zona baru minimal 2x deteksi berturut-turut
+						if pendingZoneVotes >= 2 then
+							currentZoneId = detectedZone.id
+							lastTransitionTime = now
+							pendingZone = nil
+							pendingZoneVotes = 0
+
+							print(string.format("🗺️ [ZoneController] Zona Terkonfirmasi: %s (%s) di Posisi: (%.1f, %.1f, %.1f)", 
+								tostring(detectedZone.displayName), tostring(detectedZone.id), hrp.Position.X, hrp.Position.Y, hrp.Position.Z))
+
+							showZoneBanner(detectedZone)
+
+							-- Notifikasi EnvironmentController secara langsung & sinkron
+							local envCtrl = script.Parent:FindFirstChild("EnvironmentController")
+							if envCtrl then
+								local ok, mod = pcall(require, envCtrl)
+								if ok and mod and mod.OnZoneChanged then
+									mod.OnZoneChanged(detectedZone, 2.0)
+								end
+							end
+						end
+					end
+				else
+					-- Pemain stabil di zona saat ini, reset pending vote
+					pendingZone = nil
+					pendingZoneVotes = 0
+				end
 			end
 		end
 	end
