@@ -21,7 +21,7 @@ Config.KEY_LABELS = { "A", "W", "S", "D" }
 Config.COLUMN_COUNT = 4
 
 Config.TILE_HEIGHT = 0.16
-Config.HIT_LINE = 0.72
+Config.HIT_LINE = 0.80
 Config.MISS_LINE = 0.86
 
 -- Hold & Chord Timing Parameters (FISH-045)

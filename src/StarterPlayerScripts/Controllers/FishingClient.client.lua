@@ -231,31 +231,6 @@ gui.Parent = pGui or workspace
 -- Inisialisasi Top Economy & Currency HUD
 EconomyHUD.Create(gui)
 
--- Tombol Pintasan Pengaturan Tombol Rhythm (FISH-045)
-local keybindMenuBtn = Instance.new("TextButton")
-keybindMenuBtn.Name = "KeybindMenuBtn"
-keybindMenuBtn.Size = UDim2.new(0, 110, 0, 36)
-keybindMenuBtn.Position = UDim2.new(0, 16, 0, 16)
-keybindMenuBtn.BackgroundColor3 = Color3.fromRGB(15, 24, 38)
-keybindMenuBtn.BackgroundTransparency = 0.25
-keybindMenuBtn.BorderSizePixel = 0
-keybindMenuBtn.Text = "⌨️ Kontrol [O]"
-keybindMenuBtn.TextColor3 = Color3.fromRGB(186, 230, 253)
-keybindMenuBtn.Font = Enum.Font.GothamBold
-keybindMenuBtn.TextSize = 12
-keybindMenuBtn.ZIndex = 26
-keybindMenuBtn.Parent = gui
-
-Instance.new("UICorner", keybindMenuBtn).CornerRadius = UDim.new(0, 10)
-local kmbStroke = Instance.new("UIStroke")
-kmbStroke.Color = Color3.fromRGB(56, 189, 248)
-kmbStroke.Thickness = 1.4
-kmbStroke.Transparency = 0.4
-kmbStroke.Parent = keybindMenuBtn
-
-keybindMenuBtn.MouseButton1Click:Connect(function()
-	KeybindSettingsUI.Toggle(gui)
-end)
 
 -- ============ TOAST NOTIFICATION & REVEAL POPUP ============
 local statusFrame = Instance.new("Frame")
@@ -1751,28 +1726,29 @@ local function toggleInventory(forcedState)
 	end
 end
 
+-- ============ MANUAL HUD REFERENCES ============
+-- Pastikan hierarki GUI: StarterGui > MainHUD > TopButtons
+local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+local mainHUD = playerGui:WaitForChild("MainHUD")
+local topButtons = mainHUD:WaitForChild("TopButtons")
+
+local inventoryBtn = topButtons:WaitForChild("InventoryBtn")
+local pityTrackerBtn = topButtons:WaitForChild("PityTrackerBtn")
+local fishDexBtn = topButtons:WaitForChild("FishDexBtn")
+local shopBtn = topButtons:WaitForChild("ShopBtn")
+local panduanBtn = topButtons:WaitForChild("PanduanBtn")
+local keybindMenuBtn = topButtons:WaitForChild("KeybindMenuBtn")
+
+keybindMenuBtn.MouseButton1Click:Connect(function()
+	KeybindSettingsUI.Toggle(gui)
+end)
+
+
+
 -- ============ MEMBANGUN INVENTORY MODAL GUI ============
 local function buildInventoryUI()
-	-- 1. Tombol Toggle Inventory di Layar (HUD)
-	invToggleBtn = Instance.new("TextButton")
-	invToggleBtn.Name = "InvToggleBtn"
-	invToggleBtn.Size = UDim2.new(0, 145, 0, 36)
-	invToggleBtn.Position = UDim2.new(0, 20, 0.20, 0)
-	invToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
-	invToggleBtn.BackgroundTransparency = 0.25
-	invToggleBtn.BorderSizePixel = 0
-	invToggleBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("🎒 INVENTORY [B]")
-	invToggleBtn.TextColor3 = Color3.fromRGB(0, 220, 255)
-	invToggleBtn.Font = Enum.Font.GothamBlack
-	invToggleBtn.TextSize = 12
-	invToggleBtn.Parent = gui
-	Instance.new("UICorner", invToggleBtn).CornerRadius = UDim.new(0, 10)
-
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(0, 200, 255)
-	btnStroke.Thickness = 1.5
-	btnStroke.Transparency = 0.3
-	btnStroke.Parent = invToggleBtn
+	-- Gunakan tombol Inventory yang dibuat manual di StarterGui
+	invToggleBtn = inventoryBtn
 
 	invBadge = Instance.new("TextLabel")
 	invBadge.Name = "Badge"
@@ -1982,7 +1958,7 @@ end
 buildInventoryUI()
 
 -- ============ SISTEM PITY TRACKER HUD (FISH-020) ============
-local pityTrackerBtn, pityFrame
+local pityFrame
 local pityBars = {} -- [tierKey] = { fillBar = ..., countLabel = ..., tagLabel = ... }
 
 local function updatePityUI()
@@ -2033,27 +2009,7 @@ local function togglePityFrame(forcedState)
 end
 
 local function buildPityTrackerUI()
-	-- 1. Tombol Toggle Pity di HUD
-	pityTrackerBtn = Instance.new("TextButton")
-	pityTrackerBtn.Name = "PityTrackerBtn"
-	pityTrackerBtn.Size = UDim2.new(0, 145, 0, 36)
-	pityTrackerBtn.Position = UDim2.new(0, 20, 0.26, 0)
-	pityTrackerBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
-	pityTrackerBtn.BackgroundTransparency = 0.25
-	pityTrackerBtn.BorderSizePixel = 0
-	pityTrackerBtn.Text = "🌟 PITY TRACKER"
-	pityTrackerBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
-	pityTrackerBtn.Font = Enum.Font.GothamBlack
-	pityTrackerBtn.TextSize = 12
-	pityTrackerBtn.Parent = gui
-	Instance.new("UICorner", pityTrackerBtn).CornerRadius = UDim.new(0, 10)
-
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(255, 200, 50)
-	btnStroke.Thickness = 1.5
-	btnStroke.Transparency = 0.4
-	btnStroke.Parent = pityTrackerBtn
-
+	-- Tombol PityTrackerBtn dibuat manual di StarterGui.
 	pityTrackerBtn.MouseButton1Click:Connect(function()
 		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
 		togglePityFrame()
@@ -2180,115 +2136,33 @@ end
 
 buildPityTrackerUI()
 
--- ============ SISTEM FISHDEX HUD (FISH-023) ============
-local fishDexBtn
-local function buildFishDexHUD()
-	fishDexBtn = Instance.new("TextButton")
-	fishDexBtn.Name = "FishDexBtn"
-	fishDexBtn.Size = UDim2.new(0, 145, 0, 36)
-	fishDexBtn.Position = UDim2.new(0, 20, 0.32, 0)
-	fishDexBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
-	fishDexBtn.BackgroundTransparency = 0.25
-	fishDexBtn.BorderSizePixel = 0
-	fishDexBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("📖 FISHDEX [J]")
-	fishDexBtn.TextColor3 = Color3.fromRGB(0, 230, 255)
-	fishDexBtn.Font = Enum.Font.GothamBlack
-	fishDexBtn.TextSize = 12
-	fishDexBtn.Parent = gui
-	Instance.new("UICorner", fishDexBtn).CornerRadius = UDim.new(0, 10)
+-- ============ MANUAL HUD BUTTON HANDLERS ============
 
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(0, 200, 255)
-	btnStroke.Thickness = 1.5
-	btnStroke.Transparency = 0.4
-	btnStroke.Parent = fishDexBtn
+fishDexBtn.MouseButton1Click:Connect(function()
+	playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+	if FishDexUI.IsOpen() then
+		FishDexUI.Hide()
+		setHotbarVisible(true)
+	else
+		FishDexUI.Show(fishDexGui, lastPlayerData)
+		setHotbarVisible(false)
+	end
+end)
 
-	fishDexBtn.MouseButton1Click:Connect(function()
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+shopBtn.MouseButton1Click:Connect(function()
+	playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+	if ShopUI.IsOpen() then
+		ShopUI.Hide()
+	else
+		ShopUI.Show(gui)
+	end
+end)
 
-		if FishDexUI.IsOpen() then
-			FishDexUI.Hide()
-			setHotbarVisible(true)
-		else
-			FishDexUI.Show(fishDexGui, lastPlayerData)
-			setHotbarVisible(false)
-		end
-	end)
-	
-	closeButton.MouseButton1Click:Connect(function()
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
-			FishDexUI.Hide()
-			setHotbarVisible(true)
-	end)
-end
+panduanBtn.MouseButton1Click:Connect(function()
+	playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
+	TutorialUI.ToggleHelpGuide(gui)
+end)
 
-buildFishDexHUD()
-
--- ============ SISTEM TOKO HUD (FISH-024) ============
-local shopBtn
-local function buildShopHUD()
-	shopBtn = Instance.new("TextButton")
-	shopBtn.Name = "ShopBtn"
-	shopBtn.Size = UDim2.new(0, 145, 0, 36)
-	shopBtn.Position = UDim2.new(0, 20, 0.38, 0)
-	shopBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
-	shopBtn.BackgroundTransparency = 0.25
-	shopBtn.BorderSizePixel = 0
-	shopBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("🛒 TOKO [K]")
-	shopBtn.TextColor3 = Color3.fromRGB(251, 191, 36)
-	shopBtn.Font = Enum.Font.GothamBlack
-	shopBtn.TextSize = 12
-	shopBtn.Parent = gui
-	Instance.new("UICorner", shopBtn).CornerRadius = UDim.new(0, 10)
-
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(234, 179, 8)
-	btnStroke.Thickness = 1.5
-	btnStroke.Transparency = 0.4
-	btnStroke.Parent = shopBtn
-
-	shopBtn.MouseButton1Click:Connect(function()
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
-		if ShopUI.IsOpen() then
-			ShopUI.Hide()
-		else
-			ShopUI.Show(gui)
-		end
-	end)
-end
-
-buildShopHUD()
-
--- ============ SISTEM PANDUAN HUD (FISH-033) ============
-local panduanBtn
-local function buildPanduanHUD()
-	panduanBtn = Instance.new("TextButton")
-	panduanBtn.Name = "PanduanBtn"
-	panduanBtn.Size = UDim2.new(0, 145, 0, 36)
-	panduanBtn.Position = UDim2.new(0, 20, 0.44, 0)
-	panduanBtn.BackgroundColor3 = Color3.fromRGB(15, 22, 34)
-	panduanBtn.BackgroundTransparency = 0.25
-	panduanBtn.BorderSizePixel = 0
-	panduanBtn.Text = MobileResponsiveHelper.CleanHotkeysForMobile("❓ PANDUAN [H]")
-	panduanBtn.TextColor3 = Color3.fromRGB(56, 189, 248)
-	panduanBtn.Font = Enum.Font.GothamBlack
-	panduanBtn.TextSize = 12
-	panduanBtn.Parent = gui
-	Instance.new("UICorner", panduanBtn).CornerRadius = UDim.new(0, 10)
-
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(56, 189, 248)
-	btnStroke.Thickness = 1.5
-	btnStroke.Transparency = 0.4
-	btnStroke.Parent = panduanBtn
-
-	panduanBtn.MouseButton1Click:Connect(function()
-		playSound("rbxasset://sounds/electronicpingshort.wav", 0.6, 1.3)
-		TutorialUI.ToggleHelpGuide(gui)
-	end)
-end
-
-buildPanduanHUD()
 
 -- ============ LISTENER INPUT AKTIVASI ============
 local lastTriggerTime = 0
@@ -2786,10 +2660,23 @@ if remote then
 			or ""
 		local allText = string.format("%s %s %s %s %s", pName, pAction, pObject, parentName, modelName)
 
+		-- Abaikan jika prompt adalah kendaraan / perahu / jet ski
+		if prompt:GetAttribute("IsVehiclePrompt") or allText:find("kendarai") or allText:find("drive") or allText:find("jetski") or allText:find("boat") then
+			return
+		end
+
+		local isSell = allText:find("sell") or allText:find("jual") or allText:find("merchant") or allText:find("pedagang")
+			or allText:find("ikan") or allText:find("lapak") or allText:find("pasar")
+		local isShop = allText:find("shop") or allText:find("toko") or allText:find("bait") or allText:find("rod")
+			or allText:find("beli") or allText:find("buy") or allText:find("pancing") or allText:find("joran")
+
+		if not isSell and not isShop then
+			return
+		end
+
 		RemoteContract.Client.GetShopCatalog()
 		if not ShopUI.IsOpen() then
-			if allText:find("sell") or allText:find("jual") or allText:find("merchant") or allText:find("pedagang")
-				or allText:find("ikan") or allText:find("lapak") or allText:find("pasar") then
+			if isSell then
 				ShopUI.Show(gui, nil, "SELL")
 			else
 				ShopUI.Show(gui, nil, "RODS")

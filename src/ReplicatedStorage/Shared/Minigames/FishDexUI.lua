@@ -313,6 +313,7 @@ local function updateDetails(fish)
 	if rarityLabel then rarityLabel.TextColor3 = rarityColor end
 end
 
+
 local function selectFish(fish)
 	selectedFish = fish
 	setPreview(fish)
@@ -329,13 +330,21 @@ local function selectFish(fish)
 end
 
 local function updateProgress()
-	local discovered, total = 0, #FishDefinitions.CATALOG
-	for _, fish in ipairs(FishDefinitions.CATALOG) do
-		if isDiscovered(fish) then discovered += 1 end
-	end
-	setText(gui, "ProgressLabel", string.format("%d / %d SPESIES  •  %d%%", discovered, total, total > 0 and math.floor(discovered / total * 100) or 0))
-end
+	local discovered = 0
+	local total = #FishDefinitions.CATALOG
 
+	for _, fish in ipairs(FishDefinitions.CATALOG) do
+		if isDiscovered(fish) then
+			discovered += 1
+		end
+	end
+
+	setText(
+		gui,
+		"ProgressLabel",
+		string.format("%d/%d", discovered, total)
+	)
+end
 local function makeCard(fish, catalogIndex, layoutOrder)
 	local card = fishCardTemplate:Clone()
 	card.Name = "FishCard_" .. tostring(fish.id)
@@ -441,12 +450,12 @@ local function buildLocationDropdown()
 		button.LayoutOrder = order
 		button.Parent = locationGrid
 		local label = findText(button, "LocationName")
-		local displayName = id == "ALL" and "Semua Lokasi" or getZoneName(id)
+		local displayName = id == "ALL" and "All" or getZoneName(id)
 		if label then label.Text = displayName elseif button:IsA("TextButton") then button.Text = displayName end
 		if button:IsA("GuiButton") then
 			button.Activated:Connect(function()
 				selectedZone = id
-				if locationButtonLabel then locationButtonLabel.Text = displayName .. "  ▼" end
+				if locationButtonLabel then locationButtonLabel.Text = displayName .. "" end
 				locationGrid.Visible = false
 				FishDexUI.RenderGrid()
 			end)
@@ -506,19 +515,27 @@ function FishDexUI.Show(targetGui, pData)
 	local undiscoveredButton = leftPanel:FindFirstChild("TextButton")
 	if undiscoveredButton and undiscoveredButton:IsA("GuiButton") then
 		local label = findText(undiscoveredButton, "TextLabel")
-		local function refreshToggleText()
-			if undiscoveredButton:IsA("TextButton") then
-				undiscoveredButton.Text = undiscoveredOnly and "☑" or "☐"
+		local undiscoveredButton = leftPanel:FindFirstChild("TextButton")
+		if undiscoveredButton and undiscoveredButton:IsA("GuiButton") then
+			local checkIcon = undiscoveredButton:FindFirstChild("CheckIcon", true)
+
+			local function refreshToggleIcon()
+				if checkIcon and checkIcon:IsA("ImageLabel") then
+					checkIcon.Visible = undiscoveredOnly
+				end
 			end
-		end
-		refreshToggleText()
-		if not undiscoveredButton:GetAttribute("FishDexBound") then
-			undiscoveredButton:SetAttribute("FishDexBound", true)
-			undiscoveredButton.Activated:Connect(function()
-				undiscoveredOnly = not undiscoveredOnly
-				refreshToggleText()
-				FishDexUI.RenderGrid()
-			end)
+
+			refreshToggleIcon()
+
+			if not undiscoveredButton:GetAttribute("FishDexBound") then
+				undiscoveredButton:SetAttribute("FishDexBound", true)
+
+				undiscoveredButton.Activated:Connect(function()
+					undiscoveredOnly = not undiscoveredOnly
+					refreshToggleIcon()
+					FishDexUI.RenderGrid()
+				end)
+			end
 		end
 	end
 

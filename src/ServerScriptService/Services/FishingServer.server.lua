@@ -406,6 +406,11 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 
 	local allText = string.format("%s %s %s %s %s", pName, pAction, pObject, parentName, modelName)
 
+	-- Abaikan jika prompt adalah kendaraan / perahu / jet ski
+	if prompt:GetAttribute("IsVehiclePrompt") or allText:find("kendarai") or allText:find("drive") or allText:find("jetski") or allText:find("boat") then
+		return
+	end
+
 	-- A. Penjualan Ikan & Loot (Toko Ikan / Tukang Ikan / Merchant / Jual Ikan)
 	if allText:find("sell") or allText:find("jual") or allText:find("merchant") or allText:find("pedagang")
 		or allText:find("ikan") or allText:find("lapak") or allText:find("pasar") then
@@ -417,12 +422,6 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
 	-- B. Toko Peralatan Pancing (Toko Pancing / Shop / Beli Joran / Umpan)
 	elseif allText:find("shop") or allText:find("toko") or allText:find("bait") or allText:find("rod")
 		or allText:find("beli") or allText:find("buy") or allText:find("pancing") or allText:find("joran") then
-		local catalog = EconomyService.GetShopCatalog(player)
-		catalog.openModal = true
-		catalog.initialTab = "RODS"
-		RemoteContract.Server.ShopCatalogData(player, catalog)
-	else
-		-- Fallback general shop
 		local catalog = EconomyService.GetShopCatalog(player)
 		catalog.openModal = true
 		catalog.initialTab = "RODS"

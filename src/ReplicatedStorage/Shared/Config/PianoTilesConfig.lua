@@ -21,7 +21,7 @@ Config.COLUMN_COUNT = 4
 -- Nilai ini dipakai sebagai ukuran/logical height tile untuk gameplay.
 -- UI juga membaca nilai yang sama.
 Config.TILE_HEIGHT = 0.16
-Config.HIT_LINE = 0.72
+Config.HIT_LINE = 0.80
 Config.MISS_LINE = 0.86
 
 -- ============ TILE IMAGES ============
