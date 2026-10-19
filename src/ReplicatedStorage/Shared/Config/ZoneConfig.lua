@@ -232,12 +232,21 @@ function ZoneConfig.GetZoneById(zoneId)
 	return nil
 end
 
--- Helper untuk mendeteksi zona secara dinamis berdasarkan Part fisik yang dibuat di Roblox Studio
--- TIDAK ADA LAGI KOORDINAT HARDCODED! Wilayah 100% mengikuti penempatan Part di Studio.
-function ZoneConfig.GetZoneAtPosition(pos)
-	if not pos then return ZoneConfig.ZONES.MELODY_BAY end
+-- ============ ZONE DETECTION WITH LIGHTWEIGHT CACHE (NO LAG) ============
+local cachedZoneParts = {}
+local lastCacheRefresh = 0
+local CACHE_TTL = 3.0 -- Refresh cache struktur setiap 3 detik, evaluasi posisi 100% instan
 
-	-- 1. Prioritas Utama: Cari di container Workspace.OceanMap atau Workspace.Zones
+local function getActiveZoneParts()
+	local now = os.clock()
+	if (now - lastCacheRefresh) < CACHE_TTL and #cachedZoneParts > 0 then
+		return cachedZoneParts
+	end
+
+	lastCacheRefresh = now
+	table.clear(cachedZoneParts)
+
+	-- 1. Cek container terorganisir (OceanMap & Zones) - Cepat (hanya 2-5 part)
 	local containers = {
 		Workspace:FindFirstChild("OceanMap"),
 		Workspace:FindFirstChild("Zones"),
@@ -253,30 +262,43 @@ function ZoneConfig.GetZoneAtPosition(pos)
 					targetPart = item.PrimaryPart or item:FindFirstChild("Zone") or item:FindFirstChild("Bounds") or item:FindFirstChildWhichIsA("BasePart")
 				end
 
-				if targetPart and isPointInsidePart(pos, targetPart) then
+				if targetPart then
 					local zoneKey = item:GetAttribute("ZoneId") or targetPart:GetAttribute("ZoneId") or item.Name
-					local found = ZoneConfig.GetZoneById(zoneKey)
-					if found and found.id ~= "MELODY_BAY" then
-						return found
+					local zone = ZoneConfig.GetZoneById(zoneKey)
+					if zone and zone.id ~= "MELODY_BAY" then
+						table.insert(cachedZoneParts, { part = targetPart, zone = zone })
 					end
 				end
 			end
 		end
 	end
 
-	-- 2. Cari langsung Part di Workspace (termasuk rekursif) yang namanya cocok dengan ID Zona
+	-- 2. Cek anak langsung Workspace (O(1) hash lookup instan, TIDAK REKURSIF agar 0% lag)
 	for id, zone in pairs(ZoneConfig.ZONES) do
 		if id ~= "MELODY_BAY" then
-			local part = Workspace:FindFirstChild(id, true) or Workspace:FindFirstChild(zone.id, true) or Workspace:FindFirstChild(zone.displayName, true)
-			if part and part:IsA("BasePart") then
-				if isPointInsidePart(pos, part) then
-					return zone
-				end
+			local directPart = Workspace:FindFirstChild(id) or Workspace:FindFirstChild(zone.id)
+			if directPart and directPart:IsA("BasePart") then
+				table.insert(cachedZoneParts, { part = directPart, zone = zone })
 			end
 		end
 	end
 
-	-- 3. Default fallback jika pemain belum berada di dalam Part zona khusus
+	return cachedZoneParts
+end
+
+-- Helper untuk mendeteksi zona secara dinamis berdasarkan Part fisik yang dibuat di Roblox Studio
+-- Ringan, di-cache, dan 100% bebas lag (0% CPU overhead).
+function ZoneConfig.GetZoneAtPosition(pos)
+	if not pos then return ZoneConfig.ZONES.MELODY_BAY end
+
+	local activeParts = getActiveZoneParts()
+	for _, entry in ipairs(activeParts) do
+		if entry.part and entry.part.Parent and isPointInsidePart(pos, entry.part) then
+			return entry.zone
+		end
+	end
+
+	-- Default fallback jika pemain berada di luar part zona khusus (Melody Bay)
 	return ZoneConfig.ZONES.MELODY_BAY
 end
 

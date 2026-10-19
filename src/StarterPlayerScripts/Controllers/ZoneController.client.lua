@@ -148,7 +148,7 @@ task.spawn(function()
 	print("🌊 [ZoneController v2.0] Aktif! Menggunakan deteksi Part dinamis Workspace.")
 
 	while true do
-		task.wait(0.5)
+		task.wait(1.0)
 		local char = player.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		if hrp then

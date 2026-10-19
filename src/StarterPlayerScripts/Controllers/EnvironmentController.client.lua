@@ -353,10 +353,10 @@ local function init()
 		applyZoneSoundscape(defaultZone, 1.0)
 	end
 
-	-- Detection loop for current zone
+	-- Detection loop for current zone (ringan dengan cache)
 	task.spawn(function()
 		while true do
-			task.wait(1.0)
+			task.wait(2.0)
 			local char = player.Character
 			local hrp = char and char:FindFirstChild("HumanoidRootPart")
 			if hrp then
