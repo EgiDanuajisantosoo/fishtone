@@ -145,13 +145,17 @@ end
 
 -- ============ DETECTION LOOP ============
 task.spawn(function()
+	print("🌊 [ZoneController v2.0] Aktif! Menggunakan deteksi Part dinamis Workspace.")
+
 	while true do
-		task.wait(1.0)
+		task.wait(0.5)
 		local char = player.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		if hrp then
 			local zone = ZoneConfig.GetZoneAtPosition(hrp.Position)
 			if zone and zone.id ~= currentZoneId then
+				print(string.format("🗺️ [ZoneController] Zona Berubah: %s (%s) di Posisi: (%.1f, %.1f, %.1f)", 
+					tostring(zone.displayName), tostring(zone.id), hrp.Position.X, hrp.Position.Y, hrp.Position.Z))
 				showZoneBanner(zone)
 			end
 		end

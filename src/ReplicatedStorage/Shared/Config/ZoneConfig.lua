@@ -196,32 +196,36 @@ ZoneConfig.ZONES = {
 local Workspace = game:GetService("Workspace")
 
 -- Helper untuk mengecek apakah titik Vector3 berada di dalam volume BasePart (memperhitungkan rotasi & ukuran)
-local function isPointInsidePart(pos, part)
+local function isPointInsidePart(pos, part, margin)
 	if not part or not part:IsA("BasePart") then return false end
+	margin = margin or 15 -- Toleransi 15 studs di sekeliling part (bibir danau, pinggiran pantai, dermaga)
 	local localPos = part.CFrame:PointToObjectSpace(pos)
 	local halfSize = part.Size * 0.5
 
-	-- Cek horizontal X dan Z sesuai rotasi part
-	local inX = math.abs(localPos.X) <= halfSize.X
-	local inZ = math.abs(localPos.Z) <= halfSize.Z
+	-- Cek horizontal X dan Z sesuai rotasi part + margin horizontal
+	local inX = math.abs(localPos.X) <= (halfSize.X + margin)
+	local inZ = math.abs(localPos.Z) <= (halfSize.Z + margin)
 
 	-- Cek vertikal Y:
 	-- Karakter sering berjalan di atas dermaga, daratan berbukit, atau melompat di atas air.
-	-- Beri toleransi vertikal leluasa (minimal 150 studs) agar part tipis di air tetap mendeteksi karakter di atasnya.
-	local vertTolerance = math.max(halfSize.Y, 150)
+	-- Beri toleransi vertikal leluasa (minimal 200 studs) agar part tipis di air tetap mendeteksi karakter di atasnya.
+	local vertTolerance = math.max(halfSize.Y, 200)
 	local inY = math.abs(localPos.Y) <= vertTolerance
 
 	return inX and inZ and inY
 end
 
--- Helper untuk mencari konfigurasi zona berdasarkan ID, nama display, atau alias
+-- Helper untuk mencari konfigurasi zona berdasarkan ID, nama display, atau alias (dengan prefix matching)
 function ZoneConfig.GetZoneById(zoneId)
 	if not zoneId then return nil end
 	local clean = string.upper(tostring(zoneId)):gsub("[%s%-]+", "_")
 	for id, zone in pairs(ZoneConfig.ZONES) do
-		if string.upper(tostring(id)):gsub("[%s%-]+", "_") == clean
-			or string.upper(tostring(zone.id)):gsub("[%s%-]+", "_") == clean
-			or string.upper(tostring(zone.displayName)):gsub("[%s%-]+", "_") == clean then
+		local cleanId = string.upper(tostring(id)):gsub("[%s%-]+", "_")
+		local cleanZoneId = string.upper(tostring(zone.id)):gsub("[%s%-]+", "_")
+		local cleanDisplayName = string.upper(tostring(zone.displayName)):gsub("[%s%-]+", "_")
+
+		if clean == cleanId or clean == cleanZoneId or clean == cleanDisplayName
+			or clean:find(cleanId, 1, true) or cleanId:find(clean, 1, true) then
 			return zone
 		end
 	end
@@ -233,10 +237,10 @@ end
 function ZoneConfig.GetZoneAtPosition(pos)
 	if not pos then return ZoneConfig.ZONES.MELODY_BAY end
 
-	-- 1. Periksa folder khusus wilayah di Workspace (Workspace.Zones atau Workspace.OceanMap)
+	-- 1. Prioritas Utama: Cari di container Workspace.OceanMap atau Workspace.Zones
 	local containers = {
-		Workspace:FindFirstChild("Zones"),
 		Workspace:FindFirstChild("OceanMap"),
+		Workspace:FindFirstChild("Zones"),
 	}
 
 	for _, container in ipairs(containers) do
@@ -252,7 +256,7 @@ function ZoneConfig.GetZoneAtPosition(pos)
 				if targetPart and isPointInsidePart(pos, targetPart) then
 					local zoneKey = item:GetAttribute("ZoneId") or targetPart:GetAttribute("ZoneId") or item.Name
 					local found = ZoneConfig.GetZoneById(zoneKey)
-					if found then
+					if found and found.id ~= "MELODY_BAY" then
 						return found
 					end
 				end
@@ -260,17 +264,13 @@ function ZoneConfig.GetZoneAtPosition(pos)
 		end
 	end
 
-	-- 2. Periksa apakah ada objek di Workspace yang memiliki Attribute "ZoneId"
-	for _, desc in ipairs(Workspace:GetChildren()) do
-		if desc.Name ~= "Terrain" and desc.Name ~= "Camera" then
-			local zoneAttr = desc:GetAttribute("ZoneId")
-			if zoneAttr then
-				local targetPart = desc:IsA("BasePart") and desc or (desc:IsA("Model") and (desc.PrimaryPart or desc:FindFirstChildWhichIsA("BasePart")))
-				if targetPart and isPointInsidePart(pos, targetPart) then
-					local found = ZoneConfig.GetZoneById(zoneAttr)
-					if found then
-						return found
-					end
+	-- 2. Cari langsung Part di Workspace (termasuk rekursif) yang namanya cocok dengan ID Zona
+	for id, zone in pairs(ZoneConfig.ZONES) do
+		if id ~= "MELODY_BAY" then
+			local part = Workspace:FindFirstChild(id, true) or Workspace:FindFirstChild(zone.id, true) or Workspace:FindFirstChild(zone.displayName, true)
+			if part and part:IsA("BasePart") then
+				if isPointInsidePart(pos, part) then
+					return zone
 				end
 			end
 		end
